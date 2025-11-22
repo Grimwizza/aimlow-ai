@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    font-family: 'Work Sans', sans-serif;
+    background-color: #f0f0f0;
+}
+.font-mono {
+    font-family: 'Space Mono', monospace;
+}
+
+/* Neo-Brutalist Shadow Utility */
+.brutal-shadow {
+    box-shadow: 5px 5px 0px 0px #000000;
+    transition: all 0.1s ease;
+}
+.brutal-shadow:active {
+    box-shadow: 2px 2px 0px 0px #000000;
+    transform: translate(3px, 3px);
+}
+
+.brutal-card {
+    border: 3px solid #000;
+    background: white;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-left: 3px solid black;
+}
+::-webkit-scrollbar-thumb {
+    background: #000;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #333;
+}
