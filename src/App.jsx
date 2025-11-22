@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { client, urlFor } from './client'; // Import the connection we made
 import { 
     Menu, 
     X, 
@@ -7,7 +8,8 @@ import {
     Mail, 
     FlaskConical, 
     ArrowLeft, 
-    ArrowRight 
+    ArrowRight,
+    Loader2
 } from 'lucide-react';
 
 // --- Icon Mapping ---
@@ -19,48 +21,14 @@ const iconMap = {
     mail: Mail,
     'flask-conical': FlaskConical,
     'arrow-left': ArrowLeft,
-    'arrow-right': ArrowRight
+    'arrow-right': ArrowRight,
+    loader: Loader2
 };
 
 const Icon = ({ name, size = 24, color = "currentColor", className }) => {
-    const LucideIcon = iconMap[name.toLowerCase()];
-    if (!LucideIcon) return null;
+    const LucideIcon = iconMap[name.toLowerCase()] || FlaskConical;
     return <LucideIcon size={size} color={color} className={className} />;
 };
-
-// --- Mock Data ---
-const INITIAL_POSTS = [
-    {
-        id: 1,
-        title: "Why I Fired My Copywriter (Sort of)",
-        excerpt: "Generative AI isn't replacing creativity, it's replacing the blank page. Here is how I use aim-low prompts to generate high-quality drafts.",
-        category: "Philosophy",
-        date: "Oct 24, 2025",
-        color: "bg-yellow-300",
-        image: "https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=800&auto=format&fit=crop&q=60",
-        content: "Full content would go here. This represents the body of the article..."
-    },
-    {
-        id: 2,
-        title: "The 'Good Enough' Manifesto",
-        excerpt: "Perfection is the enemy of shipped. How aiming low helps you ship products 10x faster using basic LLM wrappers.",
-        category: "Strategy",
-        date: "Oct 20, 2025",
-        color: "bg-purple-300",
-        image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=60",
-        content: "..."
-    },
-    {
-        id: 3,
-        title: "Building this Website in 4 Minutes",
-        excerpt: "A meta-analysis of the code structure behind AimLow.ai. Spoiler: It is simpler than you think.",
-        category: "Tech",
-        date: "Oct 15, 2025",
-        color: "bg-green-300",
-        image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=60",
-        content: "..."
-    }
-];
 
 const LAB_ITEMS = [
     {
@@ -76,13 +44,6 @@ const LAB_ITEMS = [
         desc: "Drag and drop images to automatically generate SEO-friendly alt text.",
         status: "Beta",
         color: "bg-red-300"
-    },
-    {
-        id: 3,
-        title: "The Jargon Destroyer",
-        desc: "Past corporate speak, get plain English. Aim low, speak clearly.",
-        status: "Planned",
-        color: "bg-gray-300"
     }
 ];
 
@@ -147,28 +108,39 @@ const Hero = () => (
     </section>
 );
 
-const BlogCard = ({ post, onClick }) => (
-    <article 
-        onClick={() => onClick(post)}
-        className="brutal-card flex flex-col h-full brutal-shadow cursor-pointer hover:-translate-y-1 transition-transform"
-    >
-        <div className="h-48 overflow-hidden border-b-3 border-black relative group">
-            <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity z-10"></div>
-            <img src={post.image} alt={post.title} className="w-full h-full object-cover" />
-            <div className={`absolute top-4 right-4 ${post.color} border-2 border-black px-3 py-1 font-mono text-xs font-bold z-20`}>
-                {post.category}
+const BlogCard = ({ post, onClick }) => {
+    // Safe image handling: use Sanity builder or fallback
+    const imageUrl = post.mainImage 
+        ? urlFor(post.mainImage).width(800).url() 
+        : 'https://via.placeholder.com/800x400?text=No+Image';
+
+    return (
+        <article 
+            onClick={() => onClick(post)}
+            className="brutal-card flex flex-col h-full brutal-shadow cursor-pointer hover:-translate-y-1 transition-transform"
+        >
+            <div className="h-48 overflow-hidden border-b-3 border-black relative group">
+                <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity z-10"></div>
+                <img src={imageUrl} alt={post.title} className="w-full h-full object-cover" />
+                <div className={`absolute top-4 right-4 bg-yellow-300 border-2 border-black px-3 py-1 font-mono text-xs font-bold z-20`}>
+                    LOG
+                </div>
             </div>
-        </div>
-        <div className="p-6 flex-1 flex flex-col">
-            <div className="font-mono text-xs text-gray-500 mb-2">{post.date}</div>
-            <h3 className="text-2xl font-black leading-tight mb-4 uppercase">{post.title}</h3>
-            <p className="font-serif text-sm leading-relaxed mb-6 flex-1">{post.excerpt}</p>
-            <div className="flex items-center gap-2 font-bold text-sm mt-auto group">
-                Read Post <Icon name="arrow-right" size={16} />
+            <div className="p-6 flex-1 flex flex-col">
+                <div className="font-mono text-xs text-gray-500 mb-2">
+                    {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : 'Draft'}
+                </div>
+                <h3 className="text-2xl font-black leading-tight mb-4 uppercase">{post.title}</h3>
+                <p className="font-serif text-sm leading-relaxed mb-6 flex-1">
+                    {post.excerpt}
+                </p>
+                <div className="flex items-center gap-2 font-bold text-sm mt-auto group">
+                    Read Post <Icon name="arrow-right" size={16} />
+                </div>
             </div>
-        </div>
-    </article>
-);
+        </article>
+    );
+};
 
 const LabCard = ({ item }) => (
     <div className={`brutal-card p-6 ${item.color} brutal-shadow`}>
@@ -183,81 +155,51 @@ const LabCard = ({ item }) => (
     </div>
 );
 
-const AdminPanel = ({ isOpen, onClose, onAddPost }) => {
-    if (!isOpen) return null;
-    const [title, setTitle] = useState('');
-    const [excerpt, setExcerpt] = useState('');
-    
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onAddPost({
-            title,
-            excerpt,
-            category: 'Update',
-            date: new Date().toLocaleDateString(),
-            color: 'bg-pink-300',
-            image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=60'
-        });
-        setTitle('');
-        setExcerpt('');
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white border-4 border-black p-8 max-w-md w-full shadow-[10px_10px_0px_0px_rgba(0,0,0,1)]">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-black uppercase">New Post</h2>
-                    <button onClick={onClose}><Icon name="x" /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block font-mono font-bold text-sm mb-1">Title</label>
-                        <input 
-                            value={title}
-                            onChange={e => setTitle(e.target.value)}
-                            className="w-full border-2 border-black p-2 font-bold focus:outline-none focus:bg-yellow-100"
-                            placeholder="Enter catchy title..."
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label className="block font-mono font-bold text-sm mb-1">Excerpt</label>
-                        <textarea 
-                            value={excerpt}
-                            onChange={e => setExcerpt(e.target.value)}
-                            className="w-full border-2 border-black p-2 font-bold focus:outline-none focus:bg-yellow-100 h-32"
-                            placeholder="What's this about?"
-                            required
-                        ></textarea>
-                    </div>
-                    <button type="submit" className="w-full bg-black text-white py-3 font-bold hover:bg-blue-600 transition-colors">
-                        PUBLISH TO FEED
-                    </button>
-                </form>
-            </div>
-        </div>
-    );
-};
-
 function App() {
     const [view, setView] = useState('home');
-    const [posts, setPosts] = useState(INITIAL_POSTS);
-    const [isAdminOpen, setIsAdminOpen] = useState(false);
+    const [posts, setPosts] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [selectedPost, setSelectedPost] = useState(null);
 
-    const handleAddPost = (newPost) => {
-        setPosts([
-            { ...newPost, id: Date.now() },
-            ...posts
-        ]);
-    };
+    // --- FETCH REAL DATA FROM SANITY ---
+    useEffect(() => {
+        const fetchPosts = async () => {
+            try {
+                // GROQ Query: Get posts, sort by date, and generate a plain text excerpt automatically
+                const query = `*[_type == "post"] | order(publishedAt desc) {
+                    _id,
+                    title,
+                    publishedAt,
+                    mainImage,
+                    "excerpt": pt::text(body)[0...150] + "...",
+                    body
+                }`;
+                const data = await client.fetch(query);
+                setPosts(data);
+                setLoading(false);
+            } catch (error) {
+                console.error("Sanity fetch failed:", error);
+                setLoading(false);
+            }
+        };
+        fetchPosts();
+    }, []);
 
     const handlePostClick = (post) => {
         setSelectedPost(post);
         setView('post');
         window.scrollTo(0,0);
     };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[#f0f0f0]">
+                <div className="animate-spin">
+                    <Icon name="loader" size={48} />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex flex-col">
@@ -274,7 +216,7 @@ function App() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 {posts.slice(0, 3).map(post => (
-                                    <BlogCard key={post.id} post={post} onClick={handlePostClick} />
+                                    <BlogCard key={post._id} post={post} onClick={handlePostClick} />
                                 ))}
                             </div>
                         </section>
@@ -296,7 +238,7 @@ function App() {
                         <h2 className="text-6xl font-black uppercase mb-12 text-center">The Log</h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             {posts.map(post => (
-                                <BlogCard key={post.id} post={post} onClick={handlePostClick} />
+                                <BlogCard key={post._id} post={post} onClick={handlePostClick} />
                             ))}
                         </div>
                     </div>
@@ -309,12 +251,6 @@ function App() {
                             {LAB_ITEMS.map(item => (
                                 <LabCard key={item.id} item={item} />
                             ))}
-                            <div className="brutal-card border-dashed border-4 border-gray-300 p-8 flex items-center justify-center min-h-[300px]">
-                                <div className="text-center text-gray-400">
-                                    <Icon name="flask-conical" size={48} className="mx-auto mb-4"/>
-                                    <p className="font-mono font-bold">More experiments cooking...</p>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 )}
@@ -325,17 +261,27 @@ function App() {
                             <Icon name="arrow-left" size={20} /> Back to Log
                         </button>
                         <div className="w-full aspect-video bg-gray-200 border-2 border-black mb-8 overflow-hidden rounded-none">
-                            <img src={selectedPost.image} className="w-full h-full object-cover" />
+                            {selectedPost.mainImage && (
+                                <img 
+                                    src={urlFor(selectedPost.mainImage).width(1200).url()} 
+                                    className="w-full h-full object-cover" 
+                                    alt={selectedPost.title}
+                                />
+                            )}
                         </div>
                         <div className="flex items-center gap-4 mb-6 font-mono text-sm">
-                            <span className={`px-3 py-1 border-2 border-black font-bold ${selectedPost.color}`}>{selectedPost.category}</span>
-                            <span className="text-gray-500">{selectedPost.date}</span>
+                            <span className={`px-3 py-1 border-2 border-black font-bold bg-yellow-300`}>Log</span>
+                            <span className="text-gray-500">
+                                {selectedPost.publishedAt ? new Date(selectedPost.publishedAt).toLocaleDateString() : 'Draft'}
+                            </span>
                         </div>
                         <h1 className="text-4xl md:text-6xl font-black uppercase leading-none mb-8">{selectedPost.title}</h1>
                         <div className="prose prose-lg font-serif border-l-4 border-[#FEC43D] pl-6">
+                            {/* Aim Low Tip: We are just showing the excerpt here for now.
+                              To show the full 'Portable Text' body, we would install @portabletext/react later.
+                            */}
                             <p className="text-xl font-bold mb-6">{selectedPost.excerpt}</p>
-                            <p>{selectedPost.content}</p>
-                            <p className="mt-6">This is where the rest of the markdown content would be rendered. Since aimlow.ai is about efficiency, imagine a perfectly generated article here that solves your problem in under 3 minutes reading time.</p>
+                            <p className="text-gray-500 italic">[Full content rendering requires @portabletext/react package - coming in next update]</p>
                         </div>
                     </article>
                 )}
@@ -352,20 +298,17 @@ function App() {
                         <a href="#" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="github" size={20} /></a>
                         <a href="#" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a>
                     </div>
-                    <button 
-                        onClick={() => setIsAdminOpen(true)}
+                    {/* Link to your local Studio */}
+                    <a 
+                        href="http://localhost:3333"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="font-mono text-xs font-bold text-gray-400 hover:text-black"
                     >
                         ADMIN LOGIN
-                    </button>
+                    </a>
                 </div>
             </footer>
-
-            <AdminPanel 
-                isOpen={isAdminOpen} 
-                onClose={() => setIsAdminOpen(false)} 
-                onAddPost={handleAddPost}
-            />
         </div>
     );
 }
