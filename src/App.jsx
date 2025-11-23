@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { client, urlFor } from './client'; // Import the connection we made
+import { client, urlFor } from './client';
 import { 
     Menu, 
     X, 
@@ -9,7 +9,10 @@ import {
     FlaskConical, 
     ArrowLeft, 
     ArrowRight,
-    Loader2
+    Loader2,
+    Sparkles,
+    Copy,
+    Check
 } from 'lucide-react';
 
 // --- Icon Mapping ---
@@ -22,7 +25,10 @@ const iconMap = {
     'flask-conical': FlaskConical,
     'arrow-left': ArrowLeft,
     'arrow-right': ArrowRight,
-    loader: Loader2
+    loader: Loader2,
+    sparkles: Sparkles,
+    copy: Copy,
+    check: Check
 };
 
 const Icon = ({ name, size = 24, color = "currentColor", className }) => {
@@ -33,13 +39,15 @@ const Icon = ({ name, size = 24, color = "currentColor", className }) => {
 const LAB_ITEMS = [
     {
         id: 1,
+        slug: "headline-generator",
         title: "Headline Generator",
-        desc: "Input a boring topic, get a clickbait title. Powered by a simple GPT wrapper.",
+        desc: "Input a boring topic, get a clickbait title. Powered by GPT-4o Mini.",
         status: "Live",
         color: "bg-blue-300"
     },
     {
         id: 2,
+        slug: "alt-text",
         title: "Image Alt-Text Fixer",
         desc: "Drag and drop images to automatically generate SEO-friendly alt text.",
         status: "Beta",
@@ -71,7 +79,7 @@ const Header = ({ setView, currentView }) => (
                 </button>
                 <button 
                     onClick={() => setView('lab')}
-                    className={`hover:underline decoration-2 underline-offset-4 ${currentView === 'lab' ? 'text-blue-600' : ''}`}
+                    className={`hover:underline decoration-2 underline-offset-4 ${currentView.includes('lab') || currentView.includes('tool') ? 'text-blue-600' : ''}`}
                 >
                     THE LAB
                 </button>
@@ -109,7 +117,7 @@ const Hero = () => (
 );
 
 const BlogCard = ({ post, onClick }) => {
-    // Safe image handling: use Sanity builder or fallback
+    // Safe image handling
     const imageUrl = post.mainImage 
         ? urlFor(post.mainImage).width(800).url() 
         : 'https://via.placeholder.com/800x400?text=No+Image';
@@ -142,18 +150,114 @@ const BlogCard = ({ post, onClick }) => {
     );
 };
 
-const LabCard = ({ item }) => (
-    <div className={`brutal-card p-6 ${item.color} brutal-shadow`}>
+const LabCard = ({ item, onLaunch }) => (
+    <div className={`brutal-card p-6 ${item.color} brutal-shadow flex flex-col`}>
         <div className="flex justify-between items-start mb-4">
             <h3 className="text-2xl font-black uppercase">{item.title}</h3>
             <span className="bg-black text-white text-xs px-2 py-1 font-mono">{item.status}</span>
         </div>
-        <p className="font-bold mb-6 border-t-2 border-black pt-4">{item.desc}</p>
-        <button className="w-full bg-white border-2 border-black py-2 font-bold hover:bg-black hover:text-white transition-colors">
-            LAUNCH TOOL
+        <p className="font-bold mb-6 border-t-2 border-black pt-4 flex-1">{item.desc}</p>
+        <button 
+            onClick={() => onLaunch(item)}
+            className="w-full bg-white border-2 border-black py-2 font-bold hover:bg-black hover:text-white transition-colors flex items-center justify-center gap-2"
+        >
+            <Icon name="flask-conical" size={18} /> LAUNCH TOOL
         </button>
     </div>
 );
+
+// --- The Headline Generator Tool Component ---
+const HeadlineGenerator = ({ onBack }) => {
+    const [topic, setTopic] = useState('');
+    const [results, setResults] = useState([]);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [copiedIndex, setCopiedIndex] = useState(null);
+    const [error, setError] = useState(null);
+
+    const handleGenerate = async () => {
+        if (!topic) return;
+        setIsGenerating(true);
+        setError(null);
+
+        try {
+            // CALL THE REAL BACKEND
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic })
+            });
+
+            if (!response.ok) throw new Error('Generation failed');
+            
+            const data = await response.json();
+            setResults(data.headlines);
+
+        } catch (err) {
+            console.error(err);
+            setError("Out of tokens or API error. Try again later.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const copyToClipboard = (text, index) => {
+        navigator.clipboard.writeText(text);
+        setCopiedIndex(index);
+        setTimeout(() => setCopiedIndex(null), 2000);
+    };
+
+    return (
+        <div className="max-w-3xl mx-auto px-4 py-12">
+            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600">
+                <Icon name="arrow-left" size={20} /> Back to Lab
+            </button>
+            
+            <div className="brutal-card p-8 bg-blue-300 brutal-shadow mb-8">
+                <h1 className="text-4xl font-black uppercase mb-2">Headline Generator</h1>
+                <p className="font-mono font-bold mb-6">Turn boring topics into clickbait gold.</p>
+                
+                <div className="bg-white border-2 border-black p-4">
+                    <label className="block font-mono text-xs font-bold mb-2 uppercase text-gray-500">Your Boring Topic</label>
+                    <div className="flex gap-2">
+                        <input 
+                            value={topic}
+                            onChange={(e) => setTopic(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+                            className="flex-1 font-bold text-lg focus:outline-none"
+                            placeholder="e.g. Walking dogs..."
+                        />
+                        <button 
+                            onClick={handleGenerate}
+                            disabled={isGenerating}
+                            className="bg-black text-white px-6 py-2 font-bold hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {isGenerating ? <Icon name="loader" className="animate-spin" /> : <Icon name="sparkles" />}
+                            GENERATE
+                        </button>
+                    </div>
+                </div>
+                {error && <p className="font-mono text-red-600 font-bold bg-white px-2 mt-2 inline-block">{error}</p>}
+            </div>
+
+            {results.length > 0 && (
+                <div className="space-y-4">
+                    <h3 className="font-black uppercase text-xl">Your Viral Hits:</h3>
+                    {results.map((title, idx) => (
+                        <div key={idx} className="bg-white border-2 border-black p-4 flex justify-between items-center hover:translate-x-1 transition-transform">
+                            <span className="font-bold text-lg">{title}</span>
+                            <button 
+                                onClick={() => copyToClipboard(title, idx)}
+                                className="hover:text-blue-600 transition-colors"
+                            >
+                                {copiedIndex === idx ? <Icon name="check" color="green" /> : <Icon name="copy" />}
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 function App() {
     const [view, setView] = useState('home');
@@ -161,18 +265,12 @@ function App() {
     const [loading, setLoading] = useState(true);
     const [selectedPost, setSelectedPost] = useState(null);
 
-    // --- FETCH REAL DATA FROM SANITY ---
     useEffect(() => {
         const fetchPosts = async () => {
             try {
-                // GROQ Query: Get posts, sort by date, and generate a plain text excerpt automatically
                 const query = `*[_type == "post"] | order(publishedAt desc) {
-                    _id,
-                    title,
-                    publishedAt,
-                    mainImage,
-                    "excerpt": pt::text(body)[0...150] + "...",
-                    body
+                    _id, title, publishedAt, mainImage,
+                    "excerpt": pt::text(body)[0...150] + "...", body
                 }`;
                 const data = await client.fetch(query);
                 setPosts(data);
@@ -191,12 +289,19 @@ function App() {
         window.scrollTo(0,0);
     };
 
+    const handleLaunchTool = (tool) => {
+        if (tool.slug === 'headline-generator') {
+            setView('tool-headline');
+            window.scrollTo(0,0);
+        } else {
+            alert("This tool is still in Beta! Check back next week.");
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#f0f0f0]">
-                <div className="animate-spin">
-                    <Icon name="loader" size={48} />
-                </div>
+                <div className="animate-spin"><Icon name="loader" size={48} /></div>
             </div>
         );
     }
@@ -225,7 +330,7 @@ function App() {
                                 <h2 className="text-4xl font-black uppercase mb-12 text-center text-[#FEC43D]">Lab Experiments</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                     {LAB_ITEMS.map(item => (
-                                        <LabCard key={item.id} item={item} />
+                                        <LabCard key={item.id} item={item} onLaunch={handleLaunchTool} />
                                     ))}
                                 </div>
                             </div>
@@ -249,10 +354,14 @@ function App() {
                         <h2 className="text-6xl font-black uppercase mb-12 text-center">The Lab</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             {LAB_ITEMS.map(item => (
-                                <LabCard key={item.id} item={item} />
+                                <LabCard key={item.id} item={item} onLaunch={handleLaunchTool} />
                             ))}
                         </div>
                     </div>
+                )}
+
+                {view === 'tool-headline' && (
+                    <HeadlineGenerator onBack={() => setView('lab')} />
                 )}
 
                 {view === 'post' && selectedPost && (
@@ -277,9 +386,6 @@ function App() {
                         </div>
                         <h1 className="text-4xl md:text-6xl font-black uppercase leading-none mb-8">{selectedPost.title}</h1>
                         <div className="prose prose-lg font-serif border-l-4 border-[#FEC43D] pl-6">
-                            {/* Aim Low Tip: We are just showing the excerpt here for now.
-                              To show the full 'Portable Text' body, we would install @portabletext/react later.
-                            */}
                             <p className="text-xl font-bold mb-6">{selectedPost.excerpt}</p>
                             <p className="text-gray-500 italic">[Full content rendering requires @portabletext/react package - coming in next update]</p>
                         </div>
@@ -298,9 +404,8 @@ function App() {
                         <a href="#" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="github" size={20} /></a>
                         <a href="#" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a>
                     </div>
-                    {/* Link to your local Studio */}
                     <a 
-                        href="http://localhost:3333"
+                        href="https://aimlow.sanity.studio"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-mono text-xs font-bold text-gray-400 hover:text-black"
