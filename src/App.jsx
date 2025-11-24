@@ -5,7 +5,7 @@ import { SEO } from './seo-tools/SEOTags';
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
-    Loader2, Sparkles, Copy, Check, Upload, Image as ImageIcon 
+    Loader2, Sparkles, Copy, Check, Upload, Image as ImageIcon, Zap 
 } from 'lucide-react';
 
 // --- Icon Mapping ---
@@ -13,7 +13,7 @@ const iconMap = {
     menu: Menu, x: X, twitter: Twitter, github: Github, mail: Mail,
     'flask-conical': FlaskConical, 'arrow-left': ArrowLeft, 'arrow-right': ArrowRight,
     loader: Loader2, sparkles: Sparkles, copy: Copy, check: Check, 
-    upload: Upload, image: ImageIcon
+    upload: Upload, image: ImageIcon, zap: Zap
 };
 
 const Icon = ({ name, size = 24, color = "currentColor", className }) => {
@@ -35,12 +35,20 @@ const LAB_ITEMS = [
         slug: "alt-text",
         title: "Image Alt-Text Fixer",
         desc: "Upload an image to generate perfect SEO descriptions automatically.",
-        status: "New",
+        status: "Live",
         color: "bg-red-300"
+    },
+    {
+        id: 3,
+        slug: "jargon-destroyer",
+        title: "The Jargon Destroyer",
+        desc: "Paste corporate speak, get plain English. Aim low, speak clearly.",
+        status: "New",
+        color: "bg-gray-300"
     }
 ];
 
-// --- Custom Components for Rich Text (Blog Styling) ---
+// --- Custom Components for Rich Text ---
 const ptComponents = {
     types: {
         image: ({ value }) => {
@@ -75,7 +83,6 @@ const LabCard = ({ item, onLaunch }) => (
             <span className="bg-black text-white text-xs px-2 py-1 font-mono">{item.status}</span>
         </div>
         <p className="font-bold mb-6 border-t-2 border-black pt-4 flex-1">{item.desc}</p>
-        {/* UPDATED: Changed to bg-black text-white for readability */}
         <button 
             onClick={() => onLaunch(item)}
             className="w-full bg-black text-white border-2 border-black py-2 font-bold hover:bg-white hover:text-black transition-colors flex items-center justify-center gap-2"
@@ -99,16 +106,13 @@ const HeadlineGenerator = ({ onBack }) => {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    type: 'headline',
-                    payload: { topic }
-                })
+                body: JSON.stringify({ type: 'headline', payload: { topic } })
             });
             const data = await response.json();
             if (data.result) setResults(data.result);
         } catch (err) {
             console.error(err);
-            alert("Failed to generate. Check API key.");
+            alert("Failed to generate.");
         } finally {
             setIsGenerating(false);
         }
@@ -116,21 +120,13 @@ const HeadlineGenerator = ({ onBack }) => {
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
-            <SEO title="Headline Generator" description="Turn boring topics into viral clickbait instantly using AI." />
-            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600">
-                <Icon name="arrow-left" size={20} /> Back to Lab
-            </button>
+            <SEO title="Headline Generator" description="Turn boring topics into viral clickbait." />
+            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
             <div className="brutal-card p-8 bg-blue-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Headline Generator</h1>
                 <p className="font-mono font-bold mb-6">Turn boring topics into clickbait gold.</p>
                 <div className="bg-white border-2 border-black p-4 flex gap-2 flex-col sm:flex-row">
-                    <input 
-                        value={topic}
-                        onChange={(e) => setTopic(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
-                        className="flex-1 font-bold text-lg p-2 focus:outline-none"
-                        placeholder="e.g. Walking dogs..."
-                    />
+                    <input value={topic} onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleGenerate()} className="flex-1 font-bold text-lg p-2 focus:outline-none" placeholder="e.g. Walking dogs..." />
                     <button onClick={handleGenerate} disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
                         {isGenerating ? <Icon name="loader" className="animate-spin" /> : <Icon name="sparkles" />} GENERATE
                     </button>
@@ -161,10 +157,7 @@ const AltTextFixer = ({ onBack }) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setImage(reader.result);
-                setResult('');
-            };
+            reader.onloadend = () => { setImage(reader.result); setResult(''); };
             reader.readAsDataURL(file);
         }
     };
@@ -176,16 +169,13 @@ const AltTextFixer = ({ onBack }) => {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    type: 'alt-text',
-                    payload: { image }
-                })
+                body: JSON.stringify({ type: 'alt-text', payload: { image } })
             });
             const data = await response.json();
             if (data.result) setResult(data.result);
         } catch (err) {
             console.error(err);
-            alert("Analysis failed. Check console.");
+            alert("Analysis failed.");
         } finally {
             setIsGenerating(false);
         }
@@ -193,41 +183,77 @@ const AltTextFixer = ({ onBack }) => {
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
-            <SEO title="Alt-Text Fixer" description="Generate SEO-friendly image descriptions automatically using AI vision." />
-            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600">
-                <Icon name="arrow-left" size={20} /> Back to Lab
-            </button>
-            
+            <SEO title="Alt-Text Fixer" description="Generate SEO-friendly image descriptions." />
+            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
             <div className="brutal-card p-8 bg-red-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Alt-Text Fixer</h1>
                 <p className="font-mono font-bold mb-6">Upload an image. Get perfect SEO descriptions.</p>
-                
                 <div className="bg-white border-2 border-black p-8 text-center border-dashed border-4 border-gray-200 hover:border-black transition-colors cursor-pointer" onClick={() => fileInputRef.current.click()}>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                    {image ? (
-                        <img src={image} className="max-h-64 mx-auto border-2 border-black" alt="Preview" />
-                    ) : (
-                        <div className="flex flex-col items-center text-gray-400">
-                            <Icon name="upload" size={48} />
-                            <p className="font-bold mt-2">Click to Upload Image</p>
-                        </div>
-                    )}
+                    {image ? <img src={image} className="max-h-64 mx-auto border-2 border-black" alt="Preview" /> : <div className="flex flex-col items-center text-gray-400"><Icon name="upload" size={48} /><p className="font-bold mt-2">Click to Upload Image</p></div>}
                 </div>
-
-                {image && (
-                    <button onClick={handleGenerate} disabled={isGenerating} className="w-full mt-4 bg-black text-white py-3 font-bold hover:bg-gray-800 transition-colors flex justify-center gap-2">
-                        {isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE IMAGE"}
-                    </button>
-                )}
+                {image && <button onClick={handleGenerate} disabled={isGenerating} className="w-full mt-4 bg-black text-white py-3 font-bold hover:bg-gray-800 transition-colors flex justify-center gap-2">{isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE IMAGE"}</button>}
             </div>
-
             {result && (
                 <div className="bg-white border-2 border-black p-6 brutal-shadow">
                     <h3 className="font-black uppercase text-sm text-gray-500 mb-2">Generated Alt-Text:</h3>
                     <p className="font-mono text-xl font-bold">{result}</p>
-                    <button onClick={() => navigator.clipboard.writeText(result)} className="mt-4 text-sm font-bold hover:text-blue-600 flex items-center gap-2">
-                        <Icon name="copy" size={16} /> Copy to Clipboard
+                    <button onClick={() => navigator.clipboard.writeText(result)} className="mt-4 text-sm font-bold hover:text-blue-600 flex items-center gap-2"><Icon name="copy" size={16} /> Copy to Clipboard</button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- Tool 3: Jargon Destroyer ---
+const JargonDestroyer = ({ onBack }) => {
+    const [text, setText] = useState('');
+    const [result, setResult] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerate = async () => {
+        if (!text) return;
+        setIsGenerating(true);
+        try {
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'jargon-destroyer', payload: { text } })
+            });
+            const data = await response.json();
+            if (data.result) setResult(data.result);
+        } catch (err) {
+            console.error(err);
+            alert("Destruction failed.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    return (
+        <div className="max-w-3xl mx-auto px-4 py-12">
+            <SEO title="Jargon Destroyer" description="Translate corporate speak into plain English." />
+            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
+            <div className="brutal-card p-8 bg-gray-300 brutal-shadow mb-8">
+                <h1 className="text-4xl font-black uppercase mb-2">Jargon Destroyer</h1>
+                <p className="font-mono font-bold mb-6">Paste corporate fluff. Get the truth.</p>
+                <div className="bg-white border-2 border-black p-4">
+                    <textarea 
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        className="w-full h-32 font-bold text-lg p-2 focus:outline-none resize-none"
+                        placeholder="e.g. We need to leverage our synergies to facilitate a paradigm shift..."
+                    ></textarea>
+                    <button onClick={handleGenerate} disabled={isGenerating} className="w-full mt-4 bg-black text-white py-3 font-bold hover:bg-red-600 transition-colors flex justify-center gap-2">
+                        {isGenerating ? <Icon name="loader" className="animate-spin" /> : <><Icon name="zap" /> DESTROY JARGON</>}
                     </button>
+                </div>
+            </div>
+            {result && (
+                <div className="bg-white border-2 border-black p-6 brutal-shadow">
+                    <h3 className="font-black uppercase text-sm text-gray-500 mb-2">Plain English Translation:</h3>
+                    <p className="font-mono text-xl font-bold">{result}</p>
+                    <button onClick={() => navigator.clipboard.writeText(result)} className="mt-4 text-sm font-bold hover:text-blue-600 flex items-center gap-2"><Icon name="copy" size={16} /> Copy to Clipboard</button>
                 </div>
             )}
         </div>
@@ -237,31 +263,19 @@ const AltTextFixer = ({ onBack }) => {
 // --- Main App ---
 const Header = ({ setView, currentView }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-
     return (
         <header className="border-b-4 border-black bg-white sticky top-0 z-50">
             <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
                 <div className="flex items-center gap-2 cursor-pointer group" onClick={() => {setView('home'); setIsMenuOpen(false);}}>
                     <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">AL</div>
-                    {/* UPDATED: Reverted logo color logic */}
-                    <h1 className="text-2xl font-black tracking-tighter uppercase">
-                        AimLow<span className="text-blue-600">.ai</span>
-                    </h1>
+                    <h1 className="text-2xl font-black tracking-tighter uppercase">AimLow<span className="text-blue-600">.ai</span></h1>
                 </div>
-                
-                {/* Desktop Nav */}
                 <nav className="hidden md:flex gap-6 font-mono font-bold text-sm">
                     <button onClick={() => setView('blog')} className={`hover:underline decoration-2 underline-offset-4 ${currentView === 'blog' ? 'text-blue-600' : ''}`}>THE LOG</button>
                     <button onClick={() => setView('lab')} className={`hover:underline decoration-2 underline-offset-4 ${currentView.includes('lab') || currentView.includes('tool') ? 'text-blue-600' : ''}`}>THE LAB</button>
                 </nav>
-
-                {/* Mobile Menu Toggle */}
-                <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                    {isMenuOpen ? <Icon name="x" /> : <Icon name="menu" />}
-                </button>
+                <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <Icon name="x" /> : <Icon name="menu" />}</button>
             </div>
-
-            {/* Mobile Menu Dropdown */}
             {isMenuOpen && (
                 <div className="md:hidden border-t-4 border-black bg-white absolute w-full left-0 shadow-xl">
                     <nav className="flex flex-col p-4 font-mono font-bold text-lg gap-4">
@@ -281,18 +295,8 @@ const Hero = ({ setView }) => (
             <h2 className="text-5xl md:text-7xl font-black leading-[0.9] mb-6 uppercase">Do More <br/> With Less.</h2>
             <p className="text-xl font-mono max-w-2xl mx-auto mb-8 font-bold">We test the tools so you don't have to. Low effort, high impact AI workflows.</p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <button 
-                    onClick={() => setView('blog')}
-                    className="bg-black text-white border-2 border-black px-8 py-3 font-bold hover:bg-white hover:text-black transition-colors brutal-shadow"
-                >
-                    READ THE LOG
-                </button>
-                <button 
-                    onClick={() => setView('lab')}
-                    className="bg-white text-black border-2 border-black px-8 py-3 font-bold hover:bg-gray-100 transition-colors brutal-shadow"
-                >
-                    ENTER THE LAB
-                </button>
+                <button onClick={() => setView('blog')} className="bg-black text-white border-2 border-black px-8 py-3 font-bold hover:bg-white hover:text-black transition-colors brutal-shadow">READ THE LOG</button>
+                <button onClick={() => setView('lab')} className="bg-white text-black border-2 border-black px-8 py-3 font-bold hover:bg-gray-100 transition-colors brutal-shadow">ENTER THE LAB</button>
             </div>
         </div>
     </section>
@@ -343,6 +347,7 @@ function App() {
     const handleLaunchTool = (tool) => {
         if (tool.slug === 'headline-generator') setView('tool-headline');
         if (tool.slug === 'alt-text') setView('tool-alt-text');
+        if (tool.slug === 'jargon-destroyer') setView('tool-jargon');
         window.scrollTo(0,0);
     };
 
@@ -384,6 +389,7 @@ function App() {
                 )}
                 {view === 'tool-headline' && <HeadlineGenerator onBack={() => setView('lab')} />}
                 {view === 'tool-alt-text' && <AltTextFixer onBack={() => setView('lab')} />}
+                {view === 'tool-jargon' && <JargonDestroyer onBack={() => setView('lab')} />}
                 {view === 'post' && selectedPost && (
                     <article className="max-w-3xl mx-auto px-4 py-12">
                         <SEO title={selectedPost.title} description={selectedPost.excerpt} image={selectedPost.mainImage ? urlFor(selectedPost.mainImage).width(1200).url() : null} />
