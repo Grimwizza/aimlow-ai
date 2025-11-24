@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { client, urlFor } from './client';
 import { PortableText } from '@portabletext/react';
+import { SEO } from './components/SEO'; // Import the new SEO tool
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
@@ -66,7 +67,7 @@ const ptComponents = {
     }
 }
 
-// --- LabCard Component (Restored!) ---
+// --- LabCard Component ---
 const LabCard = ({ item, onLaunch }) => (
     <div className={`brutal-card p-6 ${item.color} brutal-shadow flex flex-col`}>
         <div className="flex justify-between items-start mb-4">
@@ -114,6 +115,7 @@ const HeadlineGenerator = ({ onBack }) => {
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
+            <SEO title="Headline Generator" description="Turn boring topics into viral clickbait instantly using AI." />
             <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600">
                 <Icon name="arrow-left" size={20} /> Back to Lab
             </button>
@@ -190,6 +192,7 @@ const AltTextFixer = ({ onBack }) => {
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
+            <SEO title="Alt-Text Fixer" description="Generate SEO-friendly image descriptions automatically using AI vision." />
             <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600">
                 <Icon name="arrow-left" size={20} /> Back to Lab
             </button>
@@ -317,6 +320,7 @@ function App() {
             <main className="flex-1">
                 {view === 'home' && (
                     <>
+                        <SEO title="Home" />
                         <Hero />
                         <section className="max-w-6xl mx-auto px-4 py-16">
                             <div className="flex justify-between items-end mb-12 border-b-2 border-black pb-4"><h2 className="text-4xl font-black uppercase">Recent Logs</h2><button onClick={() => setView('blog')} className="font-mono font-bold underline decoration-2">View All</button></div>
@@ -332,12 +336,14 @@ function App() {
                 )}
                 {view === 'blog' && (
                     <div className="max-w-6xl mx-auto px-4 py-12">
+                        <SEO title="The Log" description="Thoughts, experiments, and philosophy on AI efficiency." />
                         <h2 className="text-6xl font-black uppercase mb-12 text-center">The Log</h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">{posts.map(post => <BlogCard key={post._id} post={post} onClick={handlePostClick} />)}</div>
                     </div>
                 )}
                 {view === 'lab' && (
                     <div className="max-w-6xl mx-auto px-4 py-12">
+                        <SEO title="The Lab" description="Free AI tools to help you do more with less." />
                         <h2 className="text-6xl font-black uppercase mb-12 text-center">The Lab</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">{LAB_ITEMS.map(item => <LabCard key={item.id} item={item} onLaunch={handleLaunchTool} />)}</div>
                     </div>
@@ -346,6 +352,7 @@ function App() {
                 {view === 'tool-alt-text' && <AltTextFixer onBack={() => setView('lab')} />}
                 {view === 'post' && selectedPost && (
                     <article className="max-w-3xl mx-auto px-4 py-12">
+                        <SEO title={selectedPost.title} description={selectedPost.excerpt} image={selectedPost.mainImage ? urlFor(selectedPost.mainImage).width(1200).url() : null} />
                         <button onClick={() => setView('blog')} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Log</button>
                         <div className="w-full aspect-video bg-gray-200 border-2 border-black mb-8 overflow-hidden rounded-none">
                             {selectedPost.mainImage && <img src={urlFor(selectedPost.mainImage).width(1200).url()} className="w-full h-full object-cover" alt={selectedPost.title} />}
