@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { client, urlFor } from './client';
 import { PortableText } from '@portabletext/react';
-import { SEO } from './seo-tools/SEO'; // <--- UPDATED PATH HERE
+import { SEO } from './seo-tools/SEOTags'; // <--- RENAMED TO FIX CASING BUG
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
