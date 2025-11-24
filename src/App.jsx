@@ -92,7 +92,39 @@ const LabCard = ({ item, onLaunch }) => (
     </div>
 );
 
-// --- Tool 1: Headline Generator (Fixed for Mobile) ---
+// --- Author Bio Component (NEW) ---
+const AuthorBio = ({ author }) => {
+    if (!author) return null;
+    
+    // Safe image handling for author avatar
+    const avatarUrl = author.image 
+        ? urlFor(author.image).width(200).height(200).url() 
+        : "https://via.placeholder.com/100";
+
+    return (
+        <div className="mt-16 border-t-4 border-black pt-8">
+            <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start bg-white border-2 border-black p-6 brutal-shadow">
+                <img 
+                    src={avatarUrl} 
+                    alt={author.name} 
+                    className="w-20 h-20 rounded-full border-2 border-black object-cover"
+                />
+                <div className="text-center sm:text-left">
+                    <p className="font-mono text-xs font-bold text-gray-500 uppercase mb-1">Written By</p>
+                    <h3 className="text-2xl font-black uppercase mb-2">{author.name}</h3>
+                    {/* Render Author Bio if it exists */}
+                    {author.bio && (
+                        <div className="prose prose-sm font-serif">
+                            <PortableText value={author.bio} />
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Tool 1: Headline Generator ---
 const HeadlineGenerator = ({ onBack }) => {
     const [topic, setTopic] = useState('');
     const [results, setResults] = useState([]);
@@ -100,11 +132,9 @@ const HeadlineGenerator = ({ onBack }) => {
     const [copiedIndex, setCopiedIndex] = useState(null);
 
     const handleGenerate = async (e) => {
-        e.preventDefault(); // Stop the form from reloading the page
+        e.preventDefault(); 
         if (!topic) return;
         setIsGenerating(true);
-        
-        // Unfocus the input to close mobile keyboard
         if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
         }
@@ -132,7 +162,6 @@ const HeadlineGenerator = ({ onBack }) => {
             <div className="brutal-card p-8 bg-blue-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Headline Generator</h1>
                 <p className="font-mono font-bold mb-6">Turn boring topics into clickbait gold.</p>
-                {/* UPDATED: Wrapped in form for mobile support */}
                 <form onSubmit={handleGenerate} className="bg-white border-2 border-black p-4 flex gap-2 flex-col sm:flex-row">
                     <input value={topic} onChange={(e) => setTopic(e.target.value)} className="flex-1 font-bold text-lg p-2 focus:outline-none" placeholder="e.g. Walking dogs..." />
                     <button type="submit" disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
@@ -213,7 +242,7 @@ const AltTextFixer = ({ onBack }) => {
     );
 };
 
-// --- Tool 3: Jargon Destroyer (Fixed for Mobile) ---
+// --- Tool 3: Jargon Destroyer ---
 const JargonDestroyer = ({ onBack }) => {
     const [text, setText] = useState('');
     const [result, setResult] = useState('');
@@ -224,7 +253,6 @@ const JargonDestroyer = ({ onBack }) => {
         if (!text) return;
         setIsGenerating(true);
         
-        // Close mobile keyboard
         if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
         }
@@ -252,7 +280,6 @@ const JargonDestroyer = ({ onBack }) => {
             <div className="brutal-card p-8 bg-gray-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Jargon Destroyer</h1>
                 <p className="font-mono font-bold mb-6">Paste corporate fluff. Get the truth.</p>
-                {/* UPDATED: Wrapped in form */}
                 <form onSubmit={handleGenerate} className="bg-white border-2 border-black p-4">
                     <textarea 
                         value={text}
@@ -346,7 +373,16 @@ function App() {
     useEffect(() => {
         const fetchPosts = async () => {
             try {
-                const query = `*[_type == "post"] | order(publishedAt desc) {_id, title, publishedAt, mainImage, "excerpt": pt::text(body)[0...150] + "...", body}`;
+                // UPDATED: Now fetching author details
+                const query = `*[_type == "post"] | order(publishedAt desc) {
+                    _id, 
+                    title, 
+                    publishedAt, 
+                    mainImage, 
+                    "excerpt": pt::text(body)[0...150] + "...", 
+                    body,
+                    author->{name, image, bio}
+                }`;
                 const data = await client.fetch(query);
                 setPosts(data);
                 setLoading(false);
@@ -418,6 +454,8 @@ function App() {
                         <div className="prose prose-lg font-serif border-l-4 border-[#FEC43D] pl-6 text-lg">
                             <PortableText value={selectedPost.body} components={ptComponents} />
                         </div>
+                        {/* UPDATED: Added Author Bio here */}
+                        <AuthorBio author={selectedPost.author} />
                     </article>
                 )}
             </main>
