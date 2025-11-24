@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { client, urlFor } from './client';
-import { PortableText } from '@portabletext/react'; // The new engine
+import { PortableText } from '@portabletext/react';
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
@@ -39,8 +39,7 @@ const LAB_ITEMS = [
     }
 ];
 
-// --- Custom Components for Rich Text ---
-// This styles the blog content to match your Neo-Brutalist theme
+// --- Custom Components for Rich Text (Blog Styling) ---
 const ptComponents = {
     types: {
         image: ({ value }) => {
@@ -66,6 +65,23 @@ const ptComponents = {
         number: ({children}) => <ol className="list-decimal ml-6 mb-6 space-y-2 text-lg">{children}</ol>,
     }
 }
+
+// --- LabCard Component (Restored!) ---
+const LabCard = ({ item, onLaunch }) => (
+    <div className={`brutal-card p-6 ${item.color} brutal-shadow flex flex-col`}>
+        <div className="flex justify-between items-start mb-4">
+            <h3 className="text-2xl font-black uppercase">{item.title}</h3>
+            <span className="bg-black text-white text-xs px-2 py-1 font-mono">{item.status}</span>
+        </div>
+        <p className="font-bold mb-6 border-t-2 border-black pt-4 flex-1">{item.desc}</p>
+        <button 
+            onClick={() => onLaunch(item)}
+            className="w-full bg-white border-2 border-black py-2 font-bold hover:bg-black hover:text-white transition-colors flex items-center justify-center gap-2"
+        >
+            <Icon name="flask-conical" size={18} /> LAUNCH TOOL
+        </button>
+    </div>
+);
 
 // --- Tool 1: Headline Generator ---
 const HeadlineGenerator = ({ onBack }) => {
@@ -177,9 +193,11 @@ const AltTextFixer = ({ onBack }) => {
             <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600">
                 <Icon name="arrow-left" size={20} /> Back to Lab
             </button>
+            
             <div className="brutal-card p-8 bg-red-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Alt-Text Fixer</h1>
                 <p className="font-mono font-bold mb-6">Upload an image. Get perfect SEO descriptions.</p>
+                
                 <div className="bg-white border-2 border-black p-8 text-center border-dashed border-4 border-gray-200 hover:border-black transition-colors cursor-pointer" onClick={() => fileInputRef.current.click()}>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
                     {image ? (
@@ -191,12 +209,14 @@ const AltTextFixer = ({ onBack }) => {
                         </div>
                     )}
                 </div>
+
                 {image && (
                     <button onClick={handleGenerate} disabled={isGenerating} className="w-full mt-4 bg-black text-white py-3 font-bold hover:bg-gray-800 transition-colors flex justify-center gap-2">
                         {isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE IMAGE"}
                     </button>
                 )}
             </div>
+
             {result && (
                 <div className="bg-white border-2 border-black p-6 brutal-shadow">
                     <h3 className="font-black uppercase text-sm text-gray-500 mb-2">Generated Alt-Text:</h3>
