@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { client, urlFor } from './client';
+import { PortableText } from '@portabletext/react'; // The new engine
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
@@ -37,6 +38,34 @@ const LAB_ITEMS = [
         color: "bg-red-300"
     }
 ];
+
+// --- Custom Components for Rich Text ---
+// This styles the blog content to match your Neo-Brutalist theme
+const ptComponents = {
+    types: {
+        image: ({ value }) => {
+            if (!value?.asset?._ref) { return null }
+            return (
+                <img
+                    src={urlFor(value).width(800).fit('max').url()}
+                    alt={value.alt || ' '}
+                    className="my-8 w-full border-2 border-black brutal-shadow"
+                />
+            )
+        }
+    },
+    block: {
+        h1: ({children}) => <h1 className="text-4xl font-black uppercase mt-12 mb-6">{children}</h1>,
+        h2: ({children}) => <h2 className="text-3xl font-bold uppercase mt-10 mb-4 border-b-2 border-black pb-2 inline-block">{children}</h2>,
+        h3: ({children}) => <h3 className="text-2xl font-bold mt-8 mb-3">{children}</h3>,
+        normal: ({children}) => <p className="mb-6 leading-relaxed text-lg">{children}</p>,
+        blockquote: ({children}) => <blockquote className="border-l-4 border-black pl-4 italic my-8 bg-yellow-100 p-6 font-serif text-xl">{children}</blockquote>,
+    },
+    list: {
+        bullet: ({children}) => <ul className="list-disc ml-6 mb-6 space-y-2 text-lg">{children}</ul>,
+        number: ({children}) => <ol className="list-decimal ml-6 mb-6 space-y-2 text-lg">{children}</ol>,
+    }
+}
 
 // --- Tool 1: Headline Generator ---
 const HeadlineGenerator = ({ onBack }) => {
@@ -104,7 +133,7 @@ const HeadlineGenerator = ({ onBack }) => {
 
 // --- Tool 2: Alt-Text Fixer ---
 const AltTextFixer = ({ onBack }) => {
-    const [image, setImage] = useState(null); // Stores base64 for preview & sending
+    const [image, setImage] = useState(null);
     const [result, setResult] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const fileInputRef = useRef(null);
@@ -114,8 +143,8 @@ const AltTextFixer = ({ onBack }) => {
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                setImage(reader.result); // Set base64 string
-                setResult(''); // Clear old result
+                setImage(reader.result);
+                setResult('');
             };
             reader.readAsDataURL(file);
         }
@@ -130,7 +159,7 @@ const AltTextFixer = ({ onBack }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     type: 'alt-text',
-                    payload: { image } // Sends the base64 string
+                    payload: { image }
                 })
             });
             const data = await response.json();
@@ -148,11 +177,9 @@ const AltTextFixer = ({ onBack }) => {
             <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600">
                 <Icon name="arrow-left" size={20} /> Back to Lab
             </button>
-            
             <div className="brutal-card p-8 bg-red-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Alt-Text Fixer</h1>
                 <p className="font-mono font-bold mb-6">Upload an image. Get perfect SEO descriptions.</p>
-                
                 <div className="bg-white border-2 border-black p-8 text-center border-dashed border-4 border-gray-200 hover:border-black transition-colors cursor-pointer" onClick={() => fileInputRef.current.click()}>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
                     {image ? (
@@ -164,14 +191,12 @@ const AltTextFixer = ({ onBack }) => {
                         </div>
                     )}
                 </div>
-
                 {image && (
                     <button onClick={handleGenerate} disabled={isGenerating} className="w-full mt-4 bg-black text-white py-3 font-bold hover:bg-gray-800 transition-colors flex justify-center gap-2">
                         {isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE IMAGE"}
                     </button>
                 )}
             </div>
-
             {result && (
                 <div className="bg-white border-2 border-black p-6 brutal-shadow">
                     <h3 className="font-black uppercase text-sm text-gray-500 mb-2">Generated Alt-Text:</h3>
@@ -234,19 +259,6 @@ const BlogCard = ({ post, onClick }) => {
         </article>
     );
 };
-
-const LabCard = ({ item, onLaunch }) => (
-    <div className={`brutal-card p-6 ${item.color} brutal-shadow flex flex-col`}>
-        <div className="flex justify-between items-start mb-4">
-            <h3 className="text-2xl font-black uppercase">{item.title}</h3>
-            <span className="bg-black text-white text-xs px-2 py-1 font-mono">{item.status}</span>
-        </div>
-        <p className="font-bold mb-6 border-t-2 border-black pt-4 flex-1">{item.desc}</p>
-        <button onClick={() => onLaunch(item)} className="w-full bg-white border-2 border-black py-2 font-bold hover:bg-black hover:text-white transition-colors flex items-center justify-center gap-2">
-            <Icon name="flask-conical" size={18} /> LAUNCH TOOL
-        </button>
-    </div>
-);
 
 function App() {
     const [view, setView] = useState('home');
@@ -320,7 +332,9 @@ function App() {
                         </div>
                         <div className="flex items-center gap-4 mb-6 font-mono text-sm"><span className="px-3 py-1 border-2 border-black font-bold bg-yellow-300">Log</span><span className="text-gray-500">{selectedPost.publishedAt ? new Date(selectedPost.publishedAt).toLocaleDateString() : 'Draft'}</span></div>
                         <h1 className="text-4xl md:text-6xl font-black uppercase leading-none mb-8">{selectedPost.title}</h1>
-                        <div className="prose prose-lg font-serif border-l-4 border-[#FEC43D] pl-6"><p className="text-xl font-bold mb-6">{selectedPost.excerpt}</p><p className="text-gray-500 italic">[Full content rendering requires @portabletext/react package - coming in next update]</p></div>
+                        <div className="prose prose-lg font-serif border-l-4 border-[#FEC43D] pl-6 text-lg">
+                            <PortableText value={selectedPost.body} components={ptComponents} />
+                        </div>
                     </article>
                 )}
             </main>

@@ -15,7 +15,8 @@
     "react-dom": "^18.2.0",
     "openai": "^4.0.0",
     "@sanity/client": "^6.0.0",
-    "@sanity/image-url": "^1.0.0"
+    "@sanity/image-url": "^1.0.0",
+    "@portabletext/react": "^3.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
