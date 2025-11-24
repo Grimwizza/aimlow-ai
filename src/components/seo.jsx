@@ -6,7 +6,7 @@ export const SEO = ({ title, description, image, url }) => {
     const siteTitle = "AimLow.ai";
     const fullTitle = title ? `${title} | ${siteTitle}` : `${siteTitle} - Do More With Less`;
     const metaDesc = description || "We test the tools so you don't have to. Low effort, high impact AI workflows.";
-    const metaImage = image || "https://aimlow.ai/og-image.jpg"; // You can add a default image later
+    const metaImage = image || "https://aimlow.ai/og-image.jpg"; 
     const metaUrl = url || "https://aimlow.ai";
 
     return (
