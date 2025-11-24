@@ -92,16 +92,23 @@ const LabCard = ({ item, onLaunch }) => (
     </div>
 );
 
-// --- Tool 1: Headline Generator ---
+// --- Tool 1: Headline Generator (Fixed for Mobile) ---
 const HeadlineGenerator = ({ onBack }) => {
     const [topic, setTopic] = useState('');
     const [results, setResults] = useState([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [copiedIndex, setCopiedIndex] = useState(null);
 
-    const handleGenerate = async () => {
+    const handleGenerate = async (e) => {
+        e.preventDefault(); // Stop the form from reloading the page
         if (!topic) return;
         setIsGenerating(true);
+        
+        // Unfocus the input to close mobile keyboard
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+
         try {
             const response = await fetch('/api/generate', {
                 method: 'POST',
@@ -125,12 +132,13 @@ const HeadlineGenerator = ({ onBack }) => {
             <div className="brutal-card p-8 bg-blue-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Headline Generator</h1>
                 <p className="font-mono font-bold mb-6">Turn boring topics into clickbait gold.</p>
-                <div className="bg-white border-2 border-black p-4 flex gap-2 flex-col sm:flex-row">
-                    <input value={topic} onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleGenerate()} className="flex-1 font-bold text-lg p-2 focus:outline-none" placeholder="e.g. Walking dogs..." />
-                    <button onClick={handleGenerate} disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
+                {/* UPDATED: Wrapped in form for mobile support */}
+                <form onSubmit={handleGenerate} className="bg-white border-2 border-black p-4 flex gap-2 flex-col sm:flex-row">
+                    <input value={topic} onChange={(e) => setTopic(e.target.value)} className="flex-1 font-bold text-lg p-2 focus:outline-none" placeholder="e.g. Walking dogs..." />
+                    <button type="submit" disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
                         {isGenerating ? <Icon name="loader" className="animate-spin" /> : <Icon name="sparkles" />} GENERATE
                     </button>
-                </div>
+                </form>
             </div>
             <div className="space-y-4">
                 {results.map((title, idx) => (
@@ -205,15 +213,22 @@ const AltTextFixer = ({ onBack }) => {
     );
 };
 
-// --- Tool 3: Jargon Destroyer ---
+// --- Tool 3: Jargon Destroyer (Fixed for Mobile) ---
 const JargonDestroyer = ({ onBack }) => {
     const [text, setText] = useState('');
     const [result, setResult] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
 
-    const handleGenerate = async () => {
+    const handleGenerate = async (e) => {
+        e.preventDefault(); // Stop reload
         if (!text) return;
         setIsGenerating(true);
+        
+        // Close mobile keyboard
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+
         try {
             const response = await fetch('/api/generate', {
                 method: 'POST',
@@ -237,17 +252,18 @@ const JargonDestroyer = ({ onBack }) => {
             <div className="brutal-card p-8 bg-gray-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Jargon Destroyer</h1>
                 <p className="font-mono font-bold mb-6">Paste corporate fluff. Get the truth.</p>
-                <div className="bg-white border-2 border-black p-4">
+                {/* UPDATED: Wrapped in form */}
+                <form onSubmit={handleGenerate} className="bg-white border-2 border-black p-4">
                     <textarea 
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                         className="w-full h-32 font-bold text-lg p-2 focus:outline-none resize-none"
                         placeholder="e.g. We need to leverage our synergies to facilitate a paradigm shift..."
                     ></textarea>
-                    <button onClick={handleGenerate} disabled={isGenerating} className="w-full mt-4 bg-black text-white py-3 font-bold hover:bg-red-600 transition-colors flex justify-center gap-2">
+                    <button type="submit" disabled={isGenerating} className="w-full mt-4 bg-black text-white py-3 font-bold hover:bg-red-600 transition-colors flex justify-center gap-2">
                         {isGenerating ? <Icon name="loader" className="animate-spin" /> : <><Icon name="zap" /> DESTROY JARGON</>}
                     </button>
-                </div>
+                </form>
             </div>
             {result && (
                 <div className="bg-white border-2 border-black p-6 brutal-shadow">
