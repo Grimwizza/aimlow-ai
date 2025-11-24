@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { client, urlFor } from './client';
 import { PortableText } from '@portabletext/react';
-import { SEO } from './seo-tools/SEOTags'; // <--- RENAMED TO FIX CASING BUG
+import { SEO } from './seo-tools/SEOTags';
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
@@ -239,7 +239,9 @@ const Header = ({ setView, currentView }) => (
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
             <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setView('home')}>
                 <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">AL</div>
-                <h1 className="text-2xl font-black tracking-tighter uppercase">AimLow<span className="text-blue-600">.ai</span></h1>
+                <h1 className="text-2xl font-black tracking-tighter uppercase">
+                    <span className="text-blue-600">Ai</span>mLow<span className="text-blue-600">.ai</span>
+                </h1>
             </div>
             <nav className="hidden md:flex gap-6 font-mono font-bold text-sm">
                 <button onClick={() => setView('blog')} className={`hover:underline decoration-2 underline-offset-4 ${currentView === 'blog' ? 'text-blue-600' : ''}`}>THE LOG</button>
@@ -250,15 +252,25 @@ const Header = ({ setView, currentView }) => (
     </header>
 );
 
-const Hero = () => (
+const Hero = ({ setView }) => (
     <section className="bg-[#FEC43D] border-b-4 border-black py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
             <div className="inline-block bg-white border-2 border-black px-4 py-1 font-mono text-sm mb-6 brutal-shadow">EST. 2025 // HUMAN-AI HYBRID</div>
             <h2 className="text-5xl md:text-7xl font-black leading-[0.9] mb-6 uppercase">Do More <br/> With Less.</h2>
             <p className="text-xl font-mono max-w-2xl mx-auto mb-8 font-bold">We test the tools so you don't have to. Low effort, high impact AI workflows.</p>
             <div className="flex justify-center gap-4">
-                <button className="bg-black text-white border-2 border-black px-8 py-3 font-bold hover:bg-white hover:text-black transition-colors brutal-shadow">READ THE LOG</button>
-                <button className="bg-white text-black border-2 border-black px-8 py-3 font-bold hover:bg-gray-100 transition-colors brutal-shadow">ENTER THE LAB</button>
+                <button 
+                    onClick={() => setView('blog')}
+                    className="bg-black text-white border-2 border-black px-8 py-3 font-bold hover:bg-white hover:text-black transition-colors brutal-shadow"
+                >
+                    READ THE LOG
+                </button>
+                <button 
+                    onClick={() => setView('lab')}
+                    className="bg-white text-black border-2 border-black px-8 py-3 font-bold hover:bg-gray-100 transition-colors brutal-shadow"
+                >
+                    ENTER THE LAB
+                </button>
             </div>
         </div>
     </section>
@@ -267,7 +279,7 @@ const Hero = () => (
 const BlogCard = ({ post, onClick }) => {
     const imageUrl = post.mainImage ? urlFor(post.mainImage).width(800).url() : 'https://via.placeholder.com/800x400?text=No+Image';
     return (
-        <article onClick={() => onClick(post)} className="brutal-card flex flex-col h-full brutal-shadow cursor-pointer hover:-translate-y-1 transition-transform">
+        <article onClick={() => onClick(post)} className="brutal-card bg-white flex flex-col h-full brutal-shadow cursor-pointer hover:-translate-y-1 transition-transform">
             <div className="h-48 overflow-hidden border-b-3 border-black relative group">
                 <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity z-10"></div>
                 <img src={imageUrl} alt={post.title} className="w-full h-full object-cover" />
@@ -321,7 +333,7 @@ function App() {
                 {view === 'home' && (
                     <>
                         <SEO title="Home" />
-                        <Hero />
+                        <Hero setView={setView} />
                         <section className="max-w-6xl mx-auto px-4 py-16">
                             <div className="flex justify-between items-end mb-12 border-b-2 border-black pb-4"><h2 className="text-4xl font-black uppercase">Recent Logs</h2><button onClick={() => setView('blog')} className="font-mono font-bold underline decoration-2">View All</button></div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">{posts.slice(0, 3).map(post => <BlogCard key={post._id} post={post} onClick={handlePostClick} />)}</div>
