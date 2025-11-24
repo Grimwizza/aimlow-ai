@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { client, urlFor } from './client';
 import { PortableText } from '@portabletext/react';
-import { SEO } from './components/SEO'; // Import the new SEO tool
+import { SEO } from './seo-tools/SEO'; // <--- UPDATED PATH HERE
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
