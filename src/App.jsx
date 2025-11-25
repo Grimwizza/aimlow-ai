@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { client, urlFor } from './client';
 import { PortableText } from '@portabletext/react';
 import { SEO } from './seo-tools/SEOTags';
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
-    Loader2, Sparkles, Copy, Check, Upload, Image as ImageIcon, Zap 
+    Loader2, Sparkles, Copy, Check, Upload, Image as ImageIcon, Zap, Share2, Facebook, Linkedin
 } from 'lucide-react';
 
 // --- Icon Mapping ---
@@ -13,7 +14,7 @@ const iconMap = {
     menu: Menu, x: X, twitter: Twitter, github: Github, mail: Mail,
     'flask-conical': FlaskConical, 'arrow-left': ArrowLeft, 'arrow-right': ArrowRight,
     loader: Loader2, sparkles: Sparkles, copy: Copy, check: Check, 
-    upload: Upload, image: ImageIcon, zap: Zap
+    upload: Upload, image: ImageIcon, zap: Zap, share: Share2, facebook: Facebook, linkedin: Linkedin
 };
 
 const Icon = ({ name, size = 24, color = "currentColor", className }) => {
@@ -48,18 +49,11 @@ const LAB_ITEMS = [
     }
 ];
 
-// --- Custom Components for Rich Text ---
 const ptComponents = {
     types: {
         image: ({ value }) => {
             if (!value?.asset?._ref) { return null }
-            return (
-                <img
-                    src={urlFor(value).width(800).fit('max').url()}
-                    alt={value.alt || ' '}
-                    className="my-8 w-full border-2 border-black brutal-shadow"
-                />
-            )
+            return <img src={urlFor(value).width(800).fit('max').url()} alt={value.alt || ' '} className="my-8 w-full border-2 border-black brutal-shadow" />
         }
     },
     block: {
@@ -75,57 +69,63 @@ const ptComponents = {
     }
 }
 
-// --- LabCard Component ---
-const LabCard = ({ item, onLaunch }) => (
+// --- Share Bar Component (NEW) ---
+const ShareBar = ({ title }) => {
+    const location = useLocation();
+    const currentUrl = `https://aimlow.ai${location.pathname}`;
+    const encodedUrl = encodeURIComponent(currentUrl);
+    const encodedTitle = encodeURIComponent(title || "Check this out");
+
+    return (
+        <div className="mt-12 pt-8 border-t-2 border-gray-200">
+            <p className="font-mono text-xs font-bold text-gray-500 uppercase mb-4">Share this Log</p>
+            <div className="flex gap-4">
+                <a href={`https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black text-white px-4 py-2 font-bold hover:bg-blue-400 hover:text-black transition-colors">
+                    <Icon name="twitter" size={18} /> <span className="text-sm">Post</span>
+                </a>
+                <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black text-white px-4 py-2 font-bold hover:bg-blue-700 hover:text-white transition-colors">
+                    <Icon name="linkedin" size={18} /> <span className="text-sm">Share</span>
+                </a>
+                <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black text-white px-4 py-2 font-bold hover:bg-blue-600 hover:text-white transition-colors">
+                    <Icon name="facebook" size={18} /> <span className="text-sm">Share</span>
+                </a>
+            </div>
+        </div>
+    );
+};
+
+const LabCard = ({ item }) => (
     <div className={`brutal-card p-6 ${item.color} brutal-shadow flex flex-col`}>
         <div className="flex justify-between items-start mb-4">
             <h3 className="text-2xl font-black uppercase">{item.title}</h3>
             <span className="bg-black text-white text-xs px-2 py-1 font-mono">{item.status}</span>
         </div>
         <p className="font-bold mb-6 border-t-2 border-black pt-4 flex-1">{item.desc}</p>
-        <button 
-            onClick={() => onLaunch(item)}
-            className="w-full bg-black text-white border-2 border-black py-2 font-bold hover:bg-white hover:text-black transition-colors flex items-center justify-center gap-2"
-        >
+        <Link to={`/lab/${item.slug}`} className="w-full bg-black text-white border-2 border-black py-2 font-bold hover:bg-white hover:text-black transition-colors flex items-center justify-center gap-2">
             <Icon name="flask-conical" size={18} /> LAUNCH TOOL
-        </button>
+        </Link>
     </div>
 );
 
-// --- Author Bio Component (NEW) ---
 const AuthorBio = ({ author }) => {
     if (!author) return null;
-    
-    // Safe image handling for author avatar
-    const avatarUrl = author.image 
-        ? urlFor(author.image).width(200).height(200).url() 
-        : "https://via.placeholder.com/100";
-
+    const avatarUrl = author.image ? urlFor(author.image).width(200).height(200).url() : "https://via.placeholder.com/100";
     return (
         <div className="mt-16 border-t-4 border-black pt-8">
             <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start bg-white border-2 border-black p-6 brutal-shadow">
-                <img 
-                    src={avatarUrl} 
-                    alt={author.name} 
-                    className="w-20 h-20 rounded-full border-2 border-black object-cover"
-                />
+                <img src={avatarUrl} alt={author.name} className="w-20 h-20 rounded-full border-2 border-black object-cover"/>
                 <div className="text-center sm:text-left">
                     <p className="font-mono text-xs font-bold text-gray-500 uppercase mb-1">Written By</p>
                     <h3 className="text-2xl font-black uppercase mb-2">{author.name}</h3>
-                    {/* Render Author Bio if it exists */}
-                    {author.bio && (
-                        <div className="prose prose-sm font-serif">
-                            <PortableText value={author.bio} />
-                        </div>
-                    )}
+                    {author.bio && <div className="prose prose-sm font-serif"><PortableText value={author.bio} /></div>}
                 </div>
             </div>
         </div>
     );
 };
 
-// --- Tool 1: Headline Generator ---
-const HeadlineGenerator = ({ onBack }) => {
+// --- Tools ---
+const HeadlineGenerator = () => {
     const [topic, setTopic] = useState('');
     const [results, setResults] = useState([]);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -135,10 +135,7 @@ const HeadlineGenerator = ({ onBack }) => {
         e.preventDefault(); 
         if (!topic) return;
         setIsGenerating(true);
-        if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-        }
-
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
         try {
             const response = await fetch('/api/generate', {
                 method: 'POST',
@@ -147,18 +144,13 @@ const HeadlineGenerator = ({ onBack }) => {
             });
             const data = await response.json();
             if (data.result) setResults(data.result);
-        } catch (err) {
-            console.error(err);
-            alert("Failed to generate.");
-        } finally {
-            setIsGenerating(false);
-        }
+        } catch (err) { console.error(err); alert("Failed to generate."); } finally { setIsGenerating(false); }
     };
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
             <SEO title="Headline Generator" description="Turn boring topics into viral clickbait." />
-            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
+            <Link to="/lab" className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</Link>
             <div className="brutal-card p-8 bg-blue-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Headline Generator</h1>
                 <p className="font-mono font-bold mb-6">Turn boring topics into clickbait gold.</p>
@@ -183,8 +175,7 @@ const HeadlineGenerator = ({ onBack }) => {
     );
 };
 
-// --- Tool 2: Alt-Text Fixer ---
-const AltTextFixer = ({ onBack }) => {
+const AltTextFixer = () => {
     const [image, setImage] = useState(null);
     const [result, setResult] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
@@ -210,18 +201,13 @@ const AltTextFixer = ({ onBack }) => {
             });
             const data = await response.json();
             if (data.result) setResult(data.result);
-        } catch (err) {
-            console.error(err);
-            alert("Analysis failed.");
-        } finally {
-            setIsGenerating(false);
-        }
+        } catch (err) { console.error(err); alert("Analysis failed."); } finally { setIsGenerating(false); }
     };
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
             <SEO title="Alt-Text Fixer" description="Generate SEO-friendly image descriptions." />
-            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
+            <Link to="/lab" className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</Link>
             <div className="brutal-card p-8 bg-red-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Alt-Text Fixer</h1>
                 <p className="font-mono font-bold mb-6">Upload an image. Get perfect SEO descriptions.</p>
@@ -242,21 +228,16 @@ const AltTextFixer = ({ onBack }) => {
     );
 };
 
-// --- Tool 3: Jargon Destroyer ---
-const JargonDestroyer = ({ onBack }) => {
+const JargonDestroyer = () => {
     const [text, setText] = useState('');
     const [result, setResult] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
 
     const handleGenerate = async (e) => {
-        e.preventDefault(); // Stop reload
+        e.preventDefault();
         if (!text) return;
         setIsGenerating(true);
-        
-        if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-        }
-
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
         try {
             const response = await fetch('/api/generate', {
                 method: 'POST',
@@ -265,28 +246,18 @@ const JargonDestroyer = ({ onBack }) => {
             });
             const data = await response.json();
             if (data.result) setResult(data.result);
-        } catch (err) {
-            console.error(err);
-            alert("Destruction failed.");
-        } finally {
-            setIsGenerating(false);
-        }
+        } catch (err) { console.error(err); alert("Destruction failed."); } finally { setIsGenerating(false); }
     };
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
             <SEO title="Jargon Destroyer" description="Translate corporate speak into plain English." />
-            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
+            <Link to="/lab" className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</Link>
             <div className="brutal-card p-8 bg-gray-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Jargon Destroyer</h1>
                 <p className="font-mono font-bold mb-6">Paste corporate fluff. Get the truth.</p>
                 <form onSubmit={handleGenerate} className="bg-white border-2 border-black p-4">
-                    <textarea 
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        className="w-full h-32 font-bold text-lg p-2 focus:outline-none resize-none"
-                        placeholder="e.g. We need to leverage our synergies to facilitate a paradigm shift..."
-                    ></textarea>
+                    <textarea value={text} onChange={(e) => setText(e.target.value)} className="w-full h-32 font-bold text-lg p-2 focus:outline-none resize-none" placeholder="e.g. We need to leverage our synergies to facilitate a paradigm shift..."></textarea>
                     <button type="submit" disabled={isGenerating} className="w-full mt-4 bg-black text-white py-3 font-bold hover:bg-red-600 transition-colors flex justify-center gap-2">
                         {isGenerating ? <Icon name="loader" className="animate-spin" /> : <><Icon name="zap" /> DESTROY JARGON</>}
                     </button>
@@ -303,27 +274,27 @@ const JargonDestroyer = ({ onBack }) => {
     );
 };
 
-// --- Main App ---
-const Header = ({ setView, currentView }) => {
+// --- Pages ---
+const Header = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     return (
         <header className="border-b-4 border-black bg-white sticky top-0 z-50">
             <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => {setView('home'); setIsMenuOpen(false);}}>
+                <Link to="/" className="flex items-center gap-2 cursor-pointer group">
                     <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">AL</div>
                     <h1 className="text-2xl font-black tracking-tighter uppercase">AimLow<span className="text-blue-600">.ai</span></h1>
-                </div>
+                </Link>
                 <nav className="hidden md:flex gap-6 font-mono font-bold text-sm">
-                    <button onClick={() => setView('blog')} className={`hover:underline decoration-2 underline-offset-4 ${currentView === 'blog' ? 'text-blue-600' : ''}`}>THE LOG</button>
-                    <button onClick={() => setView('lab')} className={`hover:underline decoration-2 underline-offset-4 ${currentView.includes('lab') || currentView.includes('tool') ? 'text-blue-600' : ''}`}>THE LAB</button>
+                    <Link to="/blog" className="hover:underline decoration-2 underline-offset-4">THE LOG</Link>
+                    <Link to="/lab" className="hover:underline decoration-2 underline-offset-4">THE LAB</Link>
                 </nav>
                 <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <Icon name="x" /> : <Icon name="menu" />}</button>
             </div>
             {isMenuOpen && (
                 <div className="md:hidden border-t-4 border-black bg-white absolute w-full left-0 shadow-xl">
                     <nav className="flex flex-col p-4 font-mono font-bold text-lg gap-4">
-                        <button onClick={() => {setView('blog'); setIsMenuOpen(false);}} className="text-left py-2 hover:text-blue-600 border-b-2 border-gray-100">THE LOG</button>
-                        <button onClick={() => {setView('lab'); setIsMenuOpen(false);}} className="text-left py-2 hover:text-blue-600">THE LAB</button>
+                        <Link to="/blog" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600 border-b-2 border-gray-100">THE LOG</Link>
+                        <Link to="/lab" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">THE LAB</Link>
                     </nav>
                 </div>
             )}
@@ -331,133 +302,155 @@ const Header = ({ setView, currentView }) => {
     );
 };
 
-const Hero = ({ setView }) => (
+const Hero = () => (
     <section className="bg-[#FEC43D] border-b-4 border-black py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
             <div className="inline-block bg-white border-2 border-black px-4 py-1 font-mono text-sm mb-6 brutal-shadow">EST. 2025 // HUMAN-AI HYBRID</div>
             <h2 className="text-5xl md:text-7xl font-black leading-[0.9] mb-6 uppercase">Do More <br/> With Less.</h2>
             <p className="text-xl font-mono max-w-2xl mx-auto mb-8 font-bold">We test the tools so you don't have to. Low effort, high impact AI workflows.</p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <button onClick={() => setView('blog')} className="bg-black text-white border-2 border-black px-8 py-3 font-bold hover:bg-white hover:text-black transition-colors brutal-shadow">READ THE LOG</button>
-                <button onClick={() => setView('lab')} className="bg-white text-black border-2 border-black px-8 py-3 font-bold hover:bg-gray-100 transition-colors brutal-shadow">ENTER THE LAB</button>
+                <Link to="/blog" className="bg-black text-white border-2 border-black px-8 py-3 font-bold hover:bg-white hover:text-black transition-colors brutal-shadow">READ THE LOG</Link>
+                <Link to="/lab" className="bg-white text-black border-2 border-black px-8 py-3 font-bold hover:bg-gray-100 transition-colors brutal-shadow">ENTER THE LAB</Link>
             </div>
         </div>
     </section>
 );
 
-const BlogCard = ({ post, onClick }) => {
-    const imageUrl = post.mainImage ? urlFor(post.mainImage).width(800).url() : 'https://via.placeholder.com/800x400?text=No+Image';
+// -- Page Components --
+const HomePage = ({ posts }) => (
+    <>
+        <SEO title="Home" />
+        <Hero />
+        <section className="max-w-6xl mx-auto px-4 py-16">
+            <div className="flex justify-between items-end mb-12 border-b-2 border-black pb-4"><h2 className="text-4xl font-black uppercase">Recent Logs</h2><Link to="/blog" className="font-mono font-bold underline decoration-2">View All</Link></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">{posts.slice(0, 3).map(post => <BlogCard key={post._id} post={post} />)}</div>
+        </section>
+        <section className="bg-black text-white py-16 px-4 border-y-4 border-black">
+            <div className="max-w-6xl mx-auto">
+                <h2 className="text-4xl font-black uppercase mb-12 text-center text-[#FEC43D]">Lab Experiments</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">{LAB_ITEMS.map(item => <LabCard key={item.id} item={item} />)}</div>
+            </div>
+        </section>
+    </>
+);
+
+const BlogPage = ({ posts }) => (
+    <div className="max-w-6xl mx-auto px-4 py-12">
+        <SEO title="The Log" description="Thoughts, experiments, and philosophy on AI efficiency." />
+        <h2 className="text-6xl font-black uppercase mb-12 text-center">The Log</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">{posts.map(post => <BlogCard key={post._id} post={post} />)}</div>
+    </div>
+);
+
+const LabPage = () => (
+    <div className="max-w-6xl mx-auto px-4 py-12">
+        <SEO title="The Lab" description="Free AI tools to help you do more with less." />
+        <h2 className="text-6xl font-black uppercase mb-12 text-center">The Lab</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">{LAB_ITEMS.map(item => <LabCard key={item.id} item={item} />)}</div>
+    </div>
+);
+
+const BlogPost = () => {
+    const { slug } = useParams();
+    const [post, setPost] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchPost = async () => {
+            // Query for the specific slug
+            const query = `*[_type == "post" && slug.current == $slug][0] {
+                title, publishedAt, _createdAt, mainImage, "excerpt": pt::text(body)[0...150] + "...", body,
+                author->{name, image, bio}
+            }`;
+            const data = await client.fetch(query, { slug });
+            setPost(data);
+            setLoading(false);
+        };
+        fetchPost();
+    }, [slug]);
+
+    if (loading) return <div className="py-20 text-center"><Icon name="loader" className="animate-spin mx-auto" /></div>;
+    if (!post) return <div className="py-20 text-center font-bold">Post not found.</div>;
+
+    const dateString = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : (post._createdAt ? new Date(post._createdAt).toLocaleDateString() : 'Draft');
+    const imageUrl = post.mainImage ? urlFor(post.mainImage).width(1200).url() : null;
+
     return (
-        <article onClick={() => onClick(post)} className="brutal-card bg-white flex flex-col h-full brutal-shadow cursor-pointer hover:-translate-y-1 transition-transform">
+        <article className="max-w-3xl mx-auto px-4 py-12">
+            <SEO title={post.title} description={post.excerpt} image={imageUrl} />
+            <Link to="/blog" className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Log</Link>
+            {imageUrl && (
+                <div className="w-full aspect-video bg-gray-200 border-2 border-black mb-8 overflow-hidden rounded-none">
+                    <img src={imageUrl} className="w-full h-full object-cover" alt={post.title} />
+                </div>
+            )}
+            <div className="flex items-center gap-4 mb-6 font-mono text-sm">
+                <span className="px-3 py-1 border-2 border-black font-bold bg-yellow-300">Log</span>
+                <span className="text-gray-500">{dateString}</span>
+            </div>
+            <h1 className="text-4xl md:text-6xl font-black uppercase leading-none mb-8">{post.title}</h1>
+            <div className="prose prose-lg font-serif border-l-4 border-[#FEC43D] pl-6 text-lg">
+                <PortableText value={post.body} components={ptComponents} />
+            </div>
+            <ShareBar title={post.title} />
+            <AuthorBio author={post.author} />
+        </article>
+    );
+};
+
+const BlogCard = ({ post }) => {
+    const imageUrl = post.mainImage ? urlFor(post.mainImage).width(800).url() : 'https://via.placeholder.com/800x400?text=No+Image';
+    const dateString = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : (post._createdAt ? new Date(post._createdAt).toLocaleDateString() : 'Draft');
+    const slug = post.slug?.current || '#';
+
+    return (
+        <Link to={`/post/${slug}`} className="brutal-card bg-white flex flex-col h-full brutal-shadow cursor-pointer hover:-translate-y-1 transition-transform">
             <div className="h-48 overflow-hidden border-b-3 border-black relative group">
                 <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity z-10"></div>
                 <img src={imageUrl} alt={post.title} className="w-full h-full object-cover" />
                 <div className="absolute top-4 right-4 bg-yellow-300 border-2 border-black px-3 py-1 font-mono text-xs font-bold z-20">LOG</div>
             </div>
             <div className="p-6 flex-1 flex flex-col">
-                <div className="font-mono text-xs text-gray-500 mb-2">{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : 'Draft'}</div>
+                <div className="font-mono text-xs text-gray-500 mb-2">{dateString}</div>
                 <h3 className="text-2xl font-black leading-tight mb-4 uppercase">{post.title}</h3>
                 <p className="font-serif text-sm leading-relaxed mb-6 flex-1">{post.excerpt}</p>
                 <div className="flex items-center gap-2 font-bold text-sm mt-auto group">Read Post <Icon name="arrow-right" size={16} /></div>
             </div>
-        </article>
+        </Link>
     );
 };
 
 function App() {
-    const [view, setView] = useState('home');
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedPost, setSelectedPost] = useState(null);
 
     useEffect(() => {
         const fetchPosts = async () => {
             try {
-                // UPDATED: Now fetching author details
-                const query = `*[_type == "post"] | order(publishedAt desc) {
-                    _id, 
-                    title, 
-                    publishedAt, 
-                    mainImage, 
-                    "excerpt": pt::text(body)[0...150] + "...", 
-                    body,
-                    author->{name, image, bio}
-                }`;
+                const query = `*[_type == "post"] | order(publishedAt desc) {_id, title, slug, publishedAt, _createdAt, mainImage, "excerpt": pt::text(body)[0...150] + "...", body}`;
                 const data = await client.fetch(query);
                 setPosts(data);
                 setLoading(false);
-            } catch (error) {
-                console.error("Sanity fetch failed:", error);
-                setLoading(false);
-            }
+            } catch (error) { console.error("Sanity fetch failed:", error); setLoading(false); }
         };
         fetchPosts();
     }, []);
-
-    const handlePostClick = (post) => { setSelectedPost(post); setView('post'); window.scrollTo(0,0); };
-    
-    const handleLaunchTool = (tool) => {
-        if (tool.slug === 'headline-generator') setView('tool-headline');
-        if (tool.slug === 'alt-text') setView('tool-alt-text');
-        if (tool.slug === 'jargon-destroyer') setView('tool-jargon');
-        window.scrollTo(0,0);
-    };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f0f0f0]"><div className="animate-spin"><Icon name="loader" size={48} /></div></div>;
 
     return (
         <div className="min-h-screen flex flex-col">
-            <Header setView={setView} currentView={view} />
+            <Header />
             <main className="flex-1">
-                {view === 'home' && (
-                    <>
-                        <SEO title="Home" />
-                        <Hero setView={setView} />
-                        <section className="max-w-6xl mx-auto px-4 py-16">
-                            <div className="flex justify-between items-end mb-12 border-b-2 border-black pb-4"><h2 className="text-4xl font-black uppercase">Recent Logs</h2><button onClick={() => setView('blog')} className="font-mono font-bold underline decoration-2">View All</button></div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">{posts.slice(0, 3).map(post => <BlogCard key={post._id} post={post} onClick={handlePostClick} />)}</div>
-                        </section>
-                        <section className="bg-black text-white py-16 px-4 border-y-4 border-black">
-                            <div className="max-w-6xl mx-auto">
-                                <h2 className="text-4xl font-black uppercase mb-12 text-center text-[#FEC43D]">Lab Experiments</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">{LAB_ITEMS.map(item => <LabCard key={item.id} item={item} onLaunch={handleLaunchTool} />)}</div>
-                            </div>
-                        </section>
-                    </>
-                )}
-                {view === 'blog' && (
-                    <div className="max-w-6xl mx-auto px-4 py-12">
-                        <SEO title="The Log" description="Thoughts, experiments, and philosophy on AI efficiency." />
-                        <h2 className="text-6xl font-black uppercase mb-12 text-center">The Log</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">{posts.map(post => <BlogCard key={post._id} post={post} onClick={handlePostClick} />)}</div>
-                    </div>
-                )}
-                {view === 'lab' && (
-                    <div className="max-w-6xl mx-auto px-4 py-12">
-                        <SEO title="The Lab" description="Free AI tools to help you do more with less." />
-                        <h2 className="text-6xl font-black uppercase mb-12 text-center">The Lab</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">{LAB_ITEMS.map(item => <LabCard key={item.id} item={item} onLaunch={handleLaunchTool} />)}</div>
-                    </div>
-                )}
-                {view === 'tool-headline' && <HeadlineGenerator onBack={() => setView('lab')} />}
-                {view === 'tool-alt-text' && <AltTextFixer onBack={() => setView('lab')} />}
-                {view === 'tool-jargon' && <JargonDestroyer onBack={() => setView('lab')} />}
-                {view === 'post' && selectedPost && (
-                    <article className="max-w-3xl mx-auto px-4 py-12">
-                        <SEO title={selectedPost.title} description={selectedPost.excerpt} image={selectedPost.mainImage ? urlFor(selectedPost.mainImage).width(1200).url() : null} />
-                        <button onClick={() => setView('blog')} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Log</button>
-                        <div className="w-full aspect-video bg-gray-200 border-2 border-black mb-8 overflow-hidden rounded-none">
-                            {selectedPost.mainImage && <img src={urlFor(selectedPost.mainImage).width(1200).url()} className="w-full h-full object-cover" alt={selectedPost.title} />}
-                        </div>
-                        <div className="flex items-center gap-4 mb-6 font-mono text-sm"><span className="px-3 py-1 border-2 border-black font-bold bg-yellow-300">Log</span><span className="text-gray-500">{selectedPost.publishedAt ? new Date(selectedPost.publishedAt).toLocaleDateString() : 'Draft'}</span></div>
-                        <h1 className="text-4xl md:text-6xl font-black uppercase leading-none mb-8">{selectedPost.title}</h1>
-                        <div className="prose prose-lg font-serif border-l-4 border-[#FEC43D] pl-6 text-lg">
-                            <PortableText value={selectedPost.body} components={ptComponents} />
-                        </div>
-                        {/* UPDATED: Added Author Bio here */}
-                        <AuthorBio author={selectedPost.author} />
-                    </article>
-                )}
+                <Routes>
+                    <Route path="/" element={<HomePage posts={posts} />} />
+                    <Route path="/blog" element={<BlogPage posts={posts} />} />
+                    <Route path="/lab" element={<LabPage />} />
+                    <Route path="/lab/headline-generator" element={<HeadlineGenerator onBack={() => window.history.back()} />} />
+                    <Route path="/lab/alt-text" element={<AltTextFixer onBack={() => window.history.back()} />} />
+                    <Route path="/lab/jargon-destroyer" element={<JargonDestroyer onBack={() => window.history.back()} />} />
+                    <Route path="/post/:slug" element={<BlogPost />} />
+                </Routes>
             </main>
             <footer className="bg-white border-t-4 border-black py-12 mt-12">
                 <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
