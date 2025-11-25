@@ -17,7 +17,8 @@
     "@sanity/client": "^6.0.0",
     "@sanity/image-url": "^1.0.0",
     "@portabletext/react": "^3.0.0",
-    "react-helmet-async": "^2.0.0"
+    "react-helmet-async": "^2.0.0",
+    "react-router-dom": "^6.20.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
