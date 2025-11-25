@@ -3,7 +3,7 @@ import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-
 import { client, urlFor } from './client';
 import { PortableText } from '@portabletext/react';
 import { SEO } from './seo-tools/SEOTags';
-import { Newsletter } from './components/Newsletter'; // <--- NEW IMPORT
+import { Newsletter } from './components/Newsletter';
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
@@ -282,8 +282,8 @@ const Header = () => {
         <header className="border-b-4 border-black bg-white sticky top-0 z-50">
             <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
                 <Link to="/" className="flex items-center gap-2 cursor-pointer group">
-                    {/* UPDATED: Replaced 'AL' text box with logo image */}
-                    <img src="/logo.png" alt="AimLow Logo" className="h-10 w-auto object-contain" />
+                    {/* UPDATED: Changed to .svg extension */}
+                    <img src="/logo.svg" alt="AimLow Logo" className="h-10 w-auto object-contain" />
                     <h1 className="text-2xl font-black tracking-tighter uppercase">AimLow<span className="text-blue-600">.ai</span></h1>
                 </Link>
                 <nav className="hidden md:flex gap-6 font-mono font-bold text-sm">
