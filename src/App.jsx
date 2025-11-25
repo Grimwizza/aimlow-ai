@@ -38,7 +38,7 @@ const Logo = () => {
 
     return (
         <img 
-            src="/logo.svg" 
+            src="/logo.png" 
             alt="AimLow Logo" 
             className="h-10 w-auto object-contain" 
             onError={() => setError(true)} 
@@ -305,7 +305,7 @@ const Header = () => {
         <header className="border-b-4 border-black bg-white sticky top-0 z-50">
             <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
                 <Link to="/" className="flex items-center gap-2 cursor-pointer group">
-                    <Logo /> {/* Replaced Text/Image with Safety Component */}
+                    <Logo />
                     <h1 className="text-2xl font-black tracking-tighter uppercase">AimLow<span className="text-blue-600">.ai</span></h1>
                 </Link>
                 <nav className="hidden md:flex gap-6 font-mono font-bold text-sm">
