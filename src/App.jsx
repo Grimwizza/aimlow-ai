@@ -3,6 +3,7 @@ import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-
 import { client, urlFor } from './client';
 import { PortableText } from '@portabletext/react';
 import { SEO } from './seo-tools/SEOTags';
+import { Newsletter } from './components/Newsletter'; // <--- NEW IMPORT
 import { 
     Menu, X, Twitter, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
@@ -69,7 +70,7 @@ const ptComponents = {
     }
 }
 
-// --- Share Bar Component (NEW) ---
+// --- Share Bar Component ---
 const ShareBar = ({ title }) => {
     const location = useLocation();
     const currentUrl = `https://aimlow.ai${location.pathname}`;
@@ -357,7 +358,6 @@ const BlogPost = () => {
 
     useEffect(() => {
         const fetchPost = async () => {
-            // Query for the specific slug
             const query = `*[_type == "post" && slug.current == $slug][0] {
                 title, publishedAt, _createdAt, mainImage, "excerpt": pt::text(body)[0...150] + "...", body,
                 author->{name, image, bio}
@@ -452,6 +452,7 @@ function App() {
                     <Route path="/post/:slug" element={<BlogPost />} />
                 </Routes>
             </main>
+            <Newsletter />
             <footer className="bg-white border-t-4 border-black py-12 mt-12">
                 <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="text-center md:text-left"><h3 className="text-2xl font-black uppercase">AimLow<span className="text-blue-600">.ai</span></h3><p className="font-mono text-sm text-gray-500 mt-2">© 2025 Aim Low, Inc.</p></div>
