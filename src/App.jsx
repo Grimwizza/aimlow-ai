@@ -50,7 +50,6 @@ const Logo = () => {
         );
     }
 
-    // UPDATED: Changed extension to .png to support transparency
     return (
         <img 
             src="/logo.png" 
@@ -119,7 +118,6 @@ const ShareBar = ({ title }) => {
         <div className="mt-12 pt-8 border-t-2 border-gray-200">
             <p className="font-mono text-xs font-bold text-gray-500 uppercase mb-4">Share this Log</p>
             <div className="flex gap-4">
-                {/* Updated to X.com */}
                 <a href={`https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black text-white px-4 py-2 font-bold hover:bg-blue-400 hover:text-black transition-colors">
                     <Icon name="twitter" size={18} /> <span className="text-sm">Post</span>
                 </a>
@@ -495,7 +493,14 @@ function App() {
             <footer className="bg-white border-t-4 border-black py-12 mt-12">
                 <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="text-center md:text-left"><h3 className="text-2xl font-black uppercase">AimLow<span className="text-blue-600">.ai</span></h3><p className="font-mono text-sm text-gray-500 mt-2">© 2025 Aim Low, Inc.</p></div>
-                    <div className="flex gap-4"><a href="https://x.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a><a href="#" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="github" size={20} /></a><a href="mailto:do_more@aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a></div>
+                    <div className="flex gap-4">
+                        <a href="https://x.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a>
+                        {/* Facebook */}
+                        <a href="https://facebook.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors">
+                            <Icon name="facebook" size={20} />
+                        </a>
+                        <a href="mailto:do_more@aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a>
+                    </div>
                     <a href="https://aimlow.sanity.studio" target="_blank" rel="noopener noreferrer" className="font-mono text-xs font-bold text-gray-400 hover:text-black">ADMIN LOGIN</a>
                 </div>
             </footer>
