@@ -5,14 +5,28 @@ import { PortableText } from '@portabletext/react';
 import { SEO } from './seo-tools/SEOTags';
 import { Newsletter } from './components/Newsletter';
 import { 
-    Menu, X, Twitter, Github, Mail, 
+    Menu, X, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
     Loader2, Sparkles, Copy, Check, Upload, Image as ImageIcon, Zap, Share2, Facebook, Linkedin
 } from 'lucide-react';
 
+// --- Custom X Logo Component ---
+const XLogo = ({ size = 24, color = "currentColor", className }) => (
+    <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        width={size} 
+        height={size} 
+        viewBox="0 0 24 24" 
+        fill={color} 
+        className={className}
+    >
+        <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
+    </svg>
+);
+
 // --- Icon Mapping ---
 const iconMap = {
-    menu: Menu, x: X, twitter: Twitter, github: Github, mail: Mail,
+    menu: Menu, x: X, twitter: XLogo, github: Github, mail: Mail,
     'flask-conical': FlaskConical, 'arrow-left': ArrowLeft, 'arrow-right': ArrowRight,
     loader: Loader2, sparkles: Sparkles, copy: Copy, check: Check, 
     upload: Upload, image: ImageIcon, zap: Zap, share: Share2, facebook: Facebook, linkedin: Linkedin
@@ -36,9 +50,10 @@ const Logo = () => {
         );
     }
 
+    // UPDATED: Changed extension to .png to support transparency
     return (
         <img 
-            src="/logo.jpg" 
+            src="/logo.png" 
             alt="AimLow Logo" 
             className="h-10 w-auto object-contain" 
             onError={() => setError(true)} 
@@ -104,7 +119,8 @@ const ShareBar = ({ title }) => {
         <div className="mt-12 pt-8 border-t-2 border-gray-200">
             <p className="font-mono text-xs font-bold text-gray-500 uppercase mb-4">Share this Log</p>
             <div className="flex gap-4">
-                <a href={`https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black text-white px-4 py-2 font-bold hover:bg-blue-400 hover:text-black transition-colors">
+                {/* Updated to X.com */}
+                <a href={`https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black text-white px-4 py-2 font-bold hover:bg-blue-400 hover:text-black transition-colors">
                     <Icon name="twitter" size={18} /> <span className="text-sm">Post</span>
                 </a>
                 <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black text-white px-4 py-2 font-bold hover:bg-blue-700 hover:text-white transition-colors">
@@ -479,7 +495,7 @@ function App() {
             <footer className="bg-white border-t-4 border-black py-12 mt-12">
                 <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="text-center md:text-left"><h3 className="text-2xl font-black uppercase">AimLow<span className="text-blue-600">.ai</span></h3><p className="font-mono text-sm text-gray-500 mt-2">© 2025 Aim Low, Inc.</p></div>
-                    <div className="flex gap-4"><a href="#" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a><a href="#" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="github" size={20} /></a><a href="mailto:do_more@aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a></div>
+                    <div className="flex gap-4"><a href="https://x.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a><a href="#" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="github" size={20} /></a><a href="mailto:do_more@aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a></div>
                     <a href="https://aimlow.sanity.studio" target="_blank" rel="noopener noreferrer" className="font-mono text-xs font-bold text-gray-400 hover:text-black">ADMIN LOGIN</a>
                 </div>
             </footer>
