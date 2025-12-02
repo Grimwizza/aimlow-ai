@@ -4,6 +4,5 @@ export default defineCliConfig({
   api: {
     projectId: 'bjw9onfc',
     dataset: 'production'
-  },
-  autoUpdates: true,
+  }
 })
