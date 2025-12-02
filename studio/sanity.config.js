@@ -8,7 +8,7 @@ export default defineConfig({
   name: 'default',
   title: 'aimlow',
 
-  projectId: 'nzlqoeynjdpokhw7g1bogwf1',
+  projectId: 'bjw9onfc',
   dataset: 'production',
 
   plugins: [
