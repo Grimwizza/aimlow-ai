@@ -2,19 +2,19 @@ import {defineConfig} from 'sanity'
 import {structureTool} from 'sanity/structure'
 import {visionTool} from '@sanity/vision'
 import {schemaTypes} from './schemaTypes'
-import {codeInput} from '@sanity/code-input' // <--- 1. ADD THIS IMPORT
+import {codeInput} from '@sanity/code-input'
 
 export default defineConfig({
   name: 'default',
   title: 'aimlow',
 
-  projectId: '...', // Keep your ID
+  projectId: 'nzlqoeynjdpokhw7g1bogwf1',
   dataset: 'production',
 
   plugins: [
-    structureTool(), 
-    visionTool(), 
-    codeInput() // <--- 2. ADD THIS FUNCTION CALL
+    structureTool(),
+    visionTool(),
+    codeInput()
   ],
 
   schema: {
