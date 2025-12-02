@@ -1,9 +1,9 @@
-// We removed the import that was causing the crash.
-// This is the raw configuration object.
+import {defineCliConfig} from 'sanity/cli'
 
-export default {
+export default defineCliConfig({
   api: {
-    projectId: 'bjw9onfc', // Put the short ID here (e.g. 'pt2j83k1')
+    projectId: 'bjw9onfc',
     dataset: 'production'
-  }
-}
+  },
+  autoUpdates: true,
+})
