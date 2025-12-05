@@ -1,84 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { ExternalLink, Newspaper, ArrowRight, ChevronDown, Search, X, Filter } from 'lucide-react';
+import { ExternalLink, Newspaper, ArrowRight, ChevronDown, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-// --- Configuration ---
+// --- Source Logo Mapping (Using Google Favicon Service for reliability) ---
 const SOURCE_LOGOS = {
-    'TechCrunch': 'https://upload.wikimedia.org/wikipedia/commons/b/b9/TechCrunch_logo.svg',
-    'VentureBeat': 'https://upload.wikimedia.org/wikipedia/commons/d/d8/VentureBeat_logo.svg',
-    'The Verge': 'https://upload.wikimedia.org/wikipedia/commons/a/a2/The_Verge_logo.svg',
-    'Wired': 'https://upload.wikimedia.org/wikipedia/commons/9/95/Wired_logo.svg',
-    'Ars Technica': 'https://upload.wikimedia.org/wikipedia/commons/3/3d/Ars_Technica_logo.svg',
-    'r/Artificial': 'https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png',
-    'MIT Tech Review': 'https://upload.wikimedia.org/wikipedia/commons/8/8a/MIT_Technology_Review_logo.svg',
-    'Engadget': 'https://upload.wikimedia.org/wikipedia/commons/1/1e/Engadget_logo.svg',
+    'TechCrunch': 'https://www.google.com/s2/favicons?domain=techcrunch.com&sz=128',
+    'VentureBeat': 'https://www.google.com/s2/favicons?domain=venturebeat.com&sz=128',
+    'The Verge': 'https://www.google.com/s2/favicons?domain=theverge.com&sz=128',
+    'Wired': 'https://www.google.com/s2/favicons?domain=wired.com&sz=128',
+    'Ars Technica': 'https://www.google.com/s2/favicons?domain=arstechnica.com&sz=128',
+    'r/Artificial': 'https://www.google.com/s2/favicons?domain=reddit.com&sz=128',
+    'MIT Tech Review': 'https://www.google.com/s2/favicons?domain=technologyreview.com&sz=128',
+    'Engadget': 'https://www.google.com/s2/favicons?domain=engadget.com&sz=128',
     'ScienceDaily': 'https://www.google.com/s2/favicons?domain=sciencedaily.com&sz=128',
-    'AI News': 'https://www.artificialintelligence-news.com/wp-content/themes/artificialintelligence-news/images/logo.png'
+    'AI News': 'https://www.google.com/s2/favicons?domain=artificialintelligence-news.com&sz=128'
 };
-
-const CATEGORIES = ["All", "LLMs", "Creative AI", "Robotics", "Hardware", "Regulation", "Business"];
-
-// --- Helper: Relative Time ---
-const timeAgo = (dateString) => {
-    const date = new Date(dateString);
-    const seconds = Math.floor((new Date() - date) / 1000);
-    
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + "y ago";
-    
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + "mo ago";
-    
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + "d ago";
-    
-    interval = seconds / 3600;
-    if (interval >= 1) return Math.floor(interval) + "h ago";
-    
-    interval = seconds / 60;
-    if (interval >= 1) return Math.floor(interval) + "m ago";
-    
-    return "Just now";
-};
-
-// --- Sub-Component: Skeleton Loader ---
-// Displays pulsing boxes while data loads (Industry Standard)
-const NewsSkeleton = () => (
-    <div className="h-full border-3 border-black bg-white flex flex-col brutal-shadow">
-        <div className="h-48 w-full bg-gray-200 animate-pulse border-b-3 border-black" />
-        <div className="p-5 flex flex-col flex-1 space-y-4">
-            <div className="h-6 bg-gray-200 animate-pulse w-3/4" />
-            <div className="h-4 bg-gray-200 animate-pulse w-full" />
-            <div className="h-4 bg-gray-200 animate-pulse w-1/2" />
-            <div className="mt-auto flex justify-between">
-                <div className="h-3 bg-gray-200 animate-pulse w-16" />
-                <div className="h-3 bg-gray-200 animate-pulse w-16" />
-            </div>
-        </div>
-    </div>
-);
 
 export const NewsFeed = ({ limit, showAllLink = false }) => {
     const [articles, setArticles] = useState([]);
     const [visibleCount, setVisibleCount] = useState(limit || 9);
     const [loading, setLoading] = useState(true);
     
-    // Filters & Search
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
-    const [activeSource, setActiveSource] = useState('All Sources');
-    
-    // Read State (LocalStorage)
-    const [readArticles, setReadArticles] = useState(new Set());
+
+    const CATEGORIES = ["All", "LLMs", "Creative AI", "Robotics", "Hardware", "Regulation", "Business"];
 
     useEffect(() => {
-        // 1. Load "Read" history from local storage
-        const savedRead = localStorage.getItem('aimlow_read');
-        if (savedRead) {
-            setReadArticles(new Set(JSON.parse(savedRead)));
-        }
-
-        // 2. Fetch News
         const fetchNews = async () => {
             try {
                 const res = await fetch('/api/news');
@@ -91,30 +39,18 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
             } catch (error) {
                 console.warn("News feed unavailable:", error);
             } finally {
-                // Keep loading state for at least 500ms to prevent jittery layout
-                setTimeout(() => setLoading(false), 500);
+                setLoading(false);
             }
         };
         fetchNews();
     }, []);
-
-    const markAsRead = (link) => {
-        const newRead = new Set(readArticles);
-        newRead.add(link);
-        setReadArticles(newRead);
-        localStorage.setItem('aimlow_read', JSON.stringify([...newRead]));
-    };
 
     // --- FILTERING LOGIC ---
     const getFilteredArticles = () => {
         return articles.filter(article => {
             const searchContent = (article.title + " " + article.summary).toLowerCase();
             const matchesSearch = searchContent.includes(searchQuery.toLowerCase());
-            
-            // Source Filter
-            const matchesSource = activeSource === 'All Sources' || article.source === activeSource;
 
-            // Category Filter
             let matchesCategory = true;
             if (activeCategory !== 'All') {
                 const content = (article.title + " " + article.summary).toLowerCase();
@@ -139,7 +75,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                 }
             }
 
-            return matchesSearch && matchesCategory && matchesSource;
+            return matchesSearch && matchesCategory;
         });
     };
 
@@ -147,13 +83,19 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     const currentLimit = limit ? limit : visibleCount;
     const visibleArticles = filteredList.slice(0, currentLimit);
     const hasMore = !limit && visibleCount < filteredList.length;
+
+    if (loading) return (
+        <div className="p-8 text-center border-t-4 border-black bg-gray-50">
+            <p className="font-mono font-bold text-gray-400 animate-pulse">Accessing Global Intel...</p>
+        </div>
+    );
+
     const showControls = !limit;
 
     return (
         <section className="bg-white border-t-4 border-black py-16 px-4">
             <div className="max-w-6xl mx-auto">
                 
-                {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 border-b-2 border-black pb-4 gap-4">
                     <div className="flex items-center gap-3">
                         <Newspaper size={32} />
@@ -166,12 +108,9 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                     )}
                 </div>
 
-                {/* --- CONTROLS (Feed Page Only) --- */}
                 {showControls && (
-                    <div className="mb-12 space-y-6">
-                        {/* Row 1: Search & Source Filter */}
-                        <div className="flex flex-col md:flex-row gap-4">
-                            {/* Search */}
+                    <div className="mb-12">
+                        <div className="flex gap-2 mb-6">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-3 text-gray-400" size={20} />
                                 <input 
@@ -187,26 +126,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                     </button>
                                 )}
                             </div>
-
-                            {/* Source Dropdown (Neo-Brutalist Style) */}
-                            <div className="relative min-w-[200px]">
-                                <select 
-                                    value={activeSource}
-                                    onChange={(e) => { setActiveSource(e.target.value); setVisibleCount(9); }}
-                                    className="w-full h-full appearance-none border-2 border-black bg-white pl-4 pr-10 py-3 font-bold text-lg focus:outline-none focus:bg-yellow-50 cursor-pointer"
-                                >
-                                    <option value="All Sources">All Sources</option>
-                                    {Object.keys(SOURCE_LOGOS).map(source => (
-                                        <option key={source} value={source}>{source}</option>
-                                    ))}
-                                </select>
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                                    <Filter size={20} />
-                                </div>
-                            </div>
                         </div>
-
-                        {/* Row 2: Topic Chips */}
                         <div className="flex flex-wrap gap-3">
                             {CATEGORIES.map(cat => (
                                 <button
@@ -225,22 +145,20 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                     </div>
                 )}
                 
-                {/* --- GRID (With Skeleton Loading) --- */}
-                {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {/* Show 6 skeletons while loading */}
-                        {[...Array(6)].map((_, i) => <NewsSkeleton key={i} />)}
-                    </div>
-                ) : visibleArticles.length > 0 ? (
+                {visibleArticles.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {visibleArticles.map((article, idx) => {
+                            // 1. Check if we have a specific logo for this source
                             const sourceFallback = SOURCE_LOGOS[article.source] || '/logo.jpg';
-                            const displayImage = (!article.image || article.image.includes('aimlow.ai/logo.jpg')) 
-                                ? sourceFallback 
-                                : article.image;
                             
-                            // Check if Read
-                            const isRead = readArticles.has(article.link);
+                            // 2. Logic: Use the article image IF it exists AND isn't the default aimlow fallback.
+                            //    OTHERWISE, use the Source Logo.
+                            const displayImage = (article.image && !article.image.includes('aimlow.ai/logo.jpg'))
+                                ? article.image
+                                : sourceFallback;
+
+                            // 3. Styling: If we are showing a logo, pad it (contain). If real photo, cover it.
+                            const isLogo = displayImage === sourceFallback;
 
                             return (
                                 <a 
@@ -248,8 +166,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                     href={article.link} 
                                     target="_blank" 
                                     rel="noopener noreferrer"
-                                    onClick={() => markAsRead(article.link)}
-                                    className={`group block h-full transition-opacity duration-300 ${isRead ? 'opacity-60 grayscale' : 'opacity-100'}`}
+                                    className="group block h-full"
                                 >
                                     <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow relative">
                                         <div className="absolute top-0 left-0 bg-[#FEC43D] border-b-2 border-r-2 border-black px-3 py-1 font-mono text-xs font-bold z-20 uppercase">
@@ -260,10 +177,11 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                             <img 
                                                 src={displayImage} 
                                                 alt="" 
-                                                className={`w-full h-full ${displayImage === sourceFallback ? 'object-contain p-8' : 'object-cover'}`}
+                                                className={`w-full h-full ${isLogo ? 'object-contain p-10' : 'object-cover'}`}
                                                 onError={(e) => {
+                                                    // If even the specific logo fails, fall back to AimLow logo
                                                     e.target.onerror = null; 
-                                                    e.target.src = sourceFallback; 
+                                                    e.target.src = '/logo.jpg'; 
                                                     e.target.className = "w-full h-full object-contain p-8 bg-gray-100";
                                                 }} 
                                             />
@@ -277,8 +195,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                                 {article.summary}
                                             </p>
                                             <div className="flex items-center justify-between mt-auto font-mono text-xs text-gray-400">
-                                                {/* Relative Time Upgrade */}
-                                                <span>{timeAgo(article.pubDate)}</span>
+                                                <span>{new Date(article.pubDate).toLocaleDateString()}</span>
                                                 <span className="flex items-center gap-1 font-bold text-black uppercase group-hover:text-blue-600">
                                                     Read <ExternalLink size={14} />
                                                 </span>
@@ -293,7 +210,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                     <div className="py-20 text-center border-2 border-dashed border-gray-300 bg-gray-50">
                         <p className="font-mono text-gray-400 font-bold">No intel found matching these filters.</p>
                         <button 
-                            onClick={() => { setSearchQuery(''); setActiveCategory('All'); setActiveSource('All Sources'); }}
+                            onClick={() => { setSearchQuery(''); setActiveCategory('All'); }}
                             className="mt-4 text-blue-600 underline font-bold"
                         >
                             Clear Filters
