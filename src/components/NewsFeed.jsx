@@ -26,7 +26,7 @@ export const NewsFeed = () => {
 
     if (loading) return (
         <div className="p-8 text-center border-t-4 border-black bg-gray-50">
-            <p className="font-mono font-bold text-gray-400 animate-pulse">Connecting to Intel Feed...</p>
+            <p className="font-mono font-bold text-gray-400 animate-pulse">Aggregating Intel...</p>
         </div>
     );
 
@@ -37,7 +37,7 @@ export const NewsFeed = () => {
             <div className="max-w-6xl mx-auto">
                 <div className="flex items-center gap-3 mb-8 border-b-2 border-black pb-4">
                     <Newspaper size={32} />
-                    <h2 className="text-4xl font-black uppercase">Intel Feed</h2>
+                    <h2 className="text-4xl font-black uppercase">Global Intel Feed</h2>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -49,7 +49,12 @@ export const NewsFeed = () => {
                             rel="noopener noreferrer"
                             className="group block h-full"
                         >
-                            <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow">
+                            <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow relative">
+                                {/* Source Badge */}
+                                <div className="absolute top-0 left-0 bg-[#FEC43D] border-b-2 border-r-2 border-black px-3 py-1 font-mono text-xs font-bold z-20 uppercase">
+                                    {article.source}
+                                </div>
+
                                 <div className="h-48 w-full overflow-hidden border-b-3 border-black relative bg-gray-100">
                                     <img 
                                         src={article.image} 
@@ -61,9 +66,6 @@ export const NewsFeed = () => {
                                             e.target.className = "w-full h-full object-contain p-4 bg-gray-100";
                                         }} 
                                     />
-                                    <div className="absolute top-2 right-2 bg-black text-white text-xs font-mono px-2 py-1 z-10">
-                                        {new Date(article.pubDate).toLocaleDateString()}
-                                    </div>
                                 </div>
                                 
                                 <div className="p-5 flex flex-col flex-1">
@@ -73,8 +75,11 @@ export const NewsFeed = () => {
                                     <p className="font-serif text-sm text-gray-600 mb-4 flex-1 line-clamp-3">
                                         {article.summary}
                                     </p>
-                                    <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase mt-auto">
-                                        Read Source <ExternalLink size={14} />
+                                    <div className="flex items-center justify-between mt-auto font-mono text-xs text-gray-400">
+                                        <span>{new Date(article.pubDate).toLocaleDateString()}</span>
+                                        <span className="flex items-center gap-1 font-bold text-black uppercase group-hover:text-blue-600">
+                                            Read <ExternalLink size={14} />
+                                        </span>
                                     </div>
                                 </div>
                             </article>
