@@ -38,7 +38,6 @@ export default async function handler(req, res) {
         );
         
         const feed = await Promise.race([feedPromise, timeoutPromise]);
-        console.log(`Debug: Fetched ${source.name}`);
         return feed.items.map(item => ({ ...item, sourceName: source.name }));
       } catch (e) {
         console.error(`Debug: Failed to fetch ${source.name}:`, e.message);
@@ -47,12 +46,10 @@ export default async function handler(req, res) {
     });
 
     const results = await Promise.all(feedPromises);
+    const allArticles = results.flat();
 
     // --- DIVERSITY ALGORITHM ---
-    // Instead of flattening everything immediately, we cap each source first.
-    // This prevents high-volume feeds (like VentureBeat) from drowning out slower ones (like Wired).
     const diverseArticles = results.map(sourceArticles => {
-        // Take only the top 3 freshest articles from this specific source
         return sourceArticles.slice(0, 3);
     }).flat();
 
@@ -60,10 +57,8 @@ export default async function handler(req, res) {
        return res.status(200).json({ articles: [] });
     }
 
-    // Now sort this curated, diverse pool by date
     diverseArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
-    // Take the top 9 from the diverse pool
     const processedArticles = diverseArticles.slice(0, 9).map(item => {
       let imageUrl = null;
 
@@ -79,7 +74,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // 2. Check media:thumbnail
+      // 2. Check media:thumbnail (ScienceDaily often uses this)
       if (!imageUrl && item.mediaThumbnail) {
         const thumbItem = Array.isArray(item.mediaThumbnail)
             ? item.mediaThumbnail[0]
@@ -105,12 +100,14 @@ export default async function handler(req, res) {
           }
       }
 
-      // 5. Fallback to Logo
+      // 5. Fallback & Protocol Fix
       if (!imageUrl) {
         imageUrl = 'https://aimlow.ai/logo.jpg'; 
+      } else {
+        // Force HTTPS to prevent mixed content blocking
+        imageUrl = imageUrl.replace(/^http:\/\//i, 'https://');
       }
       
-      // Clean Text
       const rawDesc = item.contentSnippet || item.description || "";
       const summary = rawDesc.replace(/<[^>]*>?/gm, '') 
                              .replace(/\n/g, ' ') 
