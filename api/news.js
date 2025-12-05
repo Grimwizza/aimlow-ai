@@ -1,64 +1,56 @@
 import Parser from 'rss-parser';
 
 export default async function handler(req, res) {
-  // 1. Cache aggressively (1 hour) to prevent hitting rate limits
   res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
 
   const parser = new Parser({
-    // 2. Add Headers so TechCrunch doesn't block us
     headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     },
     customFields: {
       item: [
         ['media:content', 'mediaContent'], 
-        ['enclosure', 'enclosure']
+        ['content:encoded', 'contentEncoded'],
       ]
     }
   });
   
   try {
-    // Use a timeout promise to fail fast if the feed is slow (5 seconds)
-    const feedPromise = parser.parseURL('https://techcrunch.com/category/artificial-intelligence/feed/');
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000));
-
-    const feed = await Promise.race([feedPromise, timeoutPromise]);
+    const feed = await parser.parseURL('https://techcrunch.com/category/artificial-intelligence/feed/');
 
     const articles = feed.items.slice(0, 6).map(item => {
-      // --- Image Extraction Logic ---
       let imageUrl = null;
 
-      // Priority 1: Media Content (Standard for TechCrunch)
+      // STRATEGY 1: TechCrunch Standard "media:content"
+      // They often nest it, or provide multiple sizes. We grab the first/largest.
       if (item.mediaContent) {
-          // Sometimes it's an array, sometimes an object
-          if (Array.isArray(item.mediaContent)) {
-              imageUrl = item.mediaContent[0]?.$.url;
-          } else if (item.mediaContent.$ && item.mediaContent.$.url) {
-              imageUrl = item.mediaContent.$.url;
-          }
+        if (Array.isArray(item.mediaContent)) {
+           // Look for the one with 'url' property
+           const media = item.mediaContent.find(m => m.$ && m.$.url);
+           if (media) imageUrl = media.$.url;
+        } else if (item.mediaContent.$ && item.mediaContent.$.url) {
+           imageUrl = item.mediaContent.$.url;
+        }
       }
 
-      // Priority 2: Enclosure
-      if (!imageUrl && item.enclosure) {
-          imageUrl = item.enclosure.url;
+      // STRATEGY 2: aggressive HTML scraping
+      // If strategy 1 fails, look for the first <img src="..."> in the full content
+      if (!imageUrl && item.contentEncoded) {
+        // Find the first http/https string ending in jpg/png/webp inside quotes
+        const match = item.contentEncoded.match(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp))["']/i);
+        if (match) {
+          imageUrl = match[1];
+        }
       }
 
-      // Priority 3: Regex Scrape
-      if (!imageUrl && item['content:encoded']) {
-          const imgMatch = item['content:encoded'].match(/src="([^"]+)"/);
-          if (imgMatch) {
-            imageUrl = imgMatch[1];
-          }
-      }
-
-      // Fallback
+      // Ensure we have a valid fallback if logic returned undefined
       if (!imageUrl) {
-        imageUrl = 'https://aimlow.ai/logo.jpg'; // Use your logo as fallback
+        imageUrl = 'https://aimlow.ai/logo.jpg'; 
       }
       
-      // Clean Text
+      // Clean up the description text
       const cleanDesc = item.contentSnippet || item.description || "";
-      const summary = cleanDesc.replace(/<[^>]*>?/gm, '').substring(0, 120) + "...";
+      const summary = cleanDesc.replace(/<[^>]*>?/gm, '').substring(0, 140) + "...";
 
       return {
         title: item.title,
@@ -73,7 +65,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("RSS Error:", error.message);
-    // Return empty array instead of error so the frontend doesn't crash
     return res.status(200).json({ articles: [] }); 
   }
 }

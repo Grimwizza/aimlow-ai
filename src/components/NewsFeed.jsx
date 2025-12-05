@@ -9,7 +9,6 @@ export const NewsFeed = () => {
         const fetchNews = async () => {
             try {
                 const res = await fetch('/api/news');
-                // Fail gracefully if non-200 response
                 if (!res.ok) throw new Error('Failed');
                 
                 const data = await res.json();
@@ -25,7 +24,6 @@ export const NewsFeed = () => {
         fetchNews();
     }, []);
 
-    // If loading takes too long, or fails, just show nothing (don't block the site)
     if (loading) return (
         <div className="p-8 text-center border-t-4 border-black bg-gray-50">
             <p className="font-mono font-bold text-gray-400 animate-pulse">Connecting to Intel Feed...</p>
@@ -59,10 +57,13 @@ export const NewsFeed = () => {
                                         className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
                                         onError={(e) => {
                                             e.target.onerror = null; 
-                                            e.target.src = '/logo.jpg'; // Safe local fallback
+                                            e.target.src = '/logo.jpg'; 
                                             e.target.className = "w-full h-full object-contain p-4 bg-gray-100";
                                         }} 
                                     />
+                                    <div className="absolute top-2 right-2 bg-black text-white text-xs font-mono px-2 py-1 z-10">
+                                        {new Date(article.pubDate).toLocaleDateString()}
+                                    </div>
                                 </div>
                                 
                                 <div className="p-5 flex flex-col flex-1">
