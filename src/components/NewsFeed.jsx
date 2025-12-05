@@ -12,7 +12,8 @@ const SOURCE_LOGOS = {
     'r/Artificial': 'https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png',
     'MIT Tech Review': 'https://upload.wikimedia.org/wikipedia/commons/8/8a/MIT_Technology_Review_logo.svg',
     'Engadget': 'https://upload.wikimedia.org/wikipedia/commons/1/1e/Engadget_logo.svg',
-    'ScienceDaily': 'https://www.sciencedaily.com/images/logos/sciencedaily-logo-200px.png',
+    // UPDATED: Use a reliable icon service for ScienceDaily since they block direct logo links
+    'ScienceDaily': 'https://www.google.com/s2/favicons?domain=sciencedaily.com&sz=128',
     'AI News': 'https://www.artificialintelligence-news.com/wp-content/themes/artificialintelligence-news/images/logo.png'
 };
 
@@ -21,7 +22,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     const [visibleCount, setVisibleCount] = useState(limit || 9);
     const [loading, setLoading] = useState(true);
     
-    // Search & Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
 
@@ -46,7 +46,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
         fetchNews();
     }, []);
 
-    // --- FILTERING LOGIC ---
     const getFilteredArticles = () => {
         return articles.filter(article => {
             const searchContent = (article.title + " " + article.summary).toLowerCase();
@@ -84,7 +83,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
         <section className="bg-white border-t-4 border-black py-16 px-4">
             <div className="max-w-6xl mx-auto">
                 
-                {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 border-b-2 border-black pb-4 gap-4">
                     <div className="flex items-center gap-3">
                         <Newspaper size={32} />
@@ -97,7 +95,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                     )}
                 </div>
 
-                {/* --- SEARCH & FILTERS (Feed Page Only) --- */}
                 {showControls && (
                     <div className="mb-12">
                         <div className="flex gap-2 mb-6">
@@ -135,7 +132,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                     </div>
                 )}
                 
-                {/* Articles Grid */}
                 {visibleArticles.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {visibleArticles.map((article, idx) => {
@@ -160,7 +156,8 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                         <div className="h-48 w-full overflow-hidden border-b-3 border-black relative bg-gray-100 flex items-center justify-center">
                                             <img 
                                                 src={displayImage} 
-                                                alt={article.title} 
+                                                // UPDATED: Empty alt tag prevents the text flash during loading/error
+                                                alt="" 
                                                 className={`w-full h-full ${displayImage === sourceFallback ? 'object-contain p-8' : 'object-cover'}`}
                                                 onError={(e) => {
                                                     e.target.onerror = null; 
