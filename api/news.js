@@ -5,15 +5,16 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
 
   const parser = new Parser({
-    timeout: 3000, // 3s timeout per feed
+    timeout: 3000,
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      // Reddit requires a descriptive User-Agent or it blocks the request
+      'User-Agent': 'AimLowBot/1.0 (http://aimlow.ai;)',
     },
     customFields: {
       item: [
         ['media:content', 'mediaContent'], 
         ['media:thumbnail', 'mediaThumbnail'],
-        ['media:group', 'mediaGroup'], // NEW: Unlock CNBC nested images
+        ['media:group', 'mediaGroup'],
         ['content:encoded', 'contentEncoded'],
         ['description', 'description']
       ]
@@ -25,7 +26,8 @@ export default async function handler(req, res) {
     { name: 'The Verge', url: 'https://www.theverge.com/rss/artificial-intelligence/index.xml' }, 
     { name: 'Wired', url: 'https://www.wired.com/feed/tag/ai/latest/rss' },
     { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab' },
-    { name: 'CNBC AI', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664' },
+    // REPLACED CNBC with Reddit (Top of Day)
+    { name: 'r/Artificial', url: 'https://www.reddit.com/r/artificial/top/.rss?t=day' },
     { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/topic/artificial-intelligence/' }
   ];
   
@@ -71,10 +73,8 @@ export default async function handler(req, res) {
         return null;
       };
 
-      // 1. Check media:group (CNBC Special)
+      // 1. Check media:group (CNBC/others)
       if (item.mediaGroup) {
-          // CNBC often nests media:content inside media:group
-          // rss-parser might put it in 'media:content' property of mediaGroup
           if (item.mediaGroup['media:content']) {
              const mgContent = item.mediaGroup['media:content'];
              const mediaItem = Array.isArray(mgContent) ? mgContent[0] : mgContent;
@@ -103,17 +103,16 @@ export default async function handler(req, res) {
           imageUrl = item.enclosure.url;
       }
 
-      // 5. RegEx Fallback (Relaxed for CNBC query params)
+      // 5. RegEx Fallback
       if (!imageUrl) {
           const content = (item.contentEncoded || "") + (item.description || "");
-          // Look for <img src="..."> regardless of extension, as long as it's http(s)
           const match = content.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
           if (match) {
             imageUrl = match[1];
           }
       }
 
-      // 6. Final Fallback & Cleanup
+      // 6. Final Fallback
       if (!imageUrl || typeof imageUrl !== 'string') {
         imageUrl = 'https://aimlow.ai/logo.jpg'; 
       } else {
