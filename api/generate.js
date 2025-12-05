@@ -5,7 +5,6 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req, res) {
-  // 1. Security Check
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -13,7 +12,7 @@ export default async function handler(req, res) {
   const { type, payload } = req.body;
 
   try {
-    // --- TOOL 1: HEADLINE GENERATOR ---
+    // TOOL 1: HEADLINE GENERATOR
     if (type === 'headline') {
       const { topic } = payload;
       const completion = await openai.chat.completions.create({
@@ -32,7 +31,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ result: JSON.parse(content) });
     }
 
-    // --- TOOL 2: ALT-TEXT FIXER (VISION) ---
+    // TOOL 2: ALT-TEXT FIXER
     if (type === 'alt-text') {
       const { image } = payload; 
       const completion = await openai.chat.completions.create({
@@ -52,7 +51,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ result: completion.choices[0].message.content });
     }
 
-    // --- TOOL 3: JARGON DESTROYER (NEW) ---
+    // TOOL 3: JARGON DESTROYER
     if (type === 'jargon-destroyer') {
       const { text } = payload;
       const completion = await openai.chat.completions.create({
