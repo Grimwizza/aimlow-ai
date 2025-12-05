@@ -22,16 +22,17 @@ export default async function handler(req) {
     // Parse the incoming JSON body
     const { type, payload } = await req.json();
 
-    // TOOL 1: HEADLINE GENERATOR (OPTIMIZED)
+    // TOOL 1: HEADLINE GENERATOR (OPTIMIZED & CREATIVE)
     if (type === 'headline') {
       const { topic } = payload;
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
+        temperature: 0.85, // Increase creativity/randomness (Default is usually lower)
         messages: [
           {
             role: "system",
-            // UPDATED PROMPT: Asking for plain text lines instead of JSON is faster and safer
-            content: "You are a viral marketing expert. Return exactly 3 clickbait/viral headlines. Separate each headline with a new line. Do not use numbers, bullet points, or quotes. Just the raw text."
+            // UPDATED PROMPT: We now force 3 distinct psychological angles to ensure variety
+            content: "You are a viral marketing expert. Return exactly 3 distinct clickbait/viral headlines. They must use different angles: 1. A 'Negative/Warning' angle. 2. A 'How-To/Benefit' angle. 3. A 'Bizarre/Curiosity' angle. Separate each headline with a new line. Do not use numbers, bullet points, or quotes. Just the raw text."
           },
           { role: "user", content: `Topic: ${topic}` },
         ],
