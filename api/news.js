@@ -5,9 +5,12 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
 
   const parser = new Parser({
-    timeout: 3000,
+    // 1. INCREASED TIMEOUT: 6 seconds gives slow servers time to reply
+    timeout: 6000,
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      // 2. STEALTH MODE: Impersonate Googlebot to bypass Cloudflare blocks
+      'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+      'Accept': 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8',
     },
     customFields: {
       item: [
@@ -37,8 +40,9 @@ export default async function handler(req, res) {
     const feedPromises = SOURCES.map(async (source) => {
       try {
         const feedPromise = parser.parseURL(source.url);
+        // Match manual timeout to parser timeout
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Manual Timeout')), 3500)
+            setTimeout(() => reject(new Error('Manual Timeout')), 6500)
         );
         
         const feed = await Promise.race([feedPromise, timeoutPromise]);
@@ -51,36 +55,30 @@ export default async function handler(req, res) {
 
     const results = await Promise.all(feedPromises);
     
-    // 1. DIVERSITY: Take top 5 from each source
-    let allArticles = results.map(sourceArticles => {
+    // --- DIVERSITY ALGORITHM ---
+    const diverseArticles = results.map(sourceArticles => {
         return sourceArticles.slice(0, 5);
     }).flat();
 
-    if (allArticles.length === 0) {
-       return res.status(200).json({ articles: [] });
-    }
-
-    // 2. QUALITY SORT (The Fix)
-    // Move Reddit articles to the bottom so they are processed LAST during deduplication.
-    // If a Reddit article duplicates a Wired article, Wired (at the top) gets kept.
-    allArticles.sort((a, b) => {
+    // --- QUALITY SORT ---
+    // Deprioritize Reddit slightly to ensure major news hits top slots
+    diverseArticles.sort((a, b) => {
         const isRedditA = a.sourceName === 'r/Artificial';
         const isRedditB = b.sourceName === 'r/Artificial';
-        if (isRedditA && !isRedditB) return 1;  // A is Reddit, move it down
-        if (!isRedditA && isRedditB) return -1; // B is Reddit, move it down
+        if (isRedditA && !isRedditB) return 1;
+        if (!isRedditA && isRedditB) return -1;
         return 0;
     });
 
-    // 3. DEDUPLICATION
+    // --- DEDUPLICATION ---
     const seenUrls = new Set();
     const seenTitles = new Set();
     const uniqueArticles = [];
 
-    for (const item of allArticles) {
+    for (const item of diverseArticles) {
         const cleanUrl = item.link ? item.link.split('?')[0] : '';
         const cleanTitle = item.title ? item.title.trim().toLowerCase() : '';
 
-        // Since non-Reddit is now at the top of the list, they get added first.
         if (cleanUrl && !seenUrls.has(cleanUrl) && !seenTitles.has(cleanTitle)) {
             seenUrls.add(cleanUrl);
             seenTitles.add(cleanTitle);
@@ -88,7 +86,10 @@ export default async function handler(req, res) {
         }
     }
 
-    // 4. FINAL SORT: Time
+    if (uniqueArticles.length === 0) {
+       return res.status(200).json({ articles: [] });
+    }
+
     uniqueArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
     const processedArticles = uniqueArticles.slice(0, 60).map(item => {
