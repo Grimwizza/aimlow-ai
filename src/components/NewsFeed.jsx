@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { ExternalLink, Newspaper } from 'lucide-react';
+import { ExternalLink, Newspaper, ArrowRight, ChevronDown, Search, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-export const NewsFeed = () => {
+export const NewsFeed = ({ limit, showAllLink = false }) => {
     const [articles, setArticles] = useState([]);
+    const [visibleCount, setVisibleCount] = useState(limit || 9);
     const [loading, setLoading] = useState(true);
+    
+    // Search & Filter State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeCategory, setActiveCategory] = useState('All');
+
+    const CATEGORIES = ["All", "ChatGPT", "Gemini", "Grok", "Apple", "Regulation", "Robotics"];
 
     useEffect(() => {
         const fetchNews = async () => {
@@ -24,68 +32,189 @@ export const NewsFeed = () => {
         fetchNews();
     }, []);
 
+    // --- FILTERING LOGIC ---
+    const getFilteredArticles = () => {
+        return articles.filter(article => {
+            // 1. Search Query Match
+            const searchContent = (article.title + " " + article.summary).toLowerCase();
+            const matchesSearch = searchContent.includes(searchQuery.toLowerCase());
+
+            // 2. Category Match (Keyword based)
+            let matchesCategory = true;
+            if (activeCategory !== 'All') {
+                const content = (article.title + " " + article.summary).toLowerCase();
+                // Simple keyword mapping
+                if (activeCategory === 'ChatGPT') matchesCategory = content.includes('gpt') || content.includes('openai');
+                else if (activeCategory === 'Gemini') matchesCategory = content.includes('gemini') || content.includes('google');
+                else if (activeCategory === 'Grok') matchesCategory = content.includes('grok') || content.includes('x.ai') || content.includes('musk');
+                else if (activeCategory === 'Apple') matchesCategory = content.includes('apple') || content.includes('siri') || content.includes('mac');
+                else if (activeCategory === 'Regulation') matchesCategory = content.includes('law') || content.includes('bill') || content.includes('congress') || content.includes('eu ');
+                else if (activeCategory === 'Robotics') matchesCategory = content.includes('robot') || content.includes('humanoid') || content.includes('boston dynamics');
+            }
+
+            return matchesSearch && matchesCategory;
+        });
+    };
+
+    const filteredList = getFilteredArticles();
+    
+    // If a hard limit prop was passed (Homepage), use it.
+    // Otherwise (Feed Page), use our local state for "Load More".
+    const currentLimit = limit ? limit : visibleCount;
+    const visibleArticles = filteredList.slice(0, currentLimit);
+    const hasMore = !limit && visibleCount < filteredList.length;
+
     if (loading) return (
         <div className="p-8 text-center border-t-4 border-black bg-gray-50">
-            <p className="font-mono font-bold text-gray-400 animate-pulse">Aggregating Intel...</p>
+            <p className="font-mono font-bold text-gray-400 animate-pulse">Accessing Global Intel...</p>
         </div>
     );
 
-    if (articles.length === 0) return null;
+    // Only show controls if we are NOT on the limited homepage view
+    const showControls = !limit;
 
     return (
         <section className="bg-white border-t-4 border-black py-16 px-4">
             <div className="max-w-6xl mx-auto">
-                <div className="flex items-center gap-3 mb-8 border-b-2 border-black pb-4">
-                    <Newspaper size={32} />
-                    <h2 className="text-4xl font-black uppercase">Global Intel Feed</h2>
-                </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {articles.map((article, idx) => (
-                        <a 
-                            key={idx} 
-                            href={article.link} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="group block h-full"
-                        >
-                            <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow relative">
-                                {/* Source Badge */}
-                                <div className="absolute top-0 left-0 bg-[#FEC43D] border-b-2 border-r-2 border-black px-3 py-1 font-mono text-xs font-bold z-20 uppercase">
-                                    {article.source}
-                                </div>
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 border-b-2 border-black pb-4 gap-4">
+                    <div className="flex items-center gap-3">
+                        <Newspaper size={32} />
+                        <h2 className="text-4xl font-black uppercase">Global Intel Feed</h2>
+                    </div>
+                    
+                    {/* "View Full Feed" Link (Homepage Only) */}
+                    {showAllLink && (
+                        <Link to="/feed" className="hidden md:flex items-center gap-2 font-mono font-bold hover:text-blue-600">
+                            View Full Feed <ArrowRight size={18} />
+                        </Link>
+                    )}
+                </div>
 
-                                <div className="h-48 w-full overflow-hidden border-b-3 border-black relative bg-gray-100">
-                                    <img 
-                                        src={article.image} 
-                                        alt={article.title} 
-                                        // UPDATED: Removed 'grayscale' and 'group-hover:grayscale-0'
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                            e.target.onerror = null; 
-                                            e.target.src = '/logo.jpg'; 
-                                            e.target.className = "w-full h-full object-contain p-4 bg-gray-100";
-                                        }} 
-                                    />
-                                </div>
-                                
-                                <div className="p-5 flex flex-col flex-1">
-                                    <h3 className="text-xl font-black leading-tight mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                                        {article.title}
-                                    </h3>
-                                    <p className="font-serif text-sm text-gray-600 mb-4 flex-1 line-clamp-3">
-                                        {article.summary}
-                                    </p>
-                                    <div className="flex items-center justify-between mt-auto font-mono text-xs text-gray-400">
-                                        <span>{new Date(article.pubDate).toLocaleDateString()}</span>
-                                        <span className="flex items-center gap-1 font-bold text-black uppercase group-hover:text-blue-600">
-                                            Read <ExternalLink size={14} />
-                                        </span>
+                {/* --- SEARCH & FILTERS (Feed Page Only) --- */}
+                {showControls && (
+                    <div className="mb-12">
+                        {/* Search Bar */}
+                        <div className="flex gap-2 mb-6">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search intel..." 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-3 border-2 border-black font-bold text-lg focus:outline-none focus:bg-yellow-50 transition-colors"
+                                />
+                                {searchQuery && (
+                                    <button 
+                                        onClick={() => setSearchQuery('')}
+                                        className="absolute right-3 top-3 text-gray-400 hover:text-black"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Category Chips */}
+                        <div className="flex flex-wrap gap-3">
+                            {CATEGORIES.map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => { setActiveCategory(cat); setVisibleCount(9); }}
+                                    className={`px-4 py-1 border-2 border-black font-mono font-bold text-sm uppercase transition-all 
+                                        ${activeCategory === cat 
+                                            ? 'bg-black text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] translate-x-[-2px] translate-y-[-2px]' 
+                                            : 'bg-white hover:bg-gray-100'
+                                        }`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                
+                {/* Articles Grid */}
+                {visibleArticles.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {visibleArticles.map((article, idx) => (
+                            <a 
+                                key={idx} 
+                                href={article.link} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="group block h-full"
+                            >
+                                <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow relative">
+                                    {/* Source Badge */}
+                                    <div className="absolute top-0 left-0 bg-[#FEC43D] border-b-2 border-r-2 border-black px-3 py-1 font-mono text-xs font-bold z-20 uppercase">
+                                        {article.source}
                                     </div>
-                                </div>
-                            </article>
-                        </a>
-                    ))}
+
+                                    <div className="h-48 w-full overflow-hidden border-b-3 border-black relative bg-gray-100">
+                                        <img 
+                                            src={article.image} 
+                                            alt={article.title} 
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                e.target.onerror = null; 
+                                                e.target.src = '/logo.jpg'; 
+                                                e.target.className = "w-full h-full object-contain p-4 bg-gray-100";
+                                            }} 
+                                        />
+                                    </div>
+                                    
+                                    <div className="p-5 flex flex-col flex-1">
+                                        <h3 className="text-xl font-black leading-tight mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                                            {article.title}
+                                        </h3>
+                                        <p className="font-serif text-sm text-gray-600 mb-4 flex-1 line-clamp-3">
+                                            {article.summary}
+                                        </p>
+                                        <div className="flex items-center justify-between mt-auto font-mono text-xs text-gray-400">
+                                            <span>{new Date(article.pubDate).toLocaleDateString()}</span>
+                                            <span className="flex items-center gap-1 font-bold text-black uppercase group-hover:text-blue-600">
+                                                Read <ExternalLink size={14} />
+                                            </span>
+                                        </div>
+                                    </div>
+                                </article>
+                            </a>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="py-20 text-center border-2 border-dashed border-gray-300 bg-gray-50">
+                        <p className="font-mono text-gray-400 font-bold">No intel found matching these filters.</p>
+                        <button 
+                            onClick={() => { setSearchQuery(''); setActiveCategory('All'); }}
+                            className="mt-4 text-blue-600 underline font-bold"
+                        >
+                            Clear Filters
+                        </button>
+                    </div>
+                )}
+
+                {/* Load More / View Full Button */}
+                <div className="mt-12 text-center">
+                    {showAllLink ? (
+                        <Link 
+                            to="/feed" 
+                            className="inline-flex items-center gap-2 bg-black text-white px-8 py-3 font-bold text-lg hover:bg-blue-600 transition-colors brutal-shadow"
+                        >
+                            VIEW FULL INTEL FEED <ArrowRight size={20} />
+                        </Link>
+                    ) : hasMore ? (
+                        <button 
+                            onClick={() => setVisibleCount(prev => prev + 9)}
+                            className="inline-flex items-center gap-2 bg-white text-black border-2 border-black px-8 py-3 font-bold text-lg hover:bg-gray-100 transition-colors brutal-shadow"
+                        >
+                            LOAD MORE INTEL <ChevronDown size={20} />
+                        </button>
+                    ) : visibleArticles.length > 0 ? (
+                        <p className="font-mono text-gray-400 font-bold">End of feed.</p>
+                    ) : null}
                 </div>
             </div>
         </section>

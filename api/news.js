@@ -7,8 +7,7 @@ export default async function handler(req, res) {
   const parser = new Parser({
     timeout: 3000,
     headers: {
-      // Reddit requires a descriptive User-Agent or it blocks the request
-      'User-Agent': 'AimLowBot/1.0 (http://aimlow.ai;)',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     },
     customFields: {
       item: [
@@ -26,7 +25,6 @@ export default async function handler(req, res) {
     { name: 'The Verge', url: 'https://www.theverge.com/rss/artificial-intelligence/index.xml' }, 
     { name: 'Wired', url: 'https://www.wired.com/feed/tag/ai/latest/rss' },
     { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab' },
-    // REPLACED CNBC with Reddit (Top of Day)
     { name: 'r/Artificial', url: 'https://www.reddit.com/r/artificial/top/.rss?t=day' },
     { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/topic/artificial-intelligence/' }
   ];
@@ -50,8 +48,9 @@ export default async function handler(req, res) {
     const results = await Promise.all(feedPromises);
     
     // --- DIVERSITY ALGORITHM ---
+    // Take top 10 (instead of 3) from each source to build a bigger pool
     const diverseArticles = results.map(sourceArticles => {
-        return sourceArticles.slice(0, 3);
+        return sourceArticles.slice(0, 10);
     }).flat();
 
     if (diverseArticles.length === 0) {
@@ -61,7 +60,8 @@ export default async function handler(req, res) {
     // Sort by Date (Newest First)
     diverseArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
-    const processedArticles = diverseArticles.slice(0, 9).map(item => {
+    // INCREASED LIMIT: Now processing top 60 articles
+    const processedArticles = diverseArticles.slice(0, 60).map(item => {
       let imageUrl = null;
 
       // --- HELPER: Extract URL from media object ---
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
         return null;
       };
 
-      // 1. Check media:group (CNBC/others)
+      // 1. Check media:group
       if (item.mediaGroup) {
           if (item.mediaGroup['media:content']) {
              const mgContent = item.mediaGroup['media:content'];
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
           }
       }
 
-      // 2. Check media:content (Standard)
+      // 2. Check media:content
       if (!imageUrl && item.mediaContent) {
          const mediaItem = Array.isArray(item.mediaContent) 
             ? (item.mediaContent.find(m => m.$ && m.$.url) || item.mediaContent[0])
