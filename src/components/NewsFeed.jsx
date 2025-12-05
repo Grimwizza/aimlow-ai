@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ExternalLink, Newspaper, ArrowRight, ChevronDown, Search, X } from 'lucide-react';
+import { ExternalLink, Newspaper, ArrowRight, ChevronDown, Search, X, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-// --- Source Logo Mapping (Using Google Favicon Service for reliability) ---
+// --- Source Logo Mapping ---
 const SOURCE_LOGOS = {
     'TechCrunch': 'https://www.google.com/s2/favicons?domain=techcrunch.com&sz=128',
     'VentureBeat': 'https://www.google.com/s2/favicons?domain=venturebeat.com&sz=128',
@@ -21,8 +21,10 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     const [visibleCount, setVisibleCount] = useState(limit || 9);
     const [loading, setLoading] = useState(true);
     
+    // Search & Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
+    const [activeSource, setActiveSource] = useState('All Sources'); // RESTORED STATE
 
     const CATEGORIES = ["All", "LLMs", "Creative AI", "Robotics", "Hardware", "Regulation", "Business"];
 
@@ -51,6 +53,9 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
             const searchContent = (article.title + " " + article.summary).toLowerCase();
             const matchesSearch = searchContent.includes(searchQuery.toLowerCase());
 
+            // RESTORED: Source Filter Logic
+            const matchesSource = activeSource === 'All Sources' || article.source === activeSource;
+
             let matchesCategory = true;
             if (activeCategory !== 'All') {
                 const content = (article.title + " " + article.summary).toLowerCase();
@@ -75,7 +80,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                 }
             }
 
-            return matchesSearch && matchesCategory;
+            return matchesSearch && matchesCategory && matchesSource;
         });
     };
 
@@ -110,7 +115,8 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
 
                 {showControls && (
                     <div className="mb-12">
-                        <div className="flex gap-2 mb-6">
+                        {/* RESTORED: Search + Source Filter Row */}
+                        <div className="flex flex-col md:flex-row gap-4 mb-6">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-3 text-gray-400" size={20} />
                                 <input 
@@ -126,7 +132,25 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                     </button>
                                 )}
                             </div>
+                            
+                            {/* Source Filter Dropdown */}
+                            <div className="relative min-w-[200px]">
+                                <select 
+                                    value={activeSource}
+                                    onChange={(e) => { setActiveSource(e.target.value); setVisibleCount(9); }}
+                                    className="w-full h-full appearance-none border-2 border-black bg-white pl-4 pr-10 py-3 font-bold text-lg focus:outline-none focus:bg-yellow-50 cursor-pointer"
+                                >
+                                    <option value="All Sources">All Sources</option>
+                                    {Object.keys(SOURCE_LOGOS).map(source => (
+                                        <option key={source} value={source}>{source}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                    <Filter size={20} />
+                                </div>
+                            </div>
                         </div>
+
                         <div className="flex flex-wrap gap-3">
                             {CATEGORIES.map(cat => (
                                 <button
@@ -145,19 +169,16 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                     </div>
                 )}
                 
+                {/* Articles Grid */}
                 {visibleArticles.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {visibleArticles.map((article, idx) => {
-                            // 1. Check if we have a specific logo for this source
                             const sourceFallback = SOURCE_LOGOS[article.source] || '/logo.jpg';
-                            
-                            // 2. Logic: Use the article image IF it exists AND isn't the default aimlow fallback.
-                            //    OTHERWISE, use the Source Logo.
-                            const displayImage = (article.image && !article.image.includes('aimlow.ai/logo.jpg'))
-                                ? article.image
-                                : sourceFallback;
+                            const displayImage = (!article.image || article.image.includes('aimlow.ai/logo.jpg')) 
+                                ? sourceFallback 
+                                : article.image;
 
-                            // 3. Styling: If we are showing a logo, pad it (contain). If real photo, cover it.
+                            // Determine if we are showing the fallback logo (so we can style it differently)
                             const isLogo = displayImage === sourceFallback;
 
                             return (
@@ -179,9 +200,8 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                                 alt="" 
                                                 className={`w-full h-full ${isLogo ? 'object-contain p-10' : 'object-cover'}`}
                                                 onError={(e) => {
-                                                    // If even the specific logo fails, fall back to AimLow logo
                                                     e.target.onerror = null; 
-                                                    e.target.src = '/logo.jpg'; 
+                                                    e.target.src = sourceFallback; 
                                                     e.target.className = "w-full h-full object-contain p-8 bg-gray-100";
                                                 }} 
                                             />
@@ -210,7 +230,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                     <div className="py-20 text-center border-2 border-dashed border-gray-300 bg-gray-50">
                         <p className="font-mono text-gray-400 font-bold">No intel found matching these filters.</p>
                         <button 
-                            onClick={() => { setSearchQuery(''); setActiveCategory('All'); }}
+                            onClick={() => { setSearchQuery(''); setActiveCategory('All'); setActiveSource('All Sources'); }}
                             className="mt-4 text-blue-600 underline font-bold"
                         >
                             Clear Filters
