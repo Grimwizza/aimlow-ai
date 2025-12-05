@@ -20,17 +20,12 @@ export default async function handler(req, res) {
   });
 
   const SOURCES = [
-    // REMOVED: TechCrunch (Images are too unreliable/blocked)
-    // KEPT: VentureBeat (Reliable)
     { name: 'VentureBeat', url: 'https://venturebeat.com/category/ai/feed/' },
-    // KEPT: The Verge (Reliable)
-    { name: 'The Verge', url: 'https://www.theverge.com/rss/ai/index.xml' },
-    // KEPT: Wired (Reliable)
+    { name: 'The Verge', url: 'https://www.theverge.com/rss/artificial-intelligence/index.xml' }, 
     { name: 'Wired', url: 'https://www.wired.com/feed/tag/ai/latest/rss' },
-    // NEW: ScienceDaily (Great images, strictly AI)
     { name: 'ScienceDaily', url: 'https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml' },
-    // NEW: Engadget (High volume, good fallback)
-    { name: 'Engadget', url: 'https://www.engadget.com/rss.xml' }
+    { name: 'Engadget', url: 'https://www.engadget.com/tag/artificial-intelligence/rss.xml' },
+    { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/topic/artificial-intelligence/' }
   ];
   
   try {
@@ -52,17 +47,24 @@ export default async function handler(req, res) {
     });
 
     const results = await Promise.all(feedPromises);
-    const allArticles = results.flat();
 
-    if (allArticles.length === 0) {
+    // --- DIVERSITY ALGORITHM ---
+    // Instead of flattening everything immediately, we cap each source first.
+    // This prevents high-volume feeds (like VentureBeat) from drowning out slower ones (like Wired).
+    const diverseArticles = results.map(sourceArticles => {
+        // Take only the top 3 freshest articles from this specific source
+        return sourceArticles.slice(0, 3);
+    }).flat();
+
+    if (diverseArticles.length === 0) {
        return res.status(200).json({ articles: [] });
     }
 
-    // Sort by Date (Newest First)
-    allArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    // Now sort this curated, diverse pool by date
+    diverseArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
-    // Limit to 9 stories
-    const processedArticles = allArticles.slice(0, 9).map(item => {
+    // Take the top 9 from the diverse pool
+    const processedArticles = diverseArticles.slice(0, 9).map(item => {
       let imageUrl = null;
 
       // 1. Check media:content
@@ -108,7 +110,7 @@ export default async function handler(req, res) {
         imageUrl = 'https://aimlow.ai/logo.jpg'; 
       }
       
-      // Clean Text: Remove HTML, newlines, and "Continue reading" links
+      // Clean Text
       const rawDesc = item.contentSnippet || item.description || "";
       const summary = rawDesc.replace(/<[^>]*>?/gm, '') 
                              .replace(/\n/g, ' ') 
