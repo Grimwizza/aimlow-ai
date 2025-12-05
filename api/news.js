@@ -1,92 +1,102 @@
-import React, { useState, useEffect } from 'react';
-import { ExternalLink, Newspaper } from 'lucide-react';
+import Parser from 'rss-parser';
 
-export const NewsFeed = () => {
-    const [articles, setArticles] = useState([]);
-    const [loading, setLoading] = useState(true);
+export default async function handler(req, res) {
+  // 1. Cache for 1 hour to reduce load
+  res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
 
-    useEffect(() => {
-        const fetchNews = async () => {
-            try {
-                const res = await fetch('/api/news');
-                if (!res.ok) throw new Error('Failed');
-                
-                const data = await res.json();
-                if (data.articles && data.articles.length > 0) {
-                    setArticles(data.articles);
-                }
-            } catch (error) {
-                console.warn("News feed unavailable:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchNews();
-    }, []);
+  const parser = new Parser({
+    // 2. STRICT TIMEOUT: Give up on any single feed after 4 seconds
+    timeout: 4000, 
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    },
+    customFields: {
+      item: [
+        ['media:content', 'mediaContent'], 
+        ['content:encoded', 'contentEncoded'],
+        ['description', 'description']
+      ]
+    }
+  });
 
-    if (loading) return (
-        <div className="p-8 text-center border-t-4 border-black bg-gray-50">
-            <p className="font-mono font-bold text-gray-400 animate-pulse">Aggregating Intel...</p>
-        </div>
-    );
+  const SOURCES = [
+    { name: 'TechCrunch', url: 'https://techcrunch.com/category/artificial-intelligence/feed/' },
+    { name: 'VentureBeat', url: 'https://venturebeat.com/category/ai/feed/' },
+    { name: 'The Verge', url: 'https://www.theverge.com/rss/ai/index.xml' },
+    { name: 'Wired', url: 'https://www.wired.com/feed/tag/ai/latest/rss' }
+  ];
+  
+  try {
+    // 3. Fetch all feeds in parallel, ignoring failures
+    const feedPromises = SOURCES.map(async (source) => {
+      try {
+        const feed = await parser.parseURL(source.url);
+        return feed.items.map(item => ({ ...item, sourceName: source.name }));
+      } catch (e) {
+        console.error(`Failed to fetch ${source.name}:`, e.message);
+        return []; // If one fails/times out, return empty array so others still load
+      }
+    });
 
-    if (articles.length === 0) return null;
+    const results = await Promise.all(feedPromises);
+    const allArticles = results.flat();
 
-    return (
-        <section className="bg-white border-t-4 border-black py-16 px-4">
-            <div className="max-w-6xl mx-auto">
-                <div className="flex items-center gap-3 mb-8 border-b-2 border-black pb-4">
-                    <Newspaper size={32} />
-                    <h2 className="text-4xl font-black uppercase">Global Intel Feed</h2>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {articles.map((article, idx) => (
-                        <a 
-                            key={idx} 
-                            href={article.link} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="group block h-full"
-                        >
-                            <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow relative">
-                                {/* Source Badge */}
-                                <div className="absolute top-0 left-0 bg-[#FEC43D] border-b-2 border-r-2 border-black px-3 py-1 font-mono text-xs font-bold z-20 uppercase">
-                                    {article.source}
-                                </div>
+    // 4. If ALL feeds fail, return empty list (don't crash 500)
+    if (allArticles.length === 0) {
+       return res.status(200).json({ articles: [] });
+    }
 
-                                <div className="h-48 w-full overflow-hidden border-b-3 border-black relative bg-gray-100">
-                                    <img 
-                                        src={article.image} 
-                                        alt={article.title} 
-                                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
-                                        onError={(e) => {
-                                            e.target.onerror = null; 
-                                            e.target.src = '/logo.jpg'; 
-                                            e.target.className = "w-full h-full object-contain p-4 bg-gray-100";
-                                        }} 
-                                    />
-                                </div>
-                                
-                                <div className="p-5 flex flex-col flex-1">
-                                    <h3 className="text-xl font-black leading-tight mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                                        {article.title}
-                                    </h3>
-                                    <p className="font-serif text-sm text-gray-600 mb-4 flex-1 line-clamp-3">
-                                        {article.summary}
-                                    </p>
-                                    <div className="flex items-center justify-between mt-auto font-mono text-xs text-gray-400">
-                                        <span>{new Date(article.pubDate).toLocaleDateString()}</span>
-                                        <span className="flex items-center gap-1 font-bold text-black uppercase group-hover:text-blue-600">
-                                            Read <ExternalLink size={14} />
-                                        </span>
-                                    </div>
-                                </div>
-                            </article>
-                        </a>
-                    ))}
-                </div>
-            </div>
-        </section>
-    );
-};
+    allArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+    const processedArticles = allArticles.slice(0, 9).map(item => {
+      let imageUrl = null;
+
+      if (item.mediaContent) {
+        if (Array.isArray(item.mediaContent)) {
+           const media = item.mediaContent.find(m => m.$ && m.$.url) || item.mediaContent[0];
+           if (media && media.$) imageUrl = media.$.url;
+        } else if (item.mediaContent.$ && item.mediaContent.$.url) {
+           imageUrl = item.mediaContent.$.url;
+        }
+      }
+      
+      if (!imageUrl && item.enclosure) {
+          imageUrl = item.enclosure.url;
+      }
+
+      const htmlContent = item.contentEncoded || item.description || "";
+      if (!imageUrl && htmlContent) {
+        const match = htmlContent.match(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp))["']/i);
+        if (match) {
+          imageUrl = match[1];
+        }
+      }
+
+      if (!imageUrl) {
+        imageUrl = 'https://aimlow.ai/logo.jpg'; 
+      }
+      
+      const rawDesc = item.contentSnippet || item.description || "";
+      const summary = rawDesc.replace(/<[^>]*>?/gm, '') 
+                             .replace(/\n/g, ' ') 
+                             .replace(/Continue reading.*$/, '')
+                             .substring(0, 120) + "...";
+
+      return {
+        title: item.title,
+        link: item.link,
+        pubDate: item.pubDate,
+        summary: summary,
+        image: imageUrl,
+        source: item.sourceName
+      };
+    });
+
+    return res.status(200).json({ articles: processedArticles });
+
+  } catch (error) {
+    console.error("Aggregator Error:", error.message);
+    // Return empty list on total failure, preventing the 500 crash
+    return res.status(200).json({ articles: [] }); 
+  }
+}
