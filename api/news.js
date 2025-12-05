@@ -20,19 +20,25 @@ export default async function handler(req, res) {
     }
   });
 
+  // THE EXPANDED ROSTER
   const SOURCES = [
     { name: 'VentureBeat', url: 'https://venturebeat.com/category/ai/feed/' },
     { name: 'The Verge', url: 'https://www.theverge.com/rss/artificial-intelligence/index.xml' }, 
     { name: 'Wired', url: 'https://www.wired.com/feed/tag/ai/latest/rss' },
     { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab' },
     { name: 'r/Artificial', url: 'https://www.reddit.com/r/artificial/top/.rss?t=day' },
-    { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/topic/artificial-intelligence/' }
+    { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/topic/artificial-intelligence/' },
+    { name: 'TechCrunch', url: 'https://techcrunch.com/category/artificial-intelligence/feed/' },
+    { name: 'ScienceDaily', url: 'https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml' },
+    { name: 'Engadget', url: 'https://www.engadget.com/tag/artificial-intelligence/rss.xml' },
+    { name: 'AI News', url: 'https://www.artificialintelligence-news.com/feed/' }
   ];
   
   try {
     const feedPromises = SOURCES.map(async (source) => {
       try {
         const feedPromise = parser.parseURL(source.url);
+        // 3.5s timeout to keep it fast
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Manual Timeout')), 3500)
         );
@@ -48,9 +54,9 @@ export default async function handler(req, res) {
     const results = await Promise.all(feedPromises);
     
     // --- DIVERSITY ALGORITHM ---
-    // Take top 10 (instead of 3) from each source to build a bigger pool
+    // Take top 5 from each source to ensure a deep but varied pool
     const diverseArticles = results.map(sourceArticles => {
-        return sourceArticles.slice(0, 10);
+        return sourceArticles.slice(0, 5);
     }).flat();
 
     if (diverseArticles.length === 0) {
@@ -60,7 +66,6 @@ export default async function handler(req, res) {
     // Sort by Date (Newest First)
     diverseArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
-    // INCREASED LIMIT: Now processing top 60 articles
     const processedArticles = diverseArticles.slice(0, 60).map(item => {
       let imageUrl = null;
 

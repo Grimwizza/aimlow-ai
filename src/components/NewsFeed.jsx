@@ -11,7 +11,9 @@ const SOURCE_LOGOS = {
     'Ars Technica': 'https://upload.wikimedia.org/wikipedia/commons/3/3d/Ars_Technica_logo.svg',
     'r/Artificial': 'https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png',
     'MIT Tech Review': 'https://upload.wikimedia.org/wikipedia/commons/8/8a/MIT_Technology_Review_logo.svg',
-    'Engadget': 'https://upload.wikimedia.org/wikipedia/commons/1/1e/Engadget_logo.svg'
+    'Engadget': 'https://upload.wikimedia.org/wikipedia/commons/1/1e/Engadget_logo.svg',
+    'ScienceDaily': 'https://www.sciencedaily.com/images/logos/sciencedaily-logo-200px.png',
+    'AI News': 'https://www.artificialintelligence-news.com/wp-content/themes/artificialintelligence-news/images/logo.png'
 };
 
 export const NewsFeed = ({ limit, showAllLink = false }) => {
@@ -137,11 +139,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                 {visibleArticles.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {visibleArticles.map((article, idx) => {
-                            // Determine the fallback image for this specific source
                             const sourceFallback = SOURCE_LOGOS[article.source] || '/logo.jpg';
-                            
-                            // Check if the image URL is the generic fallback from backend
-                            // If so, swap it for the brand logo immediately
                             const displayImage = (!article.image || article.image.includes('aimlow.ai/logo.jpg')) 
                                 ? sourceFallback 
                                 : article.image;
