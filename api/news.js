@@ -13,6 +13,7 @@ export default async function handler(req, res) {
       item: [
         ['media:content', 'mediaContent'], 
         ['media:thumbnail', 'mediaThumbnail'],
+        ['media:group', 'mediaGroup'], // NEW: Unlock CNBC nested images
         ['content:encoded', 'contentEncoded'],
         ['description', 'description']
       ]
@@ -23,9 +24,7 @@ export default async function handler(req, res) {
     { name: 'VentureBeat', url: 'https://venturebeat.com/category/ai/feed/' },
     { name: 'The Verge', url: 'https://www.theverge.com/rss/artificial-intelligence/index.xml' }, 
     { name: 'Wired', url: 'https://www.wired.com/feed/tag/ai/latest/rss' },
-    // REPLACED ScienceDaily (Bad images) with Ars Technica (Good images)
     { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab' },
-    // REPLACED Engadget with CNBC AI (More focused, reliable images)
     { name: 'CNBC AI', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664' },
     { name: 'MIT Tech Review', url: 'https://www.technologyreview.com/feed/topic/artificial-intelligence/' }
   ];
@@ -34,7 +33,6 @@ export default async function handler(req, res) {
     const feedPromises = SOURCES.map(async (source) => {
       try {
         const feedPromise = parser.parseURL(source.url);
-        // Race against a timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Manual Timeout')), 3500)
         );
@@ -50,13 +48,11 @@ export default async function handler(req, res) {
     const results = await Promise.all(feedPromises);
     
     // --- DIVERSITY ALGORITHM ---
-    // Take top 3 from each source to prevent one source dominating
     const diverseArticles = results.map(sourceArticles => {
         return sourceArticles.slice(0, 3);
     }).flat();
 
     if (diverseArticles.length === 0) {
-       // Return empty list instead of crashing if everything fails
        return res.status(200).json({ articles: [] });
     }
 
@@ -75,15 +71,26 @@ export default async function handler(req, res) {
         return null;
       };
 
-      // 1. Check media:content
-      if (item.mediaContent) {
+      // 1. Check media:group (CNBC Special)
+      if (item.mediaGroup) {
+          // CNBC often nests media:content inside media:group
+          // rss-parser might put it in 'media:content' property of mediaGroup
+          if (item.mediaGroup['media:content']) {
+             const mgContent = item.mediaGroup['media:content'];
+             const mediaItem = Array.isArray(mgContent) ? mgContent[0] : mgContent;
+             imageUrl = getUrl(mediaItem);
+          }
+      }
+
+      // 2. Check media:content (Standard)
+      if (!imageUrl && item.mediaContent) {
          const mediaItem = Array.isArray(item.mediaContent) 
             ? (item.mediaContent.find(m => m.$ && m.$.url) || item.mediaContent[0])
             : item.mediaContent;
          imageUrl = getUrl(mediaItem);
       }
 
-      // 2. Check media:thumbnail
+      // 3. Check media:thumbnail
       if (!imageUrl && item.mediaThumbnail) {
          const thumbItem = Array.isArray(item.mediaThumbnail)
             ? item.mediaThumbnail[0]
@@ -91,33 +98,31 @@ export default async function handler(req, res) {
          imageUrl = getUrl(thumbItem);
       }
       
-      // 3. Check Enclosure
+      // 4. Check Enclosure
       if (!imageUrl && item.enclosure) {
           imageUrl = item.enclosure.url;
       }
 
-      // 4. RegEx Fallback (The Scraper)
+      // 5. RegEx Fallback (Relaxed for CNBC query params)
       if (!imageUrl) {
           const content = (item.contentEncoded || "") + (item.description || "");
-          // Look for typical image extensions, ignoring query params like ?w=1024
-          const match = content.match(/src=["']([^"']+\.(?:jpg|jpeg|png|webp|gif)[^"']*)["']/i);
+          // Look for <img src="..."> regardless of extension, as long as it's http(s)
+          const match = content.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
           if (match) {
             imageUrl = match[1];
           }
       }
 
-      // 5. Final Fallback & Cleanup
+      // 6. Final Fallback & Cleanup
       if (!imageUrl || typeof imageUrl !== 'string') {
         imageUrl = 'https://aimlow.ai/logo.jpg'; 
       } else {
-        // Ensure HTTPS and remove whitespace
         imageUrl = imageUrl.trim().replace(/^http:\/\//i, 'https://');
       }
       
-      // Clean Summary Text
       const rawDesc = item.contentSnippet || item.description || "";
-      const summary = rawDesc.replace(/<[^>]*>?/gm, '') // Remove tags
-                             .replace(/\n/g, ' ')       // Remove newlines
+      const summary = rawDesc.replace(/<[^>]*>?/gm, '') 
+                             .replace(/\n/g, ' ') 
                              .replace(/Continue reading.*$/, '')
                              .replace(/Read more.*$/, '')
                              .substring(0, 120) + "...";
@@ -136,7 +141,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Debug: Critical Aggregator Error:", error);
-    // Always return valid JSON, even on error, to prevent 500 crash loop
     return res.status(200).json({ articles: [] });
   }
 }
