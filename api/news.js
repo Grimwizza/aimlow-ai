@@ -1,51 +1,63 @@
 import Parser from 'rss-parser';
 
 export default async function handler(req, res) {
-  console.log("Debug: Starting News Fetch...");
   res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
 
   const parser = new Parser({
-    timeout: 5000, 
+    timeout: 4000,
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      // TRICK: Pretend to be a standard RSS reader, not a bot/browser
+      'User-Agent': 'Feedly/1.0 (+http://www.feedly.com)',
+      'Accept': 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8',
     },
+    customFields: {
+      item: [
+        ['media:content', 'mediaContent'], 
+        ['media:thumbnail', 'mediaThumbnail'],
+        ['media:group', 'mediaGroup'],
+        ['content:encoded', 'contentEncoded'],
+        ['content', 'content'], // Common for The Verge
+        ['description', 'description']
+      ]
+    }
   });
 
-  // --- 1. DIRECT SOURCES (Feeds that allow bots & have good images) ---
-  const DIRECT_SOURCES = [
+  // Moved big players back to DIRECT to try and get images
+  const SOURCES = [
     { name: 'VentureBeat', url: 'https://venturebeat.com/category/ai/feed/' },
     { name: 'Wired', url: 'https://www.wired.com/feed/tag/ai/latest/rss' },
     { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab' },
-    // Reddit needs special handling usually, but works with this parser often
-    { name: 'r/Artificial', url: 'https://www.reddit.com/r/artificial/top/.rss?t=day' }
-  ];
-
-  // --- 2. PROXY SOURCES (Feeds that block bots - Routed via Google News) ---
-  const PROXY_SOURCES = [
-    { name: 'The Verge', url: 'https://news.google.com/rss/search?q=site:theverge.com+artificial+intelligence&hl=en-US&gl=US&ceid=US:en' },
-    { name: 'MIT Tech Review', url: 'https://news.google.com/rss/search?q=site:technologyreview.com+artificial+intelligence&hl=en-US&gl=US&ceid=US:en' },
-    { name: 'Engadget', url: 'https://news.google.com/rss/search?q=site:engadget.com+artificial+intelligence&hl=en-US&gl=US&ceid=US:en' },
-    { name: 'ScienceDaily', url: 'https://news.google.com/rss/search?q=site:sciencedaily.com+artificial+intelligence&hl=en-US&gl=US&ceid=US:en' },
-    { name: 'TechCrunch', url: 'https://news.google.com/rss/search?q=site:techcrunch.com+artificial+intelligence&hl=en-US&gl=US&ceid=US:en' },
-    { name: 'AI News', url: 'https://news.google.com/rss/search?q=site:artificialintelligence-news.com+artificial+intelligence&hl=en-US&gl=US&ceid=US:en' }
+    { name: 'TechCrunch', url: 'https://techcrunch.com/category/artificial-intelligence/feed/' },
+    { name: 'The Verge', url: 'https://www.theverge.com/rss/artificial-intelligence/index.xml' },
+    { name: 'Engadget', url: 'https://www.engadget.com/tag/artificial-intelligence/rss.xml' },
+    { name: 'AI News', url: 'https://www.artificialintelligence-news.com/feed/' },
+    // Keeping Reddit as it requires special handling
+    { name: 'r/Artificial', url: 'https://www.reddit.com/r/artificial/top/.rss?t=day' },
+    // Keeping ScienceDaily on Proxy? No, let's try direct one last time with the HTML scraper
+    { name: 'ScienceDaily', url: 'https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml' }
   ];
   
   try {
-    const fetchFeed = async (source) => {
-        try {
-            const feed = await parser.parseURL(source.url);
-            return feed.items.map(item => ({ ...item, sourceName: source.name }));
-        } catch (e) {
-            console.error(`Debug: Failed to fetch ${source.name}`, e.message);
-            return [];
-        }
-    };
+    const feedPromises = SOURCES.map(async (source) => {
+      try {
+        const feedPromise = parser.parseURL(source.url);
+        // 4.5s timeout - give them a fighting chance
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Manual Timeout')), 4500)
+        );
+        
+        const feed = await Promise.race([feedPromise, timeoutPromise]);
+        return feed.items.map(item => ({ ...item, sourceName: source.name }));
+      } catch (e) {
+        // If direct fail, we could fallback to Google here, but for now let's just log it
+        console.error(`Debug: Failed to fetch ${source.name}:`, e.message);
+        return []; 
+      }
+    });
 
-    const directPromises = DIRECT_SOURCES.map(s => fetchFeed(s));
-    const proxyPromises = PROXY_SOURCES.map(s => fetchFeed(s));
-
-    const results = await Promise.all([...directPromises, ...proxyPromises]);
+    const results = await Promise.all(feedPromises);
     
+    // --- DIVERSITY ALGORITHM ---
     const diverseArticles = results.map(sourceArticles => {
         return sourceArticles.slice(0, 5);
     }).flat();
@@ -61,12 +73,16 @@ export default async function handler(req, res) {
         }
     }
 
+    if (uniqueArticles.length === 0) {
+       return res.status(200).json({ articles: [] });
+    }
+
     uniqueArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
     const processedArticles = uniqueArticles.slice(0, 60).map(item => {
       let imageUrl = null;
 
-      // Image Extraction (Only works for Direct feeds usually)
+      // --- HELPER: Extract URL ---
       const getUrl = (media) => {
         if (!media) return null;
         if (typeof media === 'string') return media;
@@ -75,42 +91,42 @@ export default async function handler(req, res) {
         return null;
       };
 
-      if (item.content || item['content:encoded']) {
-          const content = (item.content || item['content:encoded'] || "");
-          const match = content.match(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
-          if (match) imageUrl = match[1];
-      }
-      
-      if (!imageUrl && item.enclosure) {
-          imageUrl = item.enclosure.url;
+      // 1. Standard Media Checks
+      if (item.mediaContent) imageUrl = getUrl(Array.isArray(item.mediaContent) ? item.mediaContent[0] : item.mediaContent);
+      if (!imageUrl && item.mediaThumbnail) imageUrl = getUrl(Array.isArray(item.mediaThumbnail) ? item.mediaThumbnail[0] : item.mediaThumbnail);
+      if (!imageUrl && item.enclosure) imageUrl = item.enclosure.url;
+
+      // 2. HTML MINING (Crucial for Verge/TechCrunch)
+      // They hide images in the HTML body <figure> or <img> tags
+      if (!imageUrl) {
+          // Combine all possible content fields
+          const fullHtml = (item.content || "") + (item.contentEncoded || "") + (item.description || "");
+          
+          // Regex to find the first jpg/png/webp inside an src attribute
+          // We ignore tracking pixels (usually 1x1) by looking for standard extensions
+          const match = fullHtml.match(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
+          
+          if (match) {
+            imageUrl = match[1];
+          }
       }
 
-      // Fallback
-      if (!imageUrl) {
+      // 3. Final Fallback to Logo (Only if absolutely nothing found)
+      if (!imageUrl || typeof imageUrl !== 'string') {
         imageUrl = 'https://aimlow.ai/logo.jpg'; 
       } else {
         imageUrl = imageUrl.trim().replace(/^http:\/\//i, 'https://');
       }
       
-      // Clean Google News Titles
-      let cleanTitle = item.title;
-      if (item.sourceName && cleanTitle.includes(' - ')) {
-          const parts = cleanTitle.split(' - ');
-          // If the last part matches the source name approx, remove it
-          if (parts.length > 1) {
-              parts.pop();
-              cleanTitle = parts.join(' - ');
-          }
-      }
-
       const rawDesc = item.contentSnippet || item.description || "";
       const summary = rawDesc.replace(/<[^>]*>?/gm, '') 
                              .replace(/\n/g, ' ') 
                              .replace(/Continue reading.*$/, '')
+                             .replace(/Read more.*$/, '')
                              .substring(0, 120) + "...";
 
       return {
-        title: cleanTitle,
+        title: item.title,
         link: item.link,
         pubDate: item.pubDate,
         summary: summary,
