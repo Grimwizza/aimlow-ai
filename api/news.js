@@ -20,7 +20,6 @@ export default async function handler(req, res) {
     }
   });
 
-  // THE EXPANDED ROSTER
   const SOURCES = [
     { name: 'VentureBeat', url: 'https://venturebeat.com/category/ai/feed/' },
     { name: 'The Verge', url: 'https://www.theverge.com/rss/artificial-intelligence/index.xml' }, 
@@ -38,7 +37,6 @@ export default async function handler(req, res) {
     const feedPromises = SOURCES.map(async (source) => {
       try {
         const feedPromise = parser.parseURL(source.url);
-        // 3.5s timeout to keep it fast
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Manual Timeout')), 3500)
         );
@@ -53,23 +51,49 @@ export default async function handler(req, res) {
 
     const results = await Promise.all(feedPromises);
     
-    // --- DIVERSITY ALGORITHM ---
-    // Take top 5 from each source to ensure a deep but varied pool
-    const diverseArticles = results.map(sourceArticles => {
+    // 1. DIVERSITY: Take top 5 from each source
+    let allArticles = results.map(sourceArticles => {
         return sourceArticles.slice(0, 5);
     }).flat();
 
-    if (diverseArticles.length === 0) {
+    if (allArticles.length === 0) {
        return res.status(200).json({ articles: [] });
     }
 
-    // Sort by Date (Newest First)
-    diverseArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    // 2. QUALITY SORT (The Fix)
+    // Move Reddit articles to the bottom so they are processed LAST during deduplication.
+    // If a Reddit article duplicates a Wired article, Wired (at the top) gets kept.
+    allArticles.sort((a, b) => {
+        const isRedditA = a.sourceName === 'r/Artificial';
+        const isRedditB = b.sourceName === 'r/Artificial';
+        if (isRedditA && !isRedditB) return 1;  // A is Reddit, move it down
+        if (!isRedditA && isRedditB) return -1; // B is Reddit, move it down
+        return 0;
+    });
 
-    const processedArticles = diverseArticles.slice(0, 60).map(item => {
+    // 3. DEDUPLICATION
+    const seenUrls = new Set();
+    const seenTitles = new Set();
+    const uniqueArticles = [];
+
+    for (const item of allArticles) {
+        const cleanUrl = item.link ? item.link.split('?')[0] : '';
+        const cleanTitle = item.title ? item.title.trim().toLowerCase() : '';
+
+        // Since non-Reddit is now at the top of the list, they get added first.
+        if (cleanUrl && !seenUrls.has(cleanUrl) && !seenTitles.has(cleanTitle)) {
+            seenUrls.add(cleanUrl);
+            seenTitles.add(cleanTitle);
+            uniqueArticles.push(item);
+        }
+    }
+
+    // 4. FINAL SORT: Time
+    uniqueArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+    const processedArticles = uniqueArticles.slice(0, 60).map(item => {
       let imageUrl = null;
 
-      // --- HELPER: Extract URL from media object ---
       const getUrl = (media) => {
         if (!media) return null;
         if (typeof media === 'string') return media;
@@ -78,7 +102,6 @@ export default async function handler(req, res) {
         return null;
       };
 
-      // 1. Check media:group
       if (item.mediaGroup) {
           if (item.mediaGroup['media:content']) {
              const mgContent = item.mediaGroup['media:content'];
@@ -87,7 +110,6 @@ export default async function handler(req, res) {
           }
       }
 
-      // 2. Check media:content
       if (!imageUrl && item.mediaContent) {
          const mediaItem = Array.isArray(item.mediaContent) 
             ? (item.mediaContent.find(m => m.$ && m.$.url) || item.mediaContent[0])
@@ -95,7 +117,6 @@ export default async function handler(req, res) {
          imageUrl = getUrl(mediaItem);
       }
 
-      // 3. Check media:thumbnail
       if (!imageUrl && item.mediaThumbnail) {
          const thumbItem = Array.isArray(item.mediaThumbnail)
             ? item.mediaThumbnail[0]
@@ -103,12 +124,10 @@ export default async function handler(req, res) {
          imageUrl = getUrl(thumbItem);
       }
       
-      // 4. Check Enclosure
       if (!imageUrl && item.enclosure) {
           imageUrl = item.enclosure.url;
       }
 
-      // 5. RegEx Fallback
       if (!imageUrl) {
           const content = (item.contentEncoded || "") + (item.description || "");
           const match = content.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
@@ -117,7 +136,6 @@ export default async function handler(req, res) {
           }
       }
 
-      // 6. Final Fallback
       if (!imageUrl || typeof imageUrl !== 'string') {
         imageUrl = 'https://aimlow.ai/logo.jpg'; 
       } else {
