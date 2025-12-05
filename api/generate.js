@@ -1,17 +1,27 @@
 import OpenAI from 'openai';
 
+// 1. Switch to Edge Runtime (Instant startup, no cold boots)
+export const config = {
+  runtime: 'edge',
+};
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export default async function handler(req, res) {
+export default async function handler(req) {
+  // 2. Edge functions use standard Request/Response objects
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 
-  const { type, payload } = req.body;
-
   try {
+    // Parse the incoming JSON body
+    const { type, payload } = await req.json();
+
     // TOOL 1: HEADLINE GENERATOR
     if (type === 'headline') {
       const { topic } = payload;
@@ -27,8 +37,13 @@ export default async function handler(req, res) {
       });
 
       let content = completion.choices[0].message.content;
+      // Clean up potential markdown formatting
       content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-      return res.status(200).json({ result: JSON.parse(content) });
+      
+      return new Response(JSON.stringify({ result: JSON.parse(content) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // TOOL 2: ALT-TEXT FIXER
@@ -48,7 +63,10 @@ export default async function handler(req, res) {
         ],
       });
 
-      return res.status(200).json({ result: completion.choices[0].message.content });
+      return new Response(JSON.stringify({ result: completion.choices[0].message.content }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // TOOL 3: JARGON DESTROYER
@@ -65,13 +83,22 @@ export default async function handler(req, res) {
         ],
       });
 
-      return res.status(200).json({ result: completion.choices[0].message.content });
+      return new Response(JSON.stringify({ result: completion.choices[0].message.content }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    return res.status(400).json({ error: 'Invalid tool type' });
+    return new Response(JSON.stringify({ error: 'Invalid tool type' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
 
   } catch (error) {
     console.error("OpenAI Error:", error);
-    return res.status(500).json({ error: error.message || 'AI generation failed' });
+    return new Response(JSON.stringify({ error: error.message || 'AI generation failed' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
