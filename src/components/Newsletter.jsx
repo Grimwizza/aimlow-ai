@@ -44,11 +44,21 @@ export const Newsletter = () => {
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="bg-white p-6 border-2 border-black brutal-shadow relative">
-                            <label className="font-mono text-xs font-bold text-gray-500 uppercase mb-2 block">Email Address</label>
+                            <label htmlFor="newsletter-email" className="font-mono text-xs font-bold text-gray-500 uppercase mb-2 block">Email Address</label>
                             <div className="flex flex-col gap-3">
                                 <div className="relative">
                                     <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
-                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="w-full pl-10 pr-4 py-3 border-2 border-black font-bold text-lg focus:outline-none focus:bg-yellow-50 transition-colors" required />
+                                    <input 
+                                        type="email" 
+                                        id="newsletter-email"
+                                        name="email"
+                                        autoComplete="email"
+                                        value={email} 
+                                        onChange={(e) => setEmail(e.target.value)} 
+                                        placeholder="you@example.com" 
+                                        className="w-full pl-10 pr-4 py-3 border-2 border-black font-bold text-lg focus:outline-none focus:bg-yellow-50 transition-colors" 
+                                        required 
+                                    />
                                 </div>
                                 <button type="submit" disabled={status === 'loading'} className="bg-black text-white py-3 px-6 font-black uppercase hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
                                     {status === 'loading' ? <Loader2 className="animate-spin" /> : "SUBSCRIBE"}
