@@ -59,7 +59,8 @@ export const NewsFeed = () => {
                                     <img 
                                         src={article.image} 
                                         alt={article.title} 
-                                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
+                                        // UPDATED: Removed 'grayscale' and 'group-hover:grayscale-0'
+                                        className="w-full h-full object-cover"
                                         onError={(e) => {
                                             e.target.onerror = null; 
                                             e.target.src = '/logo.jpg'; 
