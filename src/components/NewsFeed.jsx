@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { ExternalLink, Newspaper, ArrowRight, ChevronDown, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+// --- Source Logo Mapping ---
+const SOURCE_LOGOS = {
+    'TechCrunch': 'https://upload.wikimedia.org/wikipedia/commons/b/b9/TechCrunch_logo.svg',
+    'VentureBeat': 'https://upload.wikimedia.org/wikipedia/commons/d/d8/VentureBeat_logo.svg',
+    'The Verge': 'https://upload.wikimedia.org/wikipedia/commons/a/a2/The_Verge_logo.svg',
+    'Wired': 'https://upload.wikimedia.org/wikipedia/commons/9/95/Wired_logo.svg',
+    'Ars Technica': 'https://upload.wikimedia.org/wikipedia/commons/3/3d/Ars_Technica_logo.svg',
+    'r/Artificial': 'https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png',
+    'MIT Tech Review': 'https://upload.wikimedia.org/wikipedia/commons/8/8a/MIT_Technology_Review_logo.svg',
+    'Engadget': 'https://upload.wikimedia.org/wikipedia/commons/1/1e/Engadget_logo.svg'
+};
+
 export const NewsFeed = ({ limit, showAllLink = false }) => {
     const [articles, setArticles] = useState([]);
     const [visibleCount, setVisibleCount] = useState(limit || 9);
@@ -35,15 +47,12 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     // --- FILTERING LOGIC ---
     const getFilteredArticles = () => {
         return articles.filter(article => {
-            // 1. Search Query Match
             const searchContent = (article.title + " " + article.summary).toLowerCase();
             const matchesSearch = searchContent.includes(searchQuery.toLowerCase());
 
-            // 2. Category Match (Keyword based)
             let matchesCategory = true;
             if (activeCategory !== 'All') {
                 const content = (article.title + " " + article.summary).toLowerCase();
-                // Simple keyword mapping
                 if (activeCategory === 'ChatGPT') matchesCategory = content.includes('gpt') || content.includes('openai');
                 else if (activeCategory === 'Gemini') matchesCategory = content.includes('gemini') || content.includes('google');
                 else if (activeCategory === 'Grok') matchesCategory = content.includes('grok') || content.includes('x.ai') || content.includes('musk');
@@ -57,9 +66,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     };
 
     const filteredList = getFilteredArticles();
-    
-    // If a hard limit prop was passed (Homepage), use it.
-    // Otherwise (Feed Page), use our local state for "Load More".
     const currentLimit = limit ? limit : visibleCount;
     const visibleArticles = filteredList.slice(0, currentLimit);
     const hasMore = !limit && visibleCount < filteredList.length;
@@ -70,7 +76,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
         </div>
     );
 
-    // Only show controls if we are NOT on the limited homepage view
     const showControls = !limit;
 
     return (
@@ -83,8 +88,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                         <Newspaper size={32} />
                         <h2 className="text-4xl font-black uppercase">Global Intel Feed</h2>
                     </div>
-                    
-                    {/* "View Full Feed" Link (Homepage Only) */}
                     {showAllLink && (
                         <Link to="/feed" className="hidden md:flex items-center gap-2 font-mono font-bold hover:text-blue-600">
                             View Full Feed <ArrowRight size={18} />
@@ -95,7 +98,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                 {/* --- SEARCH & FILTERS (Feed Page Only) --- */}
                 {showControls && (
                     <div className="mb-12">
-                        {/* Search Bar */}
                         <div className="flex gap-2 mb-6">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-3 text-gray-400" size={20} />
@@ -107,17 +109,12 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                     className="w-full pl-10 pr-4 py-3 border-2 border-black font-bold text-lg focus:outline-none focus:bg-yellow-50 transition-colors"
                                 />
                                 {searchQuery && (
-                                    <button 
-                                        onClick={() => setSearchQuery('')}
-                                        className="absolute right-3 top-3 text-gray-400 hover:text-black"
-                                    >
+                                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3 text-gray-400 hover:text-black">
                                         <X size={20} />
                                     </button>
                                 )}
                             </div>
                         </div>
-
-                        {/* Category Chips */}
                         <div className="flex flex-wrap gap-3">
                             {CATEGORIES.map(cat => (
                                 <button
@@ -139,50 +136,60 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                 {/* Articles Grid */}
                 {visibleArticles.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {visibleArticles.map((article, idx) => (
-                            <a 
-                                key={idx} 
-                                href={article.link} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="group block h-full"
-                            >
-                                <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow relative">
-                                    {/* Source Badge */}
-                                    <div className="absolute top-0 left-0 bg-[#FEC43D] border-b-2 border-r-2 border-black px-3 py-1 font-mono text-xs font-bold z-20 uppercase">
-                                        {article.source}
-                                    </div>
+                        {visibleArticles.map((article, idx) => {
+                            // Determine the fallback image for this specific source
+                            const sourceFallback = SOURCE_LOGOS[article.source] || '/logo.jpg';
+                            
+                            // Check if the image URL is the generic fallback from backend
+                            // If so, swap it for the brand logo immediately
+                            const displayImage = (!article.image || article.image.includes('aimlow.ai/logo.jpg')) 
+                                ? sourceFallback 
+                                : article.image;
 
-                                    <div className="h-48 w-full overflow-hidden border-b-3 border-black relative bg-gray-100">
-                                        <img 
-                                            src={article.image} 
-                                            alt={article.title} 
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                e.target.onerror = null; 
-                                                e.target.src = '/logo.jpg'; 
-                                                e.target.className = "w-full h-full object-contain p-4 bg-gray-100";
-                                            }} 
-                                        />
-                                    </div>
-                                    
-                                    <div className="p-5 flex flex-col flex-1">
-                                        <h3 className="text-xl font-black leading-tight mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                                            {article.title}
-                                        </h3>
-                                        <p className="font-serif text-sm text-gray-600 mb-4 flex-1 line-clamp-3">
-                                            {article.summary}
-                                        </p>
-                                        <div className="flex items-center justify-between mt-auto font-mono text-xs text-gray-400">
-                                            <span>{new Date(article.pubDate).toLocaleDateString()}</span>
-                                            <span className="flex items-center gap-1 font-bold text-black uppercase group-hover:text-blue-600">
-                                                Read <ExternalLink size={14} />
-                                            </span>
+                            return (
+                                <a 
+                                    key={idx} 
+                                    href={article.link} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="group block h-full"
+                                >
+                                    <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow relative">
+                                        <div className="absolute top-0 left-0 bg-[#FEC43D] border-b-2 border-r-2 border-black px-3 py-1 font-mono text-xs font-bold z-20 uppercase">
+                                            {article.source}
                                         </div>
-                                    </div>
-                                </article>
-                            </a>
-                        ))}
+
+                                        <div className="h-48 w-full overflow-hidden border-b-3 border-black relative bg-gray-100 flex items-center justify-center">
+                                            <img 
+                                                src={displayImage} 
+                                                alt={article.title} 
+                                                className={`w-full h-full ${displayImage === sourceFallback ? 'object-contain p-8' : 'object-cover'}`}
+                                                onError={(e) => {
+                                                    e.target.onerror = null; 
+                                                    e.target.src = sourceFallback; 
+                                                    e.target.className = "w-full h-full object-contain p-8 bg-gray-100";
+                                                }} 
+                                            />
+                                        </div>
+                                        
+                                        <div className="p-5 flex flex-col flex-1">
+                                            <h3 className="text-xl font-black leading-tight mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                                                {article.title}
+                                            </h3>
+                                            <p className="font-serif text-sm text-gray-600 mb-4 flex-1 line-clamp-3">
+                                                {article.summary}
+                                            </p>
+                                            <div className="flex items-center justify-between mt-auto font-mono text-xs text-gray-400">
+                                                <span>{new Date(article.pubDate).toLocaleDateString()}</span>
+                                                <span className="flex items-center gap-1 font-bold text-black uppercase group-hover:text-blue-600">
+                                                    Read <ExternalLink size={14} />
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </article>
+                                </a>
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="py-20 text-center border-2 border-dashed border-gray-300 bg-gray-50">
@@ -196,7 +203,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                     </div>
                 )}
 
-                {/* Load More / View Full Button */}
                 <div className="mt-12 text-center">
                     {showAllLink ? (
                         <Link 
