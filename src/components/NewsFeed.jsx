@@ -9,7 +9,6 @@ export const NewsFeed = () => {
         const fetchNews = async () => {
             try {
                 const res = await fetch('/api/news');
-                if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
                 if (data.articles) {
                     setArticles(data.articles);
@@ -49,17 +48,25 @@ export const NewsFeed = () => {
                             className="group block h-full"
                         >
                             <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow">
-                                <div className="h-48 overflow-hidden border-b-3 border-black relative">
+                                {/* Image Container with Fixed Height to prevent blinking */}
+                                <div className="h-48 w-full overflow-hidden border-b-3 border-black relative bg-gray-100">
                                     <img 
                                         src={article.image} 
                                         alt={article.title} 
                                         className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
-                                        onError={(e) => {e.target.src = 'https://via.placeholder.com/400x200?text=News'}} 
+                                        onError={(e) => {
+                                            e.target.onerror = null; // Prevent infinite loop
+                                            e.target.src = '/logo.jpg'; // Fallback to local logo
+                                            e.target.style.objectFit = 'contain'; // Ensure logo fits nicely
+                                            e.target.style.padding = '20px';
+                                        }} 
                                     />
-                                    <div className="absolute top-2 right-2 bg-black text-white text-xs font-mono px-2 py-1">
+                                    <div className="absolute top-2 right-2 bg-black text-white text-xs font-mono px-2 py-1 z-10">
                                         {new Date(article.pubDate).toLocaleDateString()}
                                     </div>
                                 </div>
+                                
+                                {/* Content */}
                                 <div className="p-5 flex flex-col flex-1">
                                     <h3 className="text-xl font-black leading-tight mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
                                         {article.title}
