@@ -22,7 +22,7 @@ export default async function handler(req) {
     // Parse the incoming JSON body
     const { type, payload } = await req.json();
 
-    // TOOL 1: HEADLINE GENERATOR
+    // TOOL 1: HEADLINE GENERATOR (OPTIMIZED)
     if (type === 'headline') {
       const { topic } = payload;
       const completion = await openai.chat.completions.create({
@@ -30,17 +30,19 @@ export default async function handler(req) {
         messages: [
           {
             role: "system",
-            content: "You are a viral marketing expert. Return exactly 3 clickbait/viral headlines in a JSON array. Example: ['Title 1', 'Title 2', 'Title 3']. Keep them short and punchy."
+            // UPDATED PROMPT: Asking for plain text lines instead of JSON is faster and safer
+            content: "You are a viral marketing expert. Return exactly 3 clickbait/viral headlines. Separate each headline with a new line. Do not use numbers, bullet points, or quotes. Just the raw text."
           },
           { role: "user", content: `Topic: ${topic}` },
         ],
       });
 
-      let content = completion.choices[0].message.content;
-      // Clean up potential markdown formatting
-      content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+      const content = completion.choices[0].message.content;
       
-      return new Response(JSON.stringify({ result: JSON.parse(content) }), {
+      // Robust parsing: Split by new line and remove empty entries
+      const headlines = content.split('\n').filter(line => line.trim() !== '');
+      
+      return new Response(JSON.stringify({ result: headlines }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
