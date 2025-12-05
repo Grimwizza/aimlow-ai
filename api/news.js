@@ -7,12 +7,12 @@ export default async function handler(req, res) {
   const parser = new Parser({
     timeout: 3000,
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     },
     customFields: {
       item: [
         ['media:content', 'mediaContent'], 
-        ['media:thumbnail', 'mediaThumbnail'], // NEW: Added for Wired/others
+        ['media:thumbnail', 'mediaThumbnail'],
         ['content:encoded', 'contentEncoded'],
         ['description', 'description']
       ]
@@ -31,8 +31,9 @@ export default async function handler(req, res) {
     const feedPromises = SOURCES.map(async (source) => {
       try {
         const feedPromise = parser.parseURL(source.url);
+        // STRICT TIMEOUT: Fail after 2.5s to keep site snappy
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Manual Timeout')), 3500)
+            setTimeout(() => reject(new Error('Manual Timeout')), 2500)
         );
         
         const feed = await Promise.race([feedPromise, timeoutPromise]);
@@ -56,43 +57,42 @@ export default async function handler(req, res) {
     const processedArticles = allArticles.slice(0, 9).map(item => {
       let imageUrl = null;
 
-      // --- 1. Check media:content (Common Standard) ---
+      // --- 1. Check media:content ---
       if (item.mediaContent) {
-        // Handle array vs single object
         const mediaItem = Array.isArray(item.mediaContent) 
             ? item.mediaContent.find(m => m.$ && m.$.url) || item.mediaContent[0]
             : item.mediaContent;
 
-        if (mediaItem && mediaItem.$ && mediaItem.$.url) {
-             imageUrl = mediaItem.$.url;
-        } else if (mediaItem && mediaItem.url) {
-             imageUrl = mediaItem.url;
+        if (mediaItem) {
+            if (mediaItem.$ && mediaItem.$.url) imageUrl = mediaItem.$.url;
+            else if (mediaItem.url) imageUrl = mediaItem.url;
         }
       }
 
-      // --- 2. Check media:thumbnail (Used by Wired/WordPress) ---
+      // --- 2. Check media:thumbnail ---
       if (!imageUrl && item.mediaThumbnail) {
         const thumbItem = Array.isArray(item.mediaThumbnail)
             ? item.mediaThumbnail[0]
             : item.mediaThumbnail;
             
-        if (thumbItem && thumbItem.$ && thumbItem.$.url) {
-            imageUrl = thumbItem.$.url;
-        } else if (thumbItem && thumbItem.url) {
-            imageUrl = thumbItem.url;
+        if (thumbItem) {
+            if (thumbItem.$ && thumbItem.$.url) imageUrl = thumbItem.$.url;
+            else if (thumbItem.url) imageUrl = thumbItem.url;
         }
       }
       
-      // --- 3. Check Enclosure (Podcasts/Standard RSS) ---
+      // --- 3. Check Enclosure ---
       if (!imageUrl && item.enclosure) {
           imageUrl = item.enclosure.url;
       }
 
-      // --- 4. RegEx Fallback (Scrape HTML) ---
+      // --- 4. IMPROVED RegEx Fallback ---
+      // Captures URLs even if they have query parameters like ?w=1024 at the end
       if (!imageUrl) {
-          // Search both content:encoded and description
           const content = (item.contentEncoded || "") + (item.description || "");
-          const match = content.match(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp))["']/i);
+          // Look for src="..." where the URL contains an image extension somewhere, 
+          // allowing for extra characters (query params) before the closing quote.
+          const match = content.match(/src=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
           if (match) {
             imageUrl = match[1];
           }
