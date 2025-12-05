@@ -12,7 +12,6 @@ const SOURCE_LOGOS = {
     'r/Artificial': 'https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png',
     'MIT Tech Review': 'https://upload.wikimedia.org/wikipedia/commons/8/8a/MIT_Technology_Review_logo.svg',
     'Engadget': 'https://upload.wikimedia.org/wikipedia/commons/1/1e/Engadget_logo.svg',
-    // UPDATED: Use a reliable icon service for ScienceDaily since they block direct logo links
     'ScienceDaily': 'https://www.google.com/s2/favicons?domain=sciencedaily.com&sz=128',
     'AI News': 'https://www.artificialintelligence-news.com/wp-content/themes/artificialintelligence-news/images/logo.png'
 };
@@ -22,10 +21,12 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     const [visibleCount, setVisibleCount] = useState(limit || 9);
     const [loading, setLoading] = useState(true);
     
+    // Search & Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState('All');
 
-    const CATEGORIES = ["All", "ChatGPT", "Gemini", "Grok", "Apple", "Regulation", "Robotics"];
+    // UPDATED: Broad Popular Categories
+    const CATEGORIES = ["All", "LLMs", "Creative AI", "Robotics", "Hardware", "Regulation", "Business"];
 
     useEffect(() => {
         const fetchNews = async () => {
@@ -46,6 +47,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
         fetchNews();
     }, []);
 
+    // --- UPDATED FILTERING LOGIC ---
     const getFilteredArticles = () => {
         return articles.filter(article => {
             const searchContent = (article.title + " " + article.summary).toLowerCase();
@@ -54,12 +56,25 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
             let matchesCategory = true;
             if (activeCategory !== 'All') {
                 const content = (article.title + " " + article.summary).toLowerCase();
-                if (activeCategory === 'ChatGPT') matchesCategory = content.includes('gpt') || content.includes('openai');
-                else if (activeCategory === 'Gemini') matchesCategory = content.includes('gemini') || content.includes('google');
-                else if (activeCategory === 'Grok') matchesCategory = content.includes('grok') || content.includes('x.ai') || content.includes('musk');
-                else if (activeCategory === 'Apple') matchesCategory = content.includes('apple') || content.includes('siri') || content.includes('mac');
-                else if (activeCategory === 'Regulation') matchesCategory = content.includes('law') || content.includes('bill') || content.includes('congress') || content.includes('eu ');
-                else if (activeCategory === 'Robotics') matchesCategory = content.includes('robot') || content.includes('humanoid') || content.includes('boston dynamics');
+                
+                if (activeCategory === 'LLMs') {
+                    matchesCategory = content.includes('gpt') || content.includes('openai') || content.includes('claude') || content.includes('gemini') || content.includes('llama') || content.includes('grok') || content.includes('chatbot') || content.includes('model');
+                }
+                else if (activeCategory === 'Creative AI') {
+                    matchesCategory = content.includes('midjourney') || content.includes('dall-e') || content.includes('stable diffusion') || content.includes('sora') || content.includes('runway') || content.includes('video') || content.includes('image') || content.includes('art ');
+                }
+                else if (activeCategory === 'Robotics') {
+                    matchesCategory = content.includes('robot') || content.includes('humanoid') || content.includes('boston dynamics') || content.includes('tesla bot') || content.includes('optimus') || content.includes('figure');
+                }
+                else if (activeCategory === 'Hardware') {
+                    matchesCategory = content.includes('nvidia') || content.includes('gpu') || content.includes('chips') || content.includes('hardware') || content.includes('amd') || content.includes('intel') || content.includes('compute');
+                }
+                else if (activeCategory === 'Regulation') {
+                    matchesCategory = content.includes('law') || content.includes('bill') || content.includes('congress') || content.includes('eu ') || content.includes('safety') || content.includes('ethics') || content.includes('deepfake') || content.includes('copyright');
+                }
+                else if (activeCategory === 'Business') {
+                    matchesCategory = content.includes('stock') || content.includes('invest') || content.includes('funding') || content.includes('startup') || content.includes('billion') || content.includes('acquisition') || content.includes('market') || content.includes('microsoft') || content.includes('apple');
+                }
             }
 
             return matchesSearch && matchesCategory;
@@ -156,7 +171,6 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                         <div className="h-48 w-full overflow-hidden border-b-3 border-black relative bg-gray-100 flex items-center justify-center">
                                             <img 
                                                 src={displayImage} 
-                                                // UPDATED: Empty alt tag prevents the text flash during loading/error
                                                 alt="" 
                                                 className={`w-full h-full ${displayImage === sourceFallback ? 'object-contain p-8' : 'object-cover'}`}
                                                 onError={(e) => {
