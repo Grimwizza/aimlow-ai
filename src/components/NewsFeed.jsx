@@ -9,6 +9,7 @@ export const NewsFeed = () => {
         const fetchNews = async () => {
             try {
                 const res = await fetch('/api/news');
+                if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
                 if (data.articles) {
                     setArticles(data.articles);
@@ -48,7 +49,6 @@ export const NewsFeed = () => {
                             className="group block h-full"
                         >
                             <article className="h-full border-3 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow">
-                                {/* Image Container */}
                                 <div className="h-48 overflow-hidden border-b-3 border-black relative">
                                     <img 
                                         src={article.image} 
@@ -60,8 +60,6 @@ export const NewsFeed = () => {
                                         {new Date(article.pubDate).toLocaleDateString()}
                                     </div>
                                 </div>
-                                
-                                {/* Content */}
                                 <div className="p-5 flex flex-col flex-1">
                                     <h3 className="text-xl font-black leading-tight mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
                                         {article.title}
