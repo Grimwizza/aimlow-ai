@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   const parser = new Parser({
     timeout: 3000,
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     },
     customFields: {
       item: [
@@ -20,10 +20,17 @@ export default async function handler(req, res) {
   });
 
   const SOURCES = [
-    { name: 'TechCrunch', url: 'https://techcrunch.com/category/artificial-intelligence/feed/' },
+    // REMOVED: TechCrunch (Images are too unreliable/blocked)
+    // KEPT: VentureBeat (Reliable)
     { name: 'VentureBeat', url: 'https://venturebeat.com/category/ai/feed/' },
+    // KEPT: The Verge (Reliable)
     { name: 'The Verge', url: 'https://www.theverge.com/rss/ai/index.xml' },
-    { name: 'Wired', url: 'https://www.wired.com/feed/tag/ai/latest/rss' }
+    // KEPT: Wired (Reliable)
+    { name: 'Wired', url: 'https://www.wired.com/feed/tag/ai/latest/rss' },
+    // NEW: ScienceDaily (Great images, strictly AI)
+    { name: 'ScienceDaily', url: 'https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml' },
+    // NEW: Engadget (High volume, good fallback)
+    { name: 'Engadget', url: 'https://www.engadget.com/rss.xml' }
   ];
   
   try {
@@ -31,9 +38,8 @@ export default async function handler(req, res) {
     const feedPromises = SOURCES.map(async (source) => {
       try {
         const feedPromise = parser.parseURL(source.url);
-        // STRICT TIMEOUT: Fail after 2.5s to keep site snappy
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Manual Timeout')), 2500)
+            setTimeout(() => reject(new Error('Manual Timeout')), 3500)
         );
         
         const feed = await Promise.race([feedPromise, timeoutPromise]);
@@ -52,12 +58,14 @@ export default async function handler(req, res) {
        return res.status(200).json({ articles: [] });
     }
 
+    // Sort by Date (Newest First)
     allArticles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
+    // Limit to 9 stories
     const processedArticles = allArticles.slice(0, 9).map(item => {
       let imageUrl = null;
 
-      // --- 1. Check media:content ---
+      // 1. Check media:content
       if (item.mediaContent) {
         const mediaItem = Array.isArray(item.mediaContent) 
             ? item.mediaContent.find(m => m.$ && m.$.url) || item.mediaContent[0]
@@ -69,7 +77,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // --- 2. Check media:thumbnail ---
+      // 2. Check media:thumbnail
       if (!imageUrl && item.mediaThumbnail) {
         const thumbItem = Array.isArray(item.mediaThumbnail)
             ? item.mediaThumbnail[0]
@@ -81,32 +89,31 @@ export default async function handler(req, res) {
         }
       }
       
-      // --- 3. Check Enclosure ---
+      // 3. Check Enclosure
       if (!imageUrl && item.enclosure) {
           imageUrl = item.enclosure.url;
       }
 
-      // --- 4. IMPROVED RegEx Fallback ---
-      // Captures URLs even if they have query parameters like ?w=1024 at the end
+      // 4. RegEx Fallback
       if (!imageUrl) {
           const content = (item.contentEncoded || "") + (item.description || "");
-          // Look for src="..." where the URL contains an image extension somewhere, 
-          // allowing for extra characters (query params) before the closing quote.
           const match = content.match(/src=["']([^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
           if (match) {
             imageUrl = match[1];
           }
       }
 
-      // --- 5. Final Fallback ---
+      // 5. Fallback to Logo
       if (!imageUrl) {
         imageUrl = 'https://aimlow.ai/logo.jpg'; 
       }
       
+      // Clean Text: Remove HTML, newlines, and "Continue reading" links
       const rawDesc = item.contentSnippet || item.description || "";
       const summary = rawDesc.replace(/<[^>]*>?/gm, '') 
                              .replace(/\n/g, ' ') 
                              .replace(/Continue reading.*$/, '')
+                             .replace(/Read more.*$/, '')
                              .substring(0, 120) + "...";
 
       return {
