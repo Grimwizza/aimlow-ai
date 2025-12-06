@@ -6,24 +6,20 @@ import { SEO } from './seo-tools/SEOTags';
 import { Newsletter } from './components/Newsletter';
 import { NewsFeed } from './components/NewsFeed';
 import ReactMarkdown from 'react-markdown'; 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { 
     Menu, X, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
     Loader2, Sparkles, Copy, Check, Upload, Image as ImageIcon, Zap, Share2, Facebook, Linkedin, Briefcase, Coffee, Lock, Unlock, Download, Printer, X as CloseIcon
 } from 'lucide-react';
 
-// --- CONSTANTS ---
-const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999'];
-// Define regex outside component to prevent parser confusion
-const JSON_REGEX = new RegExp('```json\\s*([\\s\\S]*?)\\s*```');
-
+// --- Custom X Logo Component ---
 const XLogo = ({ size = 24, color = "currentColor", className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={color} className={className}>
         <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
     </svg>
 );
 
+// --- Icon Mapping ---
 const iconMap = {
     menu: Menu, x: X, twitter: XLogo, github: Github, mail: Mail,
     'flask-conical': FlaskConical, 'arrow-left': ArrowLeft, 'arrow-right': ArrowRight,
@@ -37,12 +33,14 @@ const Icon = ({ name, size = 24, color = "currentColor", className }) => {
     return <LucideIcon size={size} color={color} className={className} />;
 };
 
+// --- Logo Component ---
 const Logo = () => {
     const [error, setError] = useState(false);
     if (error) return <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">AL</div>;
     return <img src="/logo.jpg" alt="AimLow Logo" className="h-10 w-auto object-contain" onError={() => setError(true)} />;
 };
 
+// --- LAB CONFIG ---
 const LAB_ITEMS = [
     { 
         id: 1, 
@@ -136,27 +134,7 @@ const AuthorBio = ({ author }) => {
     );
 };
 
-const MarketShareChart = ({ data }) => {
-    if (!data || data.length === 0) return null;
-    return (
-        <div className="h-64 w-full mb-8">
-            <h4 className="font-black uppercase text-sm text-gray-500 mb-2">Estimated Market Share</h4>
-            <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                    <Pie data={data} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value">
-                        {data.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="black" strokeWidth={2} />
-                        ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ border: '2px solid black', boxShadow: '4px 4px 0px 0px #000' }} />
-                    <Legend layout="vertical" verticalAlign="middle" align="right" />
-                </PieChart>
-            </ResponsiveContainer>
-        </div>
-    );
-};
-
-// --- TOOL 4: THE DEEP DIVE (Syntax Fixed) ---
+// --- TOOL 4: THE DEEP DIVE (Stable Version) ---
 const DeepDive = ({ onBack }) => {
     const [inputBrand, setInputBrand] = useState('');
     const [reports, setReports] = useState([]); 
@@ -170,11 +148,11 @@ const DeepDive = ({ onBack }) => {
         if (access === 'granted') setHasAccess(true);
     }, []);
 
-    const runAnalysis = async (brandName, contextBrand = null) => {
+    const runAnalysis = async (brandName) => {
         if (!brandName) return;
         setIsGenerating(true);
         try {
-            const payload = { brand: brandName, context: contextBrand };
+            const payload = { brand: brandName };
             const response = await fetch('/api/generate', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
@@ -185,19 +163,7 @@ const DeepDive = ({ onBack }) => {
             if (!response.ok || data.error) throw new Error(data.error || "Server Error");
             
             if (data.result) {
-                let chartData = [];
-                const jsonMatch = data.result.match(JSON_REGEX);
-                let cleanContent = data.result;
-
-                if (jsonMatch) {
-                    try {
-                        const jsonData = JSON.parse(jsonMatch[1]);
-                        if (jsonData.market_share) chartData = jsonData.market_share;
-                        cleanContent = data.result.replace(jsonMatch[0], '');
-                    } catch (e) { console.error("Chart parse error", e); }
-                }
-
-                setReports(prev => [...prev, { id: Date.now(), brand: brandName, content: cleanContent, chartData }]);
+                setReports(prev => [...prev, { id: Date.now(), brand: brandName, content: data.result }]);
             }
         } catch (err) { 
             console.error(err); 
@@ -267,49 +233,32 @@ const DeepDive = ({ onBack }) => {
                     const [freeContent, proContent] = report.content.split(splitMarker);
                     const finalProContent = proContent || "";
 
-                    // Define Markdown components separately to avoid parser confusion
                     const markdownComponents = {
                         h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
                         ul: ({node, ...props}) => <ul className="grid grid-cols-1 gap-2 list-none pl-0" {...props} />,
                         li: ({node, ...props}) => <li className="bg-gray-50 p-3 border-l-4 border-black text-sm" {...props} />,
-                        a: ({node, href, children, ...props}) => {
-                            if (href && href.startsWith('analyze:')) {
-                                const compName = href.replace('analyze:', '');
-                                const contextBrand = reports.length > 0 ? reports[0].brand : null;
-                                return (
-                                    <button 
-                                        onClick={() => runAnalysis(compName, contextBrand)} 
-                                        className="text-[#2563EB] hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left"
-                                    >
-                                        {children} ↗
-                                    </button>
-                                );
-                            }
-                            return <a href={href} className="text-[#2563EB] font-bold hover:underline" target="_blank" {...props}>{children}</a>;
-                        }
+                        a: ({node, href, children, ...props}) => <a href={href} className="text-[#2563EB] font-bold hover:underline" target="_blank" rel="noopener noreferrer" {...props}>{children}</a>
                     };
 
                     return (
                         <div key={report.id} className="relative bg-white border-2 border-black p-8 brutal-shadow print:shadow-none print:border-0 min-w-0">
                             <button onClick={() => removeReport(report.id)} className="absolute top-4 right-4 text-gray-400 hover:text-red-600 print:hidden"><Icon name="close" size={24} /></button>
-                            <div className="border-b-4 border-black pb-4 mb-8 pr-8">
-                                <h2 className="text-3xl font-black uppercase">{report.brand}</h2>
-                                <p className="font-mono text-gray-500 text-sm">Audit Report • {new Date().toLocaleDateString()}</p>
+                            <div className="border-b-4 border-black pb-4 mb-8 pr-8 flex justify-between items-start">
+                                <div>
+                                    <h2 className="text-3xl font-black uppercase">{report.brand}</h2>
+                                    <p className="font-mono text-gray-500 text-sm">Strategic Audit • {new Date().toLocaleDateString()}</p>
+                                </div>
+                                <img src="/logo.jpg" alt="AimLow" className="h-12 w-auto object-contain opacity-80" />
                             </div>
 
-                            {/* Free Content */}
                             <div className="prose prose-lg font-serif max-w-none mb-8">
                                 <ReactMarkdown components={markdownComponents}>
                                     {freeContent}
                                 </ReactMarkdown>
                             </div>
 
-                            {/* Pro/Gated Content */}
                             <div className={`relative ${!hasAccess ? 'h-[300px] overflow-hidden' : ''}`}>
                                 <div className={!hasAccess ? 'filter blur-sm select-none opacity-40' : ''}>
-                                    
-                                    {hasAccess && <MarketShareChart data={report.chartData} />}
-
                                     <ReactMarkdown components={markdownComponents} children={finalProContent} />
                                 </div>
 
@@ -318,7 +267,7 @@ const DeepDive = ({ onBack }) => {
                                         <Icon name="lock" size={48} className="mb-4 text-black" />
                                         <h3 className="text-2xl font-black uppercase mb-2">Unlock Full Analysis</h3>
                                         <p className="font-mono text-sm font-bold text-gray-600 mb-4">
-                                            Join the Beta to see 4P Strategy, Financials, and Charts.
+                                            Join the Beta to see 4P Strategy and Competitive Tactics.
                                         </p>
                                         <form onSubmit={handleBetaSignup} className="w-full flex flex-col gap-2">
                                             <input type="email" required placeholder="Enter email..." value={email} onChange={e => setEmail(e.target.value)} className="w-full border-2 border-black p-2 font-bold" />
@@ -337,9 +286,7 @@ const DeepDive = ({ onBack }) => {
     );
 };
 
-// ... (HeadlineGenerator, AltTextFixer, JargonDestroyer, Header, Hero, HomePage, BlogPage, LabPage, FeedPage, BlogPost, BlogCard, App)
-// Standard components. Included below for copy/paste.
-
+// ... Tools (Headline, AltText, Jargon) ...
 const HeadlineGenerator = () => {
     const [topic, setTopic] = useState('');
     const [results, setResults] = useState([]);
@@ -539,6 +486,9 @@ const BlogCard = ({ post }) => {
 function App() {
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { pathname } = useLocation();
+    useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+
     useEffect(() => {
         const fetchPosts = async () => {
             try { const query = `*[_type == "post"] | order(publishedAt desc) {_id, title, slug, publishedAt, _createdAt, mainImage, "excerpt": pt::text(body)[0...150] + "...", body}`; const data = await client.fetch(query); setPosts(data); setLoading(false); } catch (error) { console.error("Sanity fetch failed:", error); setLoading(false); }

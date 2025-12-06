@@ -9,6 +9,7 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req) {
+  // 1. Security Check
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
   }
@@ -27,6 +28,7 @@ export default async function handler(req) {
           { role: "user", content: `Topic: ${topic}` },
         ],
       });
+      // Split by newline to get array
       const headlines = completion.choices[0].message.content.split('\n').filter(line => line.trim() !== '');
       return new Response(JSON.stringify({ result: headlines }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -57,19 +59,13 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // TOOL 4: DEEP DIVE (Professional Report Mode)
+    // TOOL 4: DEEP DIVE (Stable Text-Only Version)
     if (type === 'deep-dive') {
-      const { brand, context } = payload;
+      const { brand } = payload;
       
       let systemPrompt = `You are a ruthless senior brand strategist. Provide a comprehensive strategic audit in Markdown.
             
-            IMPORTANT FORMATTING RULES:
-            1. Use '### ' for Section Headers (e.g. ### Executive Summary).
-            2. Separate the "Free" content from "Pro" content using exactly this string: ---PRO_CONTENT_START---
-            3. For Financials, include a JSON block wrapped in triple backticks named 'json' with this structure: 
-               \`\`\`json
-               { "market_share": [ {"name": "Brand", "value": 30}, {"name": "Comp1", "value": 20} ] }
-               \`\`\`
+            IMPORTANT: You must separate the "Free Preview" content from the "Pro Analysis" content using exactly this string: ---PRO_CONTENT_START---
             
             Required Structure:
             
@@ -83,15 +79,12 @@ export default async function handler(req) {
             Who buys this? (Demographics, Psychographics, and 'The Job to be Done').
 
             ---PRO_CONTENT_START---
-            
-            ### Financial Snapshot
-            (Provide the JSON block here first for charts, then text summary of revenue).
 
             ### 4P Marketing Mix
-            - **Product**: Core offering.
-            - **Price**: Strategy.
-            - **Place**: Channels.
-            - **Promotion**: Messaging.
+            - **Product**: Core offering vs. augmentations.
+            - **Price**: Strategy (Premium, Skimming, Economy).
+            - **Place**: Distribution channels.
+            - **Promotion**: Key messaging channels.
             
             ### SWOT Analysis
             - **Strengths**: Internal advantages.
@@ -100,16 +93,12 @@ export default async function handler(req) {
             - **Threats**: External risks.
             
             ### Competitive Landscape
-            List 3 Primary Competitors. Format links as: [Name](analyze:Name).
+            List 3 Primary Competitors with a one-sentence differentiator for each.
             
             ### Strategic Recommendations
-            3 actionable next steps.`;
+            3 actionable next steps.
 
-      if (context) {
-          systemPrompt += `\n\n### Head-to-Head Strategy: ${context} vs ${brand}\n   - Provide top 3 recommendations for **${context}** to compete directly with **${brand}**.\n   - Explain WHY each recommendation makes sense based on ${brand}'s weaknesses found above.`;
-      }
-
-      systemPrompt += `\n\nTone: Professional, direct, critical. No fluff.`;
+            Tone: Professional, direct, critical. No fluff.`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -125,6 +114,7 @@ export default async function handler(req) {
     return new Response(JSON.stringify({ error: 'Invalid tool type' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
   } catch (error) {
+    console.error("Backend Logic Error:", error);
     return new Response(JSON.stringify({ error: error.message || 'AI generation failed' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
