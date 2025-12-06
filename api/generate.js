@@ -9,7 +9,6 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req) {
-  // 1. Security Check
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
   }
@@ -28,7 +27,6 @@ export default async function handler(req) {
           { role: "user", content: `Topic: ${topic}` },
         ],
       });
-      // Split by newline to get array
       const headlines = completion.choices[0].message.content.split('\n').filter(line => line.trim() !== '');
       return new Response(JSON.stringify({ result: headlines }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
@@ -59,7 +57,7 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // TOOL 4: DEEP DIVE (Stable Text-Only Version)
+    // TOOL 4: DEEP DIVE (High Accuracy Mode)
     if (type === 'deep-dive') {
       const { brand } = payload;
       
@@ -73,18 +71,24 @@ export default async function handler(req) {
             Provide the Official Website URL and Investor Relations URL (if public) as a bulleted list.
 
             ### Executive Summary
-            3 punchy bullet points summarizing the brand's current position.
+            3 punchy bullet points summarizing the brand's current position, market sentiment, and key challenge.
 
             ### Target Persona
             Who buys this? (Demographics, Psychographics, and 'The Job to be Done').
 
             ---PRO_CONTENT_START---
 
+            ### Financial Snapshot
+            Provide estimated Annual Revenue and Market Position (e.g. "Market Leader", "Challenger").
+
             ### 4P Marketing Mix
             - **Product**: Core offering vs. augmentations.
             - **Price**: Strategy (Premium, Skimming, Economy).
             - **Place**: Distribution channels.
             - **Promotion**: Key messaging channels.
+
+            ### Retail Mix
+            List the top 5 key retailers (Online & Brick-and-Mortar) where this brand is sold. Include D2C if applicable.
             
             ### SWOT Analysis
             - **Strengths**: Internal advantages.
@@ -93,7 +97,11 @@ export default async function handler(req) {
             - **Threats**: External risks.
             
             ### Competitive Landscape
-            List 3 Primary Competitors with a one-sentence differentiator for each.
+            List the **Top 5** Competitors. 
+            *CRITICAL:* You must include both legacy incumbents AND high-growth modern challengers (e.g. for Lighting include Govee/LIFX; for Soda include Olipop/Poppi).
+            
+            Format each competitor exactly like this: 
+            - [Competitor Name](analyze:Competitor Name): One sentence on why they are a threat.
             
             ### Strategic Recommendations
             3 actionable next steps.
@@ -114,7 +122,6 @@ export default async function handler(req) {
     return new Response(JSON.stringify({ error: 'Invalid tool type' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
   } catch (error) {
-    console.error("Backend Logic Error:", error);
     return new Response(JSON.stringify({ error: error.message || 'AI generation failed' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
