@@ -34,24 +34,8 @@ const Icon = ({ name, size = 24, color = "currentColor", className }) => {
 // --- Logo Component ---
 const Logo = () => {
     const [error, setError] = useState(false);
-    
-    if (error) {
-        return (
-            <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">
-                AL
-            </div>
-        );
-    }
-
-    // UPDATED: Now pointing to .png
-    return (
-        <img 
-            src="/logo.png" 
-            alt="AimLow Logo" 
-            className="h-10 w-auto object-contain" 
-            onError={() => setError(true)} 
-        />
-    );
+    if (error) return <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">AL</div>;
+    return <img src="/logo.png" alt="AimLow Logo" className="h-10 w-auto object-contain" onError={() => setError(true)} />;
 };
 
 const LAB_ITEMS = [
@@ -244,9 +228,29 @@ const HomePage = ({ posts }) => (
     <>
         <SEO title="Home" />
         <Hero />
+        {/* SECTION 1: NEWS FEED (THE LOWDOWN) */}
         <NewsFeed limit={3} showAllLink={true} />
-        <section className="max-w-6xl mx-auto px-4 py-16"><div className="flex justify-between items-end mb-12 border-b-2 border-black pb-4"><h2 className="text-4xl font-black uppercase">Recent Logs</h2><Link to="/blog" className="font-mono font-bold underline decoration-2">View All</Link></div><div className="grid grid-cols-1 md:grid-cols-3 gap-8">{posts.slice(0, 3).map(post => <BlogCard key={post._id} post={post} />)}</div></section>
-        <section className="bg-black text-white py-16 px-4 border-y-4 border-black"><div className="max-w-6xl mx-auto"><h2 className="text-4xl font-black uppercase mb-12 text-center text-[#FEC43D]">Lab Experiments</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-8">{LAB_ITEMS.map(item => <LabCard key={item.id} item={item} />)}</div></div></section>
+        
+        {/* SECTION 2: THE LAB (REORDERED) */}
+        <section className="bg-black text-white py-16 px-4 border-y-4 border-black">
+            <div className="max-w-6xl mx-auto">
+                <h2 className="text-4xl font-black uppercase mb-12 text-center text-[#FEC43D]">Lab Experiments</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {LAB_ITEMS.map(item => <LabCard key={item.id} item={item} />)}
+                </div>
+            </div>
+        </section>
+
+        {/* SECTION 3: THE LOG */}
+        <section className="max-w-6xl mx-auto px-4 py-16">
+            <div className="flex justify-between items-end mb-12 border-b-2 border-black pb-4">
+                <h2 className="text-4xl font-black uppercase">Recent Logs</h2>
+                <Link to="/blog" className="font-mono font-bold underline decoration-2">View All</Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {posts.slice(0, 3).map(post => <BlogCard key={post._id} post={post} />)}
+            </div>
+        </section>
     </>
 );
 
