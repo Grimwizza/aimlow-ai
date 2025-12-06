@@ -57,51 +57,59 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // TOOL 4: DEEP DIVE (High Accuracy Mode)
+    // TOOL 4: DEEP DIVE (Pro Charts Mode)
     if (type === 'deep-dive') {
       const { brand } = payload;
       
       let systemPrompt = `You are a ruthless senior brand strategist. Provide a comprehensive strategic audit in Markdown.
             
-            IMPORTANT: You must separate the "Free Preview" content from the "Pro Analysis" content using exactly this string: ---PRO_CONTENT_START---
+            IMPORTANT:
+            1. Separate "Free" from "Pro" content with: ---PRO_CONTENT_START---
+            2. Include a SINGLE JSON block wrapped in triple backticks named 'json' containing two datasets: 'market_share' and 'annual_sales' (estimated revenue for last 5 years).
+            
+            Example JSON Structure:
+            \`\`\`json
+            { 
+              "market_share": [ {"name": "Brand", "value": 30}, {"name": "Comp1", "value": 20}, {"name": "Comp2", "value": 15}, {"name": "Others", "value": 35} ],
+              "annual_sales": [ {"year": "2020", "revenue": 5.2}, {"year": "2021", "revenue": 6.1}, {"year": "2022", "revenue": 6.8}, {"year": "2023", "revenue": 7.5}, {"year": "2024", "revenue": 8.2} ]
+            }
+            \`\`\`
             
             Required Structure:
             
             ### Quick Links
-            Provide the Official Website URL and Investor Relations URL (if public) as a bulleted list.
+            Official Website and Investor Relations (list).
 
             ### Executive Summary
-            3 punchy bullet points summarizing the brand's current position, market sentiment, and key challenge.
+            3 punchy bullet points.
 
             ### Target Persona
-            Who buys this? (Demographics, Psychographics, and 'The Job to be Done').
+            Demographics, Psychographics, Job to be Done.
 
             ---PRO_CONTENT_START---
 
-            ### Financial Snapshot
-            Provide estimated Annual Revenue and Market Position (e.g. "Market Leader", "Challenger").
+            ### Financial Performance
+            (The JSON block goes here).
+            Brief text summary of financial trajectory.
 
             ### 4P Marketing Mix
-            - **Product**: Core offering vs. augmentations.
-            - **Price**: Strategy (Premium, Skimming, Economy).
-            - **Place**: Distribution channels.
-            - **Promotion**: Key messaging channels.
+            - **Product**: Core & Augmentations.
+            - **Price**: Strategy.
+            - **Place**: Channels.
+            - **Promotion**: Tactics.
 
             ### Retail Mix
-            List the top 5 key retailers (Online & Brick-and-Mortar) where this brand is sold. Include D2C if applicable.
+            Top 5 retailers (Online & Offline).
             
             ### SWOT Analysis
-            - **Strengths**: Internal advantages.
-            - **Weaknesses**: Internal gaps.
-            - **Opportunities**: External growth areas.
-            - **Threats**: External risks.
+            - **Strengths**
+            - **Weaknesses**
+            - **Opportunities**
+            - **Threats**
             
             ### Competitive Landscape
-            List the **Top 5** Competitors. 
-            *CRITICAL:* You must include both legacy incumbents AND high-growth modern challengers (e.g. for Lighting include Govee/LIFX; for Soda include Olipop/Poppi).
-            
-            Format each competitor exactly like this: 
-            - [Competitor Name](analyze:Competitor Name): One sentence on why they are a threat.
+            List Top 5 Competitors (Incumbents + Challengers).
+            Format: [Name](analyze:Name): One sentence differentiator.
             
             ### Strategic Recommendations
             3 actionable next steps.
