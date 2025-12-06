@@ -1,5 +1,13 @@
+import React, { useState, useEffect } from 'react';
+import { SEO } from '../../seo-tools/SEOTags';
+import { Icon } from '../Layout';
+import ReactMarkdown from 'react-markdown'; 
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
+const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999', '#555555'];
+
 const MarketShareChart = ({ data }) => {
-    if (!data || data.length === 0) return null;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
     return (
         <div className="h-64 w-full mb-8">
             <h4 className="font-black uppercase text-sm text-gray-500 mb-2">Estimated Market Share</h4>
@@ -18,7 +26,7 @@ const MarketShareChart = ({ data }) => {
 };
 
 const SalesChart = ({ data }) => {
-    if (!data || data.length === 0) return null;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
     return (
         <div className="h-64 w-full mb-8">
             <h4 className="font-black uppercase text-sm text-gray-500 mb-2">Estimated Annual Sales (Billions)</h4>
@@ -67,16 +75,32 @@ export const DeepDive = ({ onBack }) => {
                 let salesData = [];
                 let cleanContent = data.result;
 
-                // Robust JSON Extraction
-                const jsonMatch = data.result.match(JSON_REGEX);
-                if (jsonMatch && jsonMatch[1]) {
-                    try {
-                        const jsonData = JSON.parse(jsonMatch[1]);
-                        if (jsonData.market_share) shareData = jsonData.market_share;
-                        if (jsonData.annual_sales) salesData = jsonData.annual_sales;
-                        // Clean the JSON block out of the text
-                        cleanContent = data.result.replace(jsonMatch[0], '');
-                    } catch (e) { console.error("Chart parse error", e); }
+                // --- ROBUST PARSING (No Regex) ---
+                // Find JSON block by simple string matching
+                const jsonStartMarker = "```json";
+                const jsonEndMarker = "```";
+                
+                const startIndex = data.result.indexOf(jsonStartMarker);
+                
+                if (startIndex !== -1) {
+                    const endIndex = data.result.indexOf(jsonEndMarker, startIndex + jsonStartMarker.length);
+                    
+                    if (endIndex !== -1) {
+                        const jsonString = data.result.substring(startIndex + jsonStartMarker.length, endIndex);
+                        try {
+                            const jsonData = JSON.parse(jsonString);
+                            if (jsonData.market_share) shareData = jsonData.market_share;
+                            if (jsonData.annual_sales) salesData = jsonData.annual_sales;
+                            
+                            // Remove the JSON block from the text content
+                            // We replace the whole block (start to end + markers) with empty string
+                            const fullBlock = data.result.substring(startIndex, endIndex + jsonEndMarker.length);
+                            cleanContent = data.result.replace(fullBlock, '');
+                            
+                        } catch (e) {
+                            console.error("JSON Parsing Error:", e);
+                        }
+                    }
                 }
 
                 setReports(prev => [...prev, { id: Date.now(), brand: brandName, content: cleanContent, shareData, salesData }]);
@@ -110,10 +134,6 @@ export const DeepDive = ({ onBack }) => {
             setSignupStatus('error');
             setTimeout(() => setSignupStatus('idle'), 3000);
         }
-    };
-
-    const handlePrint = () => {
-        window.print();
     };
 
     const removeReport = (id) => {
@@ -151,8 +171,8 @@ export const DeepDive = ({ onBack }) => {
                 {reports.map((report) => {
                     const splitMarker = "---PRO_CONTENT_START---";
                     const parts = report.content.split(splitMarker);
-                    const freeContent = parts[0];
-                    const proContent = parts.length > 1 ? parts[1] : "";
+                    const freeContent = parts[0] || "";
+                    const proContent = parts[1] || "";
 
                     const markdownComponents = {
                         h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
@@ -161,12 +181,12 @@ export const DeepDive = ({ onBack }) => {
                         a: ({node, href, children, ...props}) => {
                             if (href && href.startsWith('analyze:')) {
                                 const compName = href.replace('analyze:', '');
-                                // Pass current brand as context
+                                const contextBrand = reports.length > 0 ? reports[0].brand : null;
                                 return (
                                     <button 
-                                        onClick={() => runAnalysis(compName, report.brand)} 
+                                        onClick={() => runAnalysis(compName, contextBrand)} 
                                         className="text-[#2563EB] hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left"
-                                        title={`Run Strategy vs ${report.brand}`}
+                                        title={`Run Strategy vs ${contextBrand || 'Competitor'}`}
                                     >
                                         {children} ↗
                                     </button>
@@ -200,11 +220,15 @@ export const DeepDive = ({ onBack }) => {
                             <div className={`relative ${!hasAccess ? 'h-[300px] overflow-hidden' : ''}`}>
                                 <div className={!hasAccess ? 'filter blur-sm select-none opacity-40' : ''}>
                                     
-                                    {/* CHARTS SECTION */}
+                                    {/* CHARTS SECTION - With Error Boundary safety */}
                                     {hasAccess && (
                                         <div className="grid grid-cols-1 gap-8 mb-8">
-                                            {report.shareData && <MarketShareChart data={report.shareData} />}
-                                            {report.salesData && <SalesChart data={report.salesData} />}
+                                            {report.shareData && report.shareData.length > 0 && (
+                                                <MarketShareChart data={report.shareData} />
+                                            )}
+                                            {report.salesData && report.salesData.length > 0 && (
+                                                <SalesChart data={report.salesData} />
+                                            )}
                                         </div>
                                     )}
 
