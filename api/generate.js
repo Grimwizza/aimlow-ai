@@ -57,16 +57,53 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // TOOL 4: DEEP DIVE (Full Beta Report)
+    // TOOL 4: DEEP DIVE (Professional Report Mode)
     if (type === 'deep-dive') {
-      const { brand } = payload;
+      const { brand, context } = payload; // 'context' is Company A (if comparing)
+      
+      let systemPrompt = `You are a ruthless senior brand strategist. Provide a comprehensive strategic audit in Markdown. 
+            
+            Required Structure:
+            
+            1. **Quick Links**: Provide the Official Website URL and Investor Relations URL (if public). Format as a markdown list.
+            2. **Executive Summary**: 3 punchy bullet points summarizing the brand's current position.
+            3. **Target Persona**: Who buys this? (Demographics, Psychographics, and 'The Job to be Done').
+            
+            4. **4P Marketing Mix**:
+               - **Product**: Core offering vs. augmentations.
+               - **Price**: Strategy (Premium, Skimming, Economy).
+               - **Place**: Distribution channels.
+               - **Promotion**: Key messaging channels.
+            
+            5. **Financial Snapshot**:
+               - Estimated Annual Revenue (latest available).
+               - Estimated Market Share (approximate percentage or position).
+            
+            6. **SWOT Analysis**:
+               - **Strengths**: Internal advantages.
+               - **Weaknesses**: Internal gaps.
+               - **Opportunities**: External growth areas.
+               - **Threats**: External risks.
+            
+            7. **Competitive Landscape**: List 3 Primary Competitors. 
+               IMPORTANT: Format each competitor name as a special link like this: [Competitor Name](analyze:Competitor Name). 
+               Example: "[Adidas](analyze:Adidas) - Known for..."
+            
+            8. **Recent Intel**: 2-3 recent news headlines or strategic moves.
+            
+            9. **Strategic Recommendations**: 3 actionable next steps.`;
+
+      // If we are comparing against Company A, add the 10th section
+      if (context) {
+          systemPrompt += `\n\n10. **Head-to-Head Strategy: ${context} vs ${brand}**\n   - Provide top 3 recommendations for **${context}** to compete directly with **${brand}**.\n   - Explain WHY each recommendation makes sense based on ${brand}'s weaknesses found above.`;
+      }
+
+      systemPrompt += `\n\nTone: Professional, direct, critical. No fluff.`;
+
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
-          { 
-            role: "system", 
-            content: "You are a ruthless brand analyst. Provide a comprehensive analysis in Markdown format. \n\nStructure:\n1. **Executive Summary** (3 punchy bullet points).\n2. **4P Analysis**: Product, Price, Place, Promotion (1 sentence each).\n3. **SWOT Analysis**: Strengths, Weaknesses, Opportunities, Threats (1 sentence each).\n\nKeep it direct and brutal. No fluff." 
-          },
+          { role: "system", content: systemPrompt },
           { role: "user", content: `Analyze Brand: "${brand}"` },
         ],
       });
