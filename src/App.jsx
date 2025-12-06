@@ -194,7 +194,6 @@ const JargonDestroyer = () => {
     );
 };
 
-// --- Pages ---
 const Header = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     return (
@@ -204,7 +203,6 @@ const Header = () => {
                 <nav className="hidden md:flex gap-6 font-mono font-bold text-sm">
                     <Link to="/blog" className="hover:underline decoration-2 underline-offset-4">THE LOG</Link>
                     <Link to="/lab" className="hover:underline decoration-2 underline-offset-4">THE LAB</Link>
-                    {/* UPDATED: THE LOWDOWN */}
                     <Link to="/feed" className="hover:underline decoration-2 underline-offset-4">THE LOWDOWN</Link>
                 </nav>
                 <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <Icon name="x" /> : <Icon name="menu" />}</button>
@@ -214,21 +212,15 @@ const Header = () => {
     );
 };
 
-// --- Other Page Components (Hero, HomePage, BlogPage, etc.) ---
-// (Keeping these the same, just ensure FeedPage uses "The Lowdown" SEO title if you want to match)
-const FeedPage = () => (
-    <div className="min-h-screen bg-white">
-        <SEO title="The Lowdown" description="Live AI news aggregator from top tech sources." />
-        <NewsFeed />
-    </div>
-);
-
 const Hero = () => (
     <section className="bg-[#FEC43D] border-b-4 border-black py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
             <div className="inline-block bg-white border-2 border-black px-4 py-1 font-mono text-sm mb-6 brutal-shadow">EST. 2025 // HUMAN-AI HYBRID</div>
             <h2 className="text-5xl md:text-7xl font-black leading-[0.9] mb-6 uppercase">Do More <br/> With Less.</h2>
-            <p className="text-xl font-mono max-w-2xl mx-auto mb-8 font-bold">We test the tools so you don't have to. Low effort, high impact AI workflows.</p>
+            
+            {/* UPDATED SLOGAN */}
+            <p className="text-xl font-mono max-w-2xl mx-auto mb-8 font-bold">The latest AI news, content and tools curated to help you maximize your output with minimal effort.</p>
+            
             <div className="flex flex-col sm:flex-row justify-center gap-4"><Link to="/blog" className="bg-black text-white border-2 border-black px-8 py-3 font-bold hover:bg-white hover:text-black transition-colors brutal-shadow">READ THE LOG</Link><Link to="/lab" className="bg-white text-black border-2 border-black px-8 py-3 font-bold hover:bg-gray-100 transition-colors brutal-shadow">ENTER THE LAB</Link></div>
         </div>
     </section>
@@ -239,11 +231,17 @@ const HomePage = ({ posts }) => (
     <>
         <SEO title="Home" />
         <Hero />
-        {/* UPDATED: Shows 3 items + Link to Feed Page */}
         <NewsFeed limit={3} showAllLink={true} />
         <section className="max-w-6xl mx-auto px-4 py-16"><div className="flex justify-between items-end mb-12 border-b-2 border-black pb-4"><h2 className="text-4xl font-black uppercase">Recent Logs</h2><Link to="/blog" className="font-mono font-bold underline decoration-2">View All</Link></div><div className="grid grid-cols-1 md:grid-cols-3 gap-8">{posts.slice(0, 3).map(post => <BlogCard key={post._id} post={post} />)}</div></section>
         <section className="bg-black text-white py-16 px-4 border-y-4 border-black"><div className="max-w-6xl mx-auto"><h2 className="text-4xl font-black uppercase mb-12 text-center text-[#FEC43D]">Lab Experiments</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-8">{LAB_ITEMS.map(item => <LabCard key={item.id} item={item} />)}</div></div></section>
     </>
+);
+
+const FeedPage = () => (
+    <div className="min-h-screen bg-white">
+        <SEO title="The Lowdown" description="Live AI news aggregator from top tech sources." />
+        <NewsFeed />
+    </div>
 );
 
 const BlogPage = ({ posts }) => (
@@ -319,7 +317,7 @@ function App() {
                     <Route path="/" element={<HomePage posts={posts} />} />
                     <Route path="/blog" element={<BlogPage posts={posts} />} />
                     <Route path="/lab" element={<LabPage />} />
-                    <Route path="/feed" element={<FeedPage />} /> {/* ADDED ROUTE */}
+                    <Route path="/feed" element={<FeedPage />} />
                     <Route path="/lab/headline-generator" element={<HeadlineGenerator onBack={() => window.history.back()} />} />
                     <Route path="/lab/alt-text" element={<AltTextFixer onBack={() => window.history.back()} />} />
                     <Route path="/lab/jargon-destroyer" element={<JargonDestroyer onBack={() => window.history.back()} />} />
@@ -332,7 +330,6 @@ function App() {
                     <div className="text-center md:text-left"><h3 className="text-2xl font-black uppercase">AimLow<span className="text-blue-600">.ai</span></h3><p className="font-mono text-sm text-gray-500 mt-2">© 2025 Aim Low, Inc.</p></div>
                     <div className="flex gap-4">
                         <a href="https://x.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a>
-                        {/* Facebook */}
                         <a href="https://facebook.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="facebook" size={20} /></a>
                         <a href="mailto:do_more@aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a>
                     </div>
