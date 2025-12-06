@@ -16,39 +16,6 @@ const SOURCE_LOGOS = {
     'AI News': 'https://www.google.com/s2/favicons?domain=artificialintelligence-news.com&sz=128'
 };
 
-const CATEGORIES = ["All", "LLMs", "Creative AI", "Robotics", "Hardware", "Regulation", "Business"];
-
-const timeAgo = (dateString) => {
-    const date = new Date(dateString);
-    const seconds = Math.floor((new Date() - date) / 1000);
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + "y ago";
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + "mo ago";
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + "d ago";
-    interval = seconds / 3600;
-    if (interval >= 1) return Math.floor(interval) + "h ago";
-    interval = seconds / 60;
-    if (interval >= 1) return Math.floor(interval) + "m ago";
-    return "Just now";
-};
-
-const NewsSkeleton = () => (
-    <div className="h-full border-3 border-black bg-white flex flex-col brutal-shadow">
-        <div className="h-48 w-full bg-gray-200 animate-pulse border-b-3 border-black" />
-        <div className="p-5 flex flex-col flex-1 space-y-4">
-            <div className="h-6 bg-gray-200 animate-pulse w-3/4" />
-            <div className="h-4 bg-gray-200 animate-pulse w-full" />
-            <div className="h-4 bg-gray-200 animate-pulse w-1/2" />
-            <div className="mt-auto flex justify-between">
-                <div className="h-3 bg-gray-200 animate-pulse w-16" />
-                <div className="h-3 bg-gray-200 animate-pulse w-16" />
-            </div>
-        </div>
-    </div>
-);
-
 export const NewsFeed = ({ limit, showAllLink = false }) => {
     const [articles, setArticles] = useState([]);
     const [visibleCount, setVisibleCount] = useState(limit || 9);
@@ -58,6 +25,8 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     const [activeCategory, setActiveCategory] = useState('All');
     const [activeSource, setActiveSource] = useState('All Sources');
     const [readArticles, setReadArticles] = useState(new Set());
+
+    const CATEGORIES = ["All", "LLMs", "Creative AI", "Robotics", "Hardware", "Regulation", "Business"];
 
     useEffect(() => {
         const savedRead = localStorage.getItem('aimlow_read');
@@ -109,18 +78,12 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
 
     let filteredList = getFilteredArticles();
 
-    // --- VISUAL PRIORITY SORT (Homepage Only) ---
-    // If a limit is set (Homepage), push articles with REAL images to the top.
     if (limit) {
         filteredList.sort((a, b) => {
             const aHasImage = a.image && !a.image.includes('aimlow.ai/logo.jpg');
             const bHasImage = b.image && !b.image.includes('aimlow.ai/logo.jpg');
-            
-            // If A has image and B doesn't, A comes first (-1)
             if (aHasImage && !bHasImage) return -1;
-            // If B has image and A doesn't, B comes first (1)
             if (!aHasImage && bHasImage) return 1;
-            // Otherwise keep date order (0)
             return 0;
         });
     }
@@ -130,15 +93,51 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     const hasMore = !limit && visibleCount < filteredList.length;
     const showControls = !limit;
 
+    const timeAgo = (dateString) => {
+        const date = new Date(dateString);
+        const seconds = Math.floor((new Date() - date) / 1000);
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + "y ago";
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + "mo ago";
+        interval = seconds / 86400;
+        if (interval > 1) return Math.floor(interval) + "d ago";
+        interval = seconds / 3600;
+        if (interval >= 1) return Math.floor(interval) + "h ago";
+        interval = seconds / 60;
+        if (interval >= 1) return Math.floor(interval) + "m ago";
+        return "Just now";
+    };
+
+    const NewsSkeleton = () => (
+        <div className="h-full border-3 border-black bg-white flex flex-col brutal-shadow">
+            <div className="h-48 w-full bg-gray-200 animate-pulse border-b-3 border-black" />
+            <div className="p-5 flex flex-col flex-1 space-y-4">
+                <div className="h-6 bg-gray-200 animate-pulse w-3/4" />
+                <div className="h-4 bg-gray-200 animate-pulse w-full" />
+                <div className="h-4 bg-gray-200 animate-pulse w-1/2" />
+                <div className="mt-auto flex justify-between">
+                    <div className="h-3 bg-gray-200 animate-pulse w-16" />
+                    <div className="h-3 bg-gray-200 animate-pulse w-16" />
+                </div>
+            </div>
+        </div>
+    );
+
     return (
         <section className="bg-white border-t-4 border-black py-16 px-4">
             <div className="max-w-6xl mx-auto">
                 
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 border-b-2 border-black pb-4 gap-4">
-                    <div className="flex items-center gap-3">
-                        <Newspaper size={32} />
-                        <h2 className="text-4xl font-black uppercase">The Lowdown</h2>
+                <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 border-b-2 border-black pb-4 gap-4">
+                    <div>
+                        <div className="flex items-center gap-3 mb-1">
+                            <Newspaper size={32} />
+                            <h2 className="text-4xl font-black uppercase">The Lowdown</h2>
+                        </div>
+                        {/* UPDATED SLOGAN */}
+                        <p className="font-mono text-sm text-gray-500 font-bold">The latest AI News, all in one place.</p>
                     </div>
+                    
                     {showAllLink && (
                         <Link to="/feed" className="hidden md:flex items-center gap-2 font-mono font-bold hover:text-blue-600">
                             View Full Feed <ArrowRight size={18} />
@@ -151,8 +150,18 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                         <div className="flex flex-col md:flex-row gap-4">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-                                <input type="text" placeholder="Search intel..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-3 border-2 border-black font-bold text-lg focus:outline-none focus:bg-yellow-50 transition-colors" />
-                                {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3 text-gray-400 hover:text-black"><X size={20} /></button>}
+                                <input 
+                                    type="text" 
+                                    placeholder="Search intel..." 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-3 border-2 border-black font-bold text-lg focus:outline-none focus:bg-yellow-50 transition-colors"
+                                />
+                                {searchQuery && (
+                                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-3 text-gray-400 hover:text-black">
+                                        <X size={20} />
+                                    </button>
+                                )}
                             </div>
                             <div className="relative min-w-[200px]">
                                 <select value={activeSource} onChange={(e) => { setActiveSource(e.target.value); setVisibleCount(9); }} className="w-full h-full appearance-none border-2 border-black bg-white pl-4 pr-10 py-3 font-bold text-lg focus:outline-none focus:bg-yellow-50 cursor-pointer">
