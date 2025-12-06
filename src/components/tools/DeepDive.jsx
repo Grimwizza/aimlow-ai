@@ -67,15 +67,14 @@ export const DeepDive = ({ onBack }) => {
                 let salesData = [];
                 let cleanContent = data.result;
 
-                // Use .exec() to robustly capture the group even with global flag
-                const jsonMatch = JSON_REGEX.exec(data.result);
-                
+                // Robust JSON Extraction
+                const jsonMatch = data.result.match(JSON_REGEX);
                 if (jsonMatch && jsonMatch[1]) {
                     try {
                         const jsonData = JSON.parse(jsonMatch[1]);
                         if (jsonData.market_share) shareData = jsonData.market_share;
                         if (jsonData.annual_sales) salesData = jsonData.annual_sales;
-                        // Remove the JSON block from text display
+                        // Clean the JSON block out of the text
                         cleanContent = data.result.replace(jsonMatch[0], '');
                     } catch (e) { console.error("Chart parse error", e); }
                 }
@@ -151,8 +150,9 @@ export const DeepDive = ({ onBack }) => {
             <div className={`grid gap-8 ${reports.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                 {reports.map((report) => {
                     const splitMarker = "---PRO_CONTENT_START---";
-                    const [freeContent, proContent] = report.content.split(splitMarker);
-                    const finalProContent = proContent || "";
+                    const parts = report.content.split(splitMarker);
+                    const freeContent = parts[0];
+                    const proContent = parts.length > 1 ? parts[1] : "";
 
                     const markdownComponents = {
                         h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
@@ -161,12 +161,12 @@ export const DeepDive = ({ onBack }) => {
                         a: ({node, href, children, ...props}) => {
                             if (href && href.startsWith('analyze:')) {
                                 const compName = href.replace('analyze:', '');
-                                const contextBrand = reports.length > 0 ? reports[0].brand : null;
+                                // Pass current brand as context
                                 return (
                                     <button 
-                                        onClick={() => runAnalysis(compName, contextBrand)} 
+                                        onClick={() => runAnalysis(compName, report.brand)} 
                                         className="text-[#2563EB] hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left"
-                                        title={`Run Strategy vs ${contextBrand || 'Competitor'}`}
+                                        title={`Run Strategy vs ${report.brand}`}
                                     >
                                         {children} ↗
                                     </button>
@@ -208,7 +208,7 @@ export const DeepDive = ({ onBack }) => {
                                         </div>
                                     )}
 
-                                    <ReactMarkdown components={markdownComponents} children={finalProContent} />
+                                    <ReactMarkdown components={markdownComponents} children={proContent} />
                                 </div>
 
                                 {!hasAccess && (
