@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { SEO } from '../../seo-tools/SEOTags';
 import { Icon } from '../Layout';
-import { Link } from 'react-router-dom';
+// Removed unused Link import since we use buttons for navigation here
 
 export const HeadlineGenerator = ({ onBack }) => {
     const [topic, setTopic] = useState('');
@@ -21,6 +21,7 @@ export const HeadlineGenerator = ({ onBack }) => {
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
             <SEO title="Headline Generator" description="Turn boring topics into viral clickbait." />
+            {/* FIXED TAG: Changed </Link> to </button> */}
             <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
             <div className="brutal-card p-8 bg-blue-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Headline Generator</h1>
@@ -53,6 +54,7 @@ export const AltTextFixer = ({ onBack }) => {
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
             <SEO title="Alt-Text Fixer" description="Generate SEO-friendly image descriptions." />
+            {/* FIXED TAG: Changed </Link> to </button> */}
             <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
             <div className="brutal-card p-8 bg-red-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Alt-Text Fixer</h1>
@@ -85,7 +87,8 @@ export const JargonDestroyer = ({ onBack }) => {
     return (
         <div className="max-w-3xl mx-auto px-4 py-12">
             <SEO title="Jargon Destroyer" description="Translate corporate speak into plain English." />
-            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</Link>
+            {/* FIXED TAG: Changed </Link> to </button> */}
+            <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
             <div className="brutal-card p-8 bg-gray-300 brutal-shadow mb-8">
                 <h1 className="text-4xl font-black uppercase mb-2">Jargon Destroyer</h1>
                 <p className="font-mono font-bold mb-6">Paste corporate fluff. Get the truth.</p>
