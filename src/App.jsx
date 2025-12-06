@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
-import { Header, Footer, Hero } from './components/Layout';
-import { Newsletter } from './components/Newsletter';
-import { NewsFeed } from './components/NewsFeed';
-import { BlogCard, BlogPost, LabCard } from './components/BlogParts';
-import { HeadlineGenerator, AltTextFixer, JargonDestroyer } from './components/tools/BasicTools';
-import { DeepDive } from './components/tools/DeepDive';
-import { LAB_ITEMS } from './data';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { client } from './client';
 import { SEO } from './seo-tools/SEOTags';
-import { Icon } from './components/Layout';
+import { Newsletter } from './components/Newsletter';
+import { NewsFeed } from './components/NewsFeed';
+
+// 1. IMPORT LAYOUT
+import { Header, Footer, Hero, Icon } from './components/Layout';
+
+// 2. IMPORT BLOG PARTS
+import { BlogCard, BlogPost, LabCard } from './components/BlogParts';
+
+// 3. IMPORT TOOLS
+import { HeadlineGenerator, AltTextFixer, JargonDestroyer } from './components/tools/BasicTools';
+import { DeepDive } from './components/tools/DeepDive';
+
+// 4. IMPORT DATA
+import { LAB_ITEMS } from './data';
+
+// --- PAGE COMPONENTS (Views) ---
 
 const HomePage = ({ posts }) => (
     <>
@@ -82,19 +91,29 @@ const LabPage = () => {
     );
 };
 
+// --- MAIN APP (Router) ---
 function App() {
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const { pathname } = useLocation();
-    
-    // Scroll restoration
+
+    // Scroll to top on route change
     useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
 
     // Fetch Sanity Data
     useEffect(() => {
         const fetchPosts = async () => {
             try { 
-                const query = `*[_type == "post"] | order(publishedAt desc) {_id, title, slug, publishedAt, _createdAt, mainImage, "excerpt": pt::text(body)[0...150] + "...", body}`; 
+                const query = `*[_type == "post"] | order(publishedAt desc) {
+                    _id, 
+                    title, 
+                    slug, 
+                    publishedAt, 
+                    _createdAt, 
+                    mainImage, 
+                    "excerpt": pt::text(body)[0...150] + "...", 
+                    body
+                }`; 
                 const data = await client.fetch(query); 
                 setPosts(data); 
                 setLoading(false); 
@@ -117,12 +136,14 @@ function App() {
                     <Route path="/blog" element={<BlogPage posts={posts} />} />
                     <Route path="/lab" element={<LabPage />} />
                     <Route path="/feed" element={<FeedPage />} />
-                    {/* Tool Routes */}
+                    
+                    {/* Tools */}
                     <Route path="/lab/headline-generator" element={<HeadlineGenerator onBack={() => window.history.back()} />} />
                     <Route path="/lab/alt-text" element={<AltTextFixer onBack={() => window.history.back()} />} />
                     <Route path="/lab/jargon-destroyer" element={<JargonDestroyer onBack={() => window.history.back()} />} />
                     <Route path="/lab/deep-dive" element={<DeepDive onBack={() => window.history.back()} />} />
-                    {/* Post Route */}
+                    
+                    {/* Dynamic Post Route */}
                     <Route path="/post/:slug" element={<BlogPost />} />
                 </Routes>
             </main>
