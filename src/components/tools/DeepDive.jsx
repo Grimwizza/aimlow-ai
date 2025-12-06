@@ -6,5 +6,6 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 
 const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999', '#555555'];
 
-// Safe Regex Literal to capture JSON blocks
-const JSON_REGEX = /
+// FIXED: Using RegExp constructor to prevent markdown truncation issues.
+// Matches ```json ... ``` or just ``` ... ``` blocks
+const JSON_REGEX = new RegExp('```(?:json)?\\s*([\\s\\S]*?)```', 'g');
