@@ -4,7 +4,7 @@ import { client, urlFor } from './client';
 import { PortableText } from '@portabletext/react';
 import { SEO } from './seo-tools/SEOTags';
 import { Newsletter } from './components/Newsletter';
-import { NewsFeed } from './components/NewsFeed'; // UPDATED COMPONENT
+import { NewsFeed } from './components/NewsFeed';
 import { 
     Menu, X, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
@@ -98,7 +98,6 @@ const AuthorBio = ({ author }) => {
     );
 };
 
-// --- Tools ---
 const HeadlineGenerator = () => {
     const [topic, setTopic] = useState('');
     const [results, setResults] = useState([]);
@@ -205,15 +204,24 @@ const Header = () => {
                 <nav className="hidden md:flex gap-6 font-mono font-bold text-sm">
                     <Link to="/blog" className="hover:underline decoration-2 underline-offset-4">THE LOG</Link>
                     <Link to="/lab" className="hover:underline decoration-2 underline-offset-4">THE LAB</Link>
-                    {/* ADDED: THE FEED */}
-                    <Link to="/feed" className="hover:underline decoration-2 underline-offset-4">THE FEED</Link>
+                    {/* UPDATED: THE LOWDOWN */}
+                    <Link to="/feed" className="hover:underline decoration-2 underline-offset-4">THE LOWDOWN</Link>
                 </nav>
                 <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <Icon name="x" /> : <Icon name="menu" />}</button>
             </div>
-            {isMenuOpen && (<div className="md:hidden border-t-4 border-black bg-white absolute w-full left-0 shadow-xl"><nav className="flex flex-col p-4 font-mono font-bold text-lg gap-4"><Link to="/blog" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600 border-b-2 border-gray-100">THE LOG</Link><Link to="/lab" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">THE LAB</Link><Link to="/feed" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">THE FEED</Link></nav></div>)}
+            {isMenuOpen && (<div className="md:hidden border-t-4 border-black bg-white absolute w-full left-0 shadow-xl"><nav className="flex flex-col p-4 font-mono font-bold text-lg gap-4"><Link to="/blog" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600 border-b-2 border-gray-100">THE LOG</Link><Link to="/lab" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">THE LAB</Link><Link to="/feed" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">THE LOWDOWN</Link></nav></div>)}
         </header>
     );
 };
+
+// --- Other Page Components (Hero, HomePage, BlogPage, etc.) ---
+// (Keeping these the same, just ensure FeedPage uses "The Lowdown" SEO title if you want to match)
+const FeedPage = () => (
+    <div className="min-h-screen bg-white">
+        <SEO title="The Lowdown" description="Live AI news aggregator from top tech sources." />
+        <NewsFeed />
+    </div>
+);
 
 const Hero = () => (
     <section className="bg-[#FEC43D] border-b-4 border-black py-20 px-4">
@@ -236,15 +244,6 @@ const HomePage = ({ posts }) => (
         <section className="max-w-6xl mx-auto px-4 py-16"><div className="flex justify-between items-end mb-12 border-b-2 border-black pb-4"><h2 className="text-4xl font-black uppercase">Recent Logs</h2><Link to="/blog" className="font-mono font-bold underline decoration-2">View All</Link></div><div className="grid grid-cols-1 md:grid-cols-3 gap-8">{posts.slice(0, 3).map(post => <BlogCard key={post._id} post={post} />)}</div></section>
         <section className="bg-black text-white py-16 px-4 border-y-4 border-black"><div className="max-w-6xl mx-auto"><h2 className="text-4xl font-black uppercase mb-12 text-center text-[#FEC43D]">Lab Experiments</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-8">{LAB_ITEMS.map(item => <LabCard key={item.id} item={item} />)}</div></div></section>
     </>
-);
-
-// NEW: Feed Page Component
-const FeedPage = () => (
-    <div className="min-h-screen bg-white">
-        <SEO title="Global Intel Feed" description="Live AI news aggregator from top tech sources." />
-        {/* Re-using NewsFeed without limits */}
-        <NewsFeed />
-    </div>
 );
 
 const BlogPage = ({ posts }) => (
@@ -333,6 +332,7 @@ function App() {
                     <div className="text-center md:text-left"><h3 className="text-2xl font-black uppercase">AimLow<span className="text-blue-600">.ai</span></h3><p className="font-mono text-sm text-gray-500 mt-2">© 2025 Aim Low, Inc.</p></div>
                     <div className="flex gap-4">
                         <a href="https://x.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a>
+                        {/* Facebook */}
                         <a href="https://facebook.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="facebook" size={20} /></a>
                         <a href="mailto:do_more@aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a>
                     </div>
