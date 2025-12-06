@@ -134,8 +134,8 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                             <Newspaper size={32} />
                             <h2 className="text-4xl font-black uppercase">The Lowdown</h2>
                         </div>
-                        {/* UPDATED SLOGAN */}
-                        <p className="font-mono text-sm text-gray-500 font-bold">The latest News from trusted sources, all in one place.</p>
+                        {/* UPDATED SLOGAN (Sentence case) */}
+                        <p className="font-mono text-sm text-gray-500 font-bold">The latest AI news from trusted sources, all in one place.</p>
                     </div>
                     
                     {showAllLink && (
