@@ -1,9 +1,11 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { urlFor } from '../client';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { client, urlFor } from '../client';
 import { PortableText } from '@portabletext/react';
+import { SEO } from '../seo-tools/SEOTags';
 import { Icon } from './Layout';
 
+// --- Rich Text Styling ---
 export const ptComponents = {
     types: { image: ({ value }) => value?.asset?._ref ? <img src={urlFor(value).width(800).fit('max').url()} alt={value.alt || ' '} className="my-8 w-full border-2 border-black brutal-shadow" /> : null },
     block: {
@@ -16,6 +18,7 @@ export const ptComponents = {
     list: { bullet: ({children}) => <ul className="list-disc ml-6 mb-6 space-y-2 text-lg">{children}</ul>, number: ({children}) => <ol className="list-decimal ml-6 mb-6 space-y-2 text-lg">{children}</ol> }
 }
 
+// --- Sub-Components ---
 export const ShareBar = ({ title }) => {
     const location = useLocation();
     const currentUrl = `https://aimlow.ai${location.pathname}`;
@@ -50,6 +53,8 @@ export const AuthorBio = ({ author }) => {
     );
 };
 
+// --- Main Components ---
+
 export const BlogCard = ({ post }) => {
     const imageUrl = post.mainImage ? urlFor(post.mainImage).width(800).url() : 'https://via.placeholder.com/800x400?text=No+Image';
     const dateString = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : (post._createdAt ? new Date(post._createdAt).toLocaleDateString() : 'Draft');
@@ -59,6 +64,47 @@ export const BlogCard = ({ post }) => {
             <div className="h-48 overflow-hidden border-b-3 border-black relative group"><div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity z-10"></div><img src={imageUrl} alt={post.title} className="w-full h-full object-cover" /><div className="absolute top-4 right-4 bg-yellow-300 border-2 border-black px-3 py-1 font-mono text-xs font-bold z-20">LOG</div></div>
             <div className="p-6 flex-1 flex flex-col"><div className="font-mono text-xs text-gray-500 mb-2">{dateString}</div><h3 className="text-2xl font-black leading-tight mb-4 uppercase">{post.title}</h3><p className="font-serif text-sm leading-relaxed mb-6 flex-1">{post.excerpt}</p><div className="flex items-center gap-2 font-bold text-sm mt-auto group">Read Post <Icon name="arrow-right" size={16} /></div></div>
         </Link>
+    );
+};
+
+// This was the missing component!
+export const BlogPost = () => {
+    const { slug } = useParams();
+    const [post, setPost] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchPost = async () => {
+            const query = `*[_type == "post" && slug.current == $slug][0] { 
+                title, publishedAt, _createdAt, mainImage, 
+                "excerpt": pt::text(body)[0...150] + "...", 
+                body, 
+                author->{name, image, bio} 
+            }`;
+            const data = await client.fetch(query, { slug });
+            setPost(data); 
+            setLoading(false);
+        };
+        fetchPost();
+    }, [slug]);
+
+    if (loading) return <div className="py-20 text-center"><Icon name="loader" className="animate-spin mx-auto" /></div>;
+    if (!post) return <div className="py-20 text-center font-bold">Post not found.</div>;
+
+    const dateString = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : (post._createdAt ? new Date(post._createdAt).toLocaleDateString() : 'Draft');
+    const imageUrl = post.mainImage ? urlFor(post.mainImage).width(1200).url() : null;
+
+    return (
+        <article className="max-w-3xl mx-auto px-4 py-12">
+            <SEO title={post.title} description={post.excerpt} image={imageUrl} />
+            <Link to="/blog" className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Log</Link>
+            {imageUrl && <div className="w-full aspect-video bg-gray-200 border-2 border-black mb-8 overflow-hidden rounded-none"><img src={imageUrl} className="w-full h-full object-cover" alt={post.title} /></div>}
+            <div className="flex items-center gap-4 mb-6 font-mono text-sm"><span className="px-3 py-1 border-2 border-black font-bold bg-yellow-300">Log</span><span className="text-gray-500">{dateString}</span></div>
+            <h1 className="text-4xl md:text-6xl font-black uppercase leading-none mb-8">{post.title}</h1>
+            <div className="prose prose-lg font-serif border-l-4 border-[#FEC43D] pl-6 text-lg"><PortableText value={post.body} components={ptComponents} /></div>
+            <ShareBar title={post.title} />
+            <AuthorBio author={post.author} />
+        </article>
     );
 };
 
