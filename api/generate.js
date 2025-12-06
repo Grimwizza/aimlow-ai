@@ -59,43 +59,54 @@ export default async function handler(req) {
 
     // TOOL 4: DEEP DIVE (Professional Report Mode)
     if (type === 'deep-dive') {
-      const { brand, context } = payload; // 'context' is Company A (if comparing)
+      const { brand, context } = payload;
       
-      let systemPrompt = `You are a ruthless senior brand strategist. Provide a comprehensive strategic audit in Markdown. 
+      let systemPrompt = `You are a ruthless senior brand strategist. Provide a comprehensive strategic audit in Markdown.
+            
+            IMPORTANT FORMATTING RULES:
+            1. Use '### ' for Section Headers (e.g. ### Executive Summary).
+            2. Separate the "Free" content from "Pro" content using exactly this string: ---PRO_CONTENT_START---
+            3. For Financials, include a JSON block wrapped in triple backticks named 'json' with this structure: 
+               \`\`\`json
+               { "market_share": [ {"name": "Brand", "value": 30}, {"name": "Comp1", "value": 20} ] }
+               \`\`\`
             
             Required Structure:
             
-            1. **Quick Links**: Provide the Official Website URL and Investor Relations URL (if public). Format as a markdown list.
-            2. **Executive Summary**: 3 punchy bullet points summarizing the brand's current position.
-            3. **Target Persona**: Who buys this? (Demographics, Psychographics, and 'The Job to be Done').
-            
-            4. **4P Marketing Mix**:
-               - **Product**: Core offering vs. augmentations.
-               - **Price**: Strategy (Premium, Skimming, Economy).
-               - **Place**: Distribution channels.
-               - **Promotion**: Key messaging channels.
-            
-            5. **Financial Snapshot**:
-               - Estimated Annual Revenue (latest available).
-               - Estimated Market Share (approximate percentage or position).
-            
-            6. **SWOT Analysis**:
-               - **Strengths**: Internal advantages.
-               - **Weaknesses**: Internal gaps.
-               - **Opportunities**: External growth areas.
-               - **Threats**: External risks.
-            
-            7. **Competitive Landscape**: List 3 Primary Competitors. 
-               IMPORTANT: Format each competitor name as a special link like this: [Competitor Name](analyze:Competitor Name). 
-               Example: "[Adidas](analyze:Adidas) - Known for..."
-            
-            8. **Recent Intel**: 2-3 recent news headlines or strategic moves.
-            
-            9. **Strategic Recommendations**: 3 actionable next steps.`;
+            ### Quick Links
+            Provide the Official Website URL and Investor Relations URL (if public) as a bulleted list.
 
-      // If we are comparing against Company A, add the 10th section
+            ### Executive Summary
+            3 punchy bullet points summarizing the brand's current position.
+
+            ### Target Persona
+            Who buys this? (Demographics, Psychographics, and 'The Job to be Done').
+
+            ---PRO_CONTENT_START---
+            
+            ### Financial Snapshot
+            (Provide the JSON block here first for charts, then text summary of revenue).
+
+            ### 4P Marketing Mix
+            - **Product**: Core offering.
+            - **Price**: Strategy.
+            - **Place**: Channels.
+            - **Promotion**: Messaging.
+            
+            ### SWOT Analysis
+            - **Strengths**: Internal advantages.
+            - **Weaknesses**: Internal gaps.
+            - **Opportunities**: External growth areas.
+            - **Threats**: External risks.
+            
+            ### Competitive Landscape
+            List 3 Primary Competitors. Format links as: [Name](analyze:Name).
+            
+            ### Strategic Recommendations
+            3 actionable next steps.`;
+
       if (context) {
-          systemPrompt += `\n\n10. **Head-to-Head Strategy: ${context} vs ${brand}**\n   - Provide top 3 recommendations for **${context}** to compete directly with **${brand}**.\n   - Explain WHY each recommendation makes sense based on ${brand}'s weaknesses found above.`;
+          systemPrompt += `\n\n### Head-to-Head Strategy: ${context} vs ${brand}\n   - Provide top 3 recommendations for **${context}** to compete directly with **${brand}**.\n   - Explain WHY each recommendation makes sense based on ${brand}'s weaknesses found above.`;
       }
 
       systemPrompt += `\n\nTone: Professional, direct, critical. No fluff.`;

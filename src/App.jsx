@@ -6,6 +6,7 @@ import { SEO } from './seo-tools/SEOTags';
 import { Newsletter } from './components/Newsletter';
 import { NewsFeed } from './components/NewsFeed';
 import ReactMarkdown from 'react-markdown'; 
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'; // NEW: Charting
 import { 
     Menu, X, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
@@ -134,10 +135,33 @@ const AuthorBio = ({ author }) => {
     );
 };
 
-// --- TOOL 4: THE DEEP DIVE (Side-by-Side + Strategy) ---
+// --- CHART COMPONENT ---
+const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999'];
+
+const MarketShareChart = ({ data }) => {
+    if (!data || data.length === 0) return null;
+    return (
+        <div className="h-64 w-full mb-8">
+            <h4 className="font-black uppercase text-sm text-gray-500 mb-2">Estimated Market Share</h4>
+            <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                    <Pie data={data} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value">
+                        {data.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="black" strokeWidth={2} />
+                        ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ border: '2px solid black', boxShadow: '4px 4px 0px 0px #000' }} />
+                    <Legend layout="vertical" verticalAlign="middle" align="right" />
+                </PieChart>
+            </ResponsiveContainer>
+        </div>
+    );
+};
+
+// --- TOOL 4: THE DEEP DIVE ---
 const DeepDive = ({ onBack }) => {
     const [inputBrand, setInputBrand] = useState('');
-    const [reports, setReports] = useState([]); // Array of { id, brand, content }
+    const [reports, setReports] = useState([]); 
     const [isGenerating, setIsGenerating] = useState(false);
     const [hasAccess, setHasAccess] = useState(false);
     const [email, setEmail] = useState('');
@@ -148,36 +172,38 @@ const DeepDive = ({ onBack }) => {
         if (access === 'granted') setHasAccess(true);
     }, []);
 
-    // Updated Analysis: Accepts optional context (Company A)
     const runAnalysis = async (brandName, contextBrand = null) => {
         if (!brandName) return;
         setIsGenerating(true);
-        
         try {
             const payload = { brand: brandName, context: contextBrand };
-            
-            const response = await fetch('/api/generate', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ type: 'deep-dive', payload }) 
-            });
+            const response = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'deep-dive', payload }) });
             const data = await response.json(); 
-            
             if (!response.ok || data.error) throw new Error(data.error || "Server Error");
             
             if (data.result) {
-                setReports(prev => [...prev, { id: Date.now(), brand: brandName, content: data.result }]);
+                // Extract Chart Data from JSON block
+                let chartData = [];
+                const jsonMatch = data.result.match(/```json\s*([\s\S]*?)\s*```/);
+                let cleanContent = data.result;
+
+                if (jsonMatch) {
+                    try {
+                        const jsonData = JSON.parse(jsonMatch[1]);
+                        if (jsonData.market_share) chartData = jsonData.market_share;
+                        // Remove the JSON block from text display
+                        cleanContent = data.result.replace(jsonMatch[0], '');
+                    } catch (e) { console.error("Chart parse error", e); }
+                }
+
+                setReports(prev => [...prev, { id: Date.now(), brand: brandName, content: cleanContent, chartData }]);
             }
-        } catch (err) { 
-            console.error(err); 
-            alert(`Error: ${err.message}`);
-        } finally { setIsGenerating(false); }
+        } catch (err) { console.error(err); alert(`Error: ${err.message}`); } finally { setIsGenerating(false); }
     };
 
     const handleFormSubmit = (e) => {
         e.preventDefault();
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-        // First search has no context
         runAnalysis(inputBrand);
         setInputBrand('');
     };
@@ -186,123 +212,97 @@ const DeepDive = ({ onBack }) => {
         e.preventDefault();
         setSignupStatus('loading');
         try {
-            await fetch('/api/subscribe', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
+            await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
             localStorage.setItem('aimlow_beta_access', 'granted');
             setHasAccess(true);
             setSignupStatus('success');
-        } catch (error) {
-            setSignupStatus('error');
-            setTimeout(() => setSignupStatus('idle'), 3000);
-        }
+        } catch (error) { setSignupStatus('error'); setTimeout(() => setSignupStatus('idle'), 3000); }
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
-
-    const removeReport = (id) => {
-        setReports(reports.filter(r => r.id !== id));
-    };
+    const handlePrint = () => window.print();
+    const removeReport = (id) => setReports(reports.filter(r => r.id !== id));
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-12"> 
             <SEO title="The Deep Dive" description="Professional brand analyst. 4P & SWOT Reports." />
             <div className="print:hidden">
                 <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
-                
                 <div className="brutal-card p-8 bg-yellow-300 brutal-shadow mb-12">
-                    <div className="flex justify-between items-start">
-                        <h1 className="text-4xl font-black uppercase mb-2">The Deep Dive</h1>
-                        <span className="bg-black text-white px-3 py-1 font-mono font-bold text-xs">BETA ANALYST</span>
-                    </div>
+                    <div className="flex justify-between items-start"><h1 className="text-4xl font-black uppercase mb-2">The Deep Dive</h1><span className="bg-black text-white px-3 py-1 font-mono font-bold text-xs">BETA ANALYST</span></div>
                     <p className="font-mono font-bold mb-6">Instant strategic audits. Enter a brand to start.</p>
                     <form onSubmit={handleFormSubmit} className="bg-white border-2 border-black p-4 flex gap-2 flex-col sm:flex-row">
-                        <input 
-                            value={inputBrand} 
-                            onChange={(e) => setInputBrand(e.target.value)} 
-                            className="flex-1 font-bold text-lg p-2 focus:outline-none" 
-                            placeholder="e.g. Nike, Liquid Death..." 
-                            name="brand" 
-                        />
-                        <button type="submit" disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
-                            {isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE BRAND"}
-                        </button>
+                        <input value={inputBrand} onChange={(e) => setInputBrand(e.target.value)} className="flex-1 font-bold text-lg p-2 focus:outline-none" placeholder="e.g. Nike, Liquid Death..." name="brand" />
+                        <button type="submit" disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">{isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE BRAND"}</button>
                     </form>
                 </div>
             </div>
 
-            {/* REPORTS GRID */}
             <div className={`grid gap-8 ${reports.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-                {reports.map((report, index) => (
-                    <div key={report.id} className="relative bg-white border-2 border-black p-8 brutal-shadow print:shadow-none print:border-0 min-w-0">
-                        <button onClick={() => removeReport(report.id)} className="absolute top-4 right-4 text-gray-400 hover:text-red-600 print:hidden">
-                            <Icon name="close" size={24} />
-                        </button>
+                {reports.map((report) => {
+                    // Safe splitting of content
+                    const splitMarker = "---PRO_CONTENT_START---";
+                    const [freeContent, proContent] = report.content.split(splitMarker);
+                    const finalProContent = proContent || ""; // Handle case where split might fail gracefully
 
-                        <div className="border-b-4 border-black pb-4 mb-8 pr-8">
-                            <h2 className="text-3xl font-black uppercase">{report.brand}</h2>
-                            <p className="font-mono text-gray-500 text-sm">Audit Report • {new Date().toLocaleDateString()}</p>
-                        </div>
+                    return (
+                        <div key={report.id} className="relative bg-white border-2 border-black p-8 brutal-shadow print:shadow-none print:border-0 min-w-0">
+                            <button onClick={() => removeReport(report.id)} className="absolute top-4 right-4 text-gray-400 hover:text-red-600 print:hidden"><Icon name="close" size={24} /></button>
+                            <div className="border-b-4 border-black pb-4 mb-8 pr-8">
+                                <h2 className="text-3xl font-black uppercase">{report.brand}</h2>
+                                <p className="font-mono text-gray-500 text-sm">Audit Report • {new Date().toLocaleDateString()}</p>
+                            </div>
 
-                        {/* Free Content */}
-                        <div className="prose prose-lg font-serif max-w-none mb-8">
-                            <ReactMarkdown>{report.content.split('**4P Marketing Mix**')[0]}</ReactMarkdown>
-                        </div>
-
-                        {/* Pro/Gated Content */}
-                        <div className={`relative ${!hasAccess ? 'h-[300px] overflow-hidden' : ''}`}>
-                            <div className={!hasAccess ? 'filter blur-sm select-none opacity-40' : ''}>
+                            {/* Free Content */}
+                            <div className="prose prose-lg font-serif max-w-none mb-8">
                                 <ReactMarkdown 
                                     components={{
+                                        // STYLING: Headers with spacing, Blue Links
                                         h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
-                                        ul: ({node, ...props}) => <ul className="grid grid-cols-1 gap-2 list-none pl-0" {...props} />, 
-                                        li: ({node, ...props}) => <li className="bg-gray-50 p-3 border-l-4 border-black text-sm" {...props} />,
-                                        // COMPETITOR LINK HANDLER
-                                        a: ({node, href, children, ...props}) => {
-                                            if (href && href.startsWith('analyze:')) {
-                                                const compName = href.replace('analyze:', '');
-                                                // Determine Context: If we have at least 1 report, use the FIRST one (Company A) as the context.
-                                                // Unless we ARE the first report, then context is null (or maybe we assume the user wants to compare against THIS report? 
-                                                // Let's stick to: First Search = Protagonist (Company A).
-                                                const contextBrand = reports.length > 0 ? reports[0].brand : null;
-                                                
-                                                return (
-                                                    <button 
-                                                        onClick={() => runAnalysis(compName, contextBrand)}
-                                                        className="text-blue-600 hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left"
-                                                        title={`Run Strategy vs ${contextBrand || 'Competitor'}`}
-                                                    >
-                                                        {children} ↗
-                                                    </button>
-                                                );
-                                            }
-                                            return <a href={href} className="text-blue-600 hover:underline" {...props}>{children}</a>;
-                                        }
+                                        a: ({node, ...props}) => <a className="text-[#2563EB] font-bold hover:underline break-all" target="_blank" {...props} />
                                     }}
                                 >
-                                    {'**4P Marketing Mix**' + report.content.split('**4P Marketing Mix**')[1]}
+                                    {freeContent}
                                 </ReactMarkdown>
                             </div>
 
-                            {!hasAccess && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-10 p-6 text-center print:hidden">
-                                    <Icon name="lock" size={48} className="mb-4 text-black" />
-                                    <h3 className="text-2xl font-black uppercase mb-2">Unlock Full Analysis</h3>
-                                    <p className="font-mono text-sm font-bold text-gray-600 mb-4">
-                                        Join the Beta to see 4P Strategy, Financials, and Head-to-Head Tactics.
-                                    </p>
-                                    <form onSubmit={handleBetaSignup} className="w-full flex flex-col gap-2">
-                                        <input type="email" required placeholder="Enter email..." value={email} onChange={e => setEmail(e.target.value)} className="w-full border-2 border-black p-2 font-bold" />
-                                        <button type="submit" disabled={signupStatus === 'loading'} className="w-full bg-black text-white py-2 font-black uppercase hover:bg-blue-600 transition-colors flex justify-center items-center gap-2">
-                                            {signupStatus === 'loading' ? <Icon name="loader" className="animate-spin" /> : <><Icon name="unlock" /> UNLOCK</>}
-                                        </button>
-                                    </form>
+                            {/* Pro Content */}
+                            <div className={`relative ${!hasAccess ? 'h-[300px] overflow-hidden' : ''}`}>
+                                <div className={!hasAccess ? 'filter blur-sm select-none opacity-40' : ''}>
+                                    
+                                    {/* CHART */}
+                                    {hasAccess && <MarketShareChart data={report.chartData} />}
+
+                                    <ReactMarkdown 
+                                        components={{
+                                            h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
+                                            ul: ({node, ...props}) => <ul className="grid grid-cols-1 gap-2 list-none pl-0" {...props} />, 
+                                            li: ({node, ...props}) => <li className="bg-gray-50 p-3 border-l-4 border-black text-sm" {...props} />,
+                                            a: ({node, href, children, ...props}) => {
+                                                if (href && href.startsWith('analyze:')) {
+                                                    const compName = href.replace('analyze:', '');
+                                                    const contextBrand = reports.length > 0 ? reports[0].brand : null;
+                                                    return <button onClick={() => runAnalysis(compName, contextBrand)} className="text-[#2563EB] hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left" title={`Run Strategy vs ${contextBrand || 'Competitor'}`}>{children} ↗</button>;
+                                                }
+                                                return <a href={href} className="text-[#2563EB] font-bold hover:underline" target="_blank" {...props}>{children}</a>;
+                                            }
+                                        }}
+                                    >
+                                        {finalProContent}
+                                    </ReactMarkdown>
                                 </div>
-                            )}
+
+                                {!hasAccess && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-10 p-6 text-center print:hidden">
+                                        <Icon name="lock" size={48} className="mb-4 text-black" />
+                                        <h3 className="text-2xl font-black uppercase mb-2">Unlock Full Analysis</h3>
+                                        <p className="font-mono text-sm font-bold text-gray-600 mb-4">Join the Beta to see 4P Strategy, Financials, and Charts.</p>
+                                        <form onSubmit={handleBetaSignup} className="w-full flex flex-col gap-2">
+                                            <input type="email" required placeholder="Enter email..." value={email} onChange={e => setEmail(e.target.value)} className="w-full border-2 border-black p-2 font-bold" />
+                                            <button type="submit" disabled={signupStatus === 'loading'} className="w-full bg-black text-white py-2 font-black uppercase hover:bg-blue-600 transition-colors flex justify-center items-center gap-2">{signupStatus === 'loading' ? <Icon name="loader" className="animate-spin" /> : <><Icon name="unlock" /> UNLOCK</>}</button>
+                                        </form>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -312,7 +312,7 @@ const DeepDive = ({ onBack }) => {
 };
 
 // ... (HeadlineGenerator, AltTextFixer, JargonDestroyer, Header, Hero, HomePage, BlogPage, LabPage, FeedPage, BlogPost, BlogCard, App)
-// Same as before. Included below for completeness if you copy-paste the whole file.
+// Including full file content for completeness:
 
 const HeadlineGenerator = () => {
     const [topic, setTopic] = useState('');
@@ -439,6 +439,7 @@ const Hero = () => (
     </section>
 );
 
+// -- Page Components --
 const HomePage = ({ posts }) => (
     <>
         <SEO title="Home" />
