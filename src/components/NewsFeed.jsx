@@ -9,7 +9,7 @@ const SOURCE_LOGOS = {
     'The Verge': 'https://www.google.com/s2/favicons?domain=theverge.com&sz=128',
     'Wired': 'https://www.google.com/s2/favicons?domain=wired.com&sz=128',
     'Ars Technica': 'https://www.google.com/s2/favicons?domain=arstechnica.com&sz=128',
-    'r/Artificial': 'https://www.google.com/s2/favicons?domain=reddit.com&sz=128',
+    'r/Artificial': 'https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png',
     'MIT Tech Review': 'https://www.google.com/s2/favicons?domain=technologyreview.com&sz=128',
     'Engadget': 'https://www.google.com/s2/favicons?domain=engadget.com&sz=128',
     'ScienceDaily': 'https://www.google.com/s2/favicons?domain=sciencedaily.com&sz=128',
@@ -135,7 +135,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                             <h2 className="text-4xl font-black uppercase">The Lowdown</h2>
                         </div>
                         {/* UPDATED SLOGAN */}
-                        <p className="font-mono text-sm text-gray-500 font-bold">The latest AI News, all in one place.</p>
+                        <p className="font-mono text-sm text-gray-500 font-bold">The latest News from trusted sources, all in one place.</p>
                     </div>
                     
                     {showAllLink && (
