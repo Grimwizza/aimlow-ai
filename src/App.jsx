@@ -13,9 +13,13 @@ import {
     Loader2, Sparkles, Copy, Check, Upload, Image as ImageIcon, Zap, Share2, Facebook, Linkedin, Briefcase, Coffee, Lock, Unlock, Download, Printer, X as CloseIcon
 } from 'lucide-react';
 
-// --- Custom X Logo Component ---
+// --- CONSTANTS ---
+const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999'];
+// Define regex outside component to prevent parser confusion
+const JSON_REGEX = new RegExp('```json\\s*([\\s\\S]*?)\\s*```');
+
 const XLogo = ({ size = 24, color = "currentColor", className }) => (
-    <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width={size} height={size} viewBox="0 0 24 24" fill={color} className={className}>
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={color} className={className}>
         <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
     </svg>
 );
@@ -39,7 +43,6 @@ const Logo = () => {
     return <img src="/logo.jpg" alt="AimLow Logo" className="h-10 w-auto object-contain" onError={() => setError(true)} />;
 };
 
-// --- LAB CONFIG ---
 const LAB_ITEMS = [
     { 
         id: 1, 
@@ -118,7 +121,7 @@ const LabCard = ({ item }) => (
 
 const AuthorBio = ({ author }) => {
     if (!author) return null;
-    const avatarUrl = author.image ? urlFor(author.image).width(200).height(200).url() : "[https://via.placeholder.com/100](https://via.placeholder.com/100)";
+    const avatarUrl = author.image ? urlFor(author.image).width(200).height(200).url() : "https://via.placeholder.com/100";
     return (
         <div className="mt-16 border-t-4 border-black pt-8">
             <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start bg-white border-2 border-black p-6 brutal-shadow">
@@ -132,9 +135,6 @@ const AuthorBio = ({ author }) => {
         </div>
     );
 };
-
-// --- CHART COMPONENT ---
-const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999'];
 
 const MarketShareChart = ({ data }) => {
     if (!data || data.length === 0) return null;
@@ -156,7 +156,7 @@ const MarketShareChart = ({ data }) => {
     );
 };
 
-// --- TOOL 4: THE DEEP DIVE ---
+// --- TOOL 4: THE DEEP DIVE (Syntax Fixed) ---
 const DeepDive = ({ onBack }) => {
     const [inputBrand, setInputBrand] = useState('');
     const [reports, setReports] = useState([]); 
@@ -185,10 +185,8 @@ const DeepDive = ({ onBack }) => {
             if (!response.ok || data.error) throw new Error(data.error || "Server Error");
             
             if (data.result) {
-                // FIXED: Use RegExp constructor to handle backticks safely
                 let chartData = [];
-                const regex = new RegExp('```json\\s*([\\s\\S]*?)\\s*```');
-                const jsonMatch = data.result.match(regex);
+                const jsonMatch = data.result.match(JSON_REGEX);
                 let cleanContent = data.result;
 
                 if (jsonMatch) {
@@ -232,10 +230,6 @@ const DeepDive = ({ onBack }) => {
         }
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
-
     const removeReport = (id) => {
         setReports(reports.filter(r => r.id !== id));
     };
@@ -271,8 +265,29 @@ const DeepDive = ({ onBack }) => {
                 {reports.map((report) => {
                     const splitMarker = "---PRO_CONTENT_START---";
                     const [freeContent, proContent] = report.content.split(splitMarker);
-                    // Safe fallback if split doesn't work perfectly
                     const finalProContent = proContent || "";
+
+                    // Define Markdown components separately to avoid parser confusion
+                    const markdownComponents = {
+                        h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
+                        ul: ({node, ...props}) => <ul className="grid grid-cols-1 gap-2 list-none pl-0" {...props} />,
+                        li: ({node, ...props}) => <li className="bg-gray-50 p-3 border-l-4 border-black text-sm" {...props} />,
+                        a: ({node, href, children, ...props}) => {
+                            if (href && href.startsWith('analyze:')) {
+                                const compName = href.replace('analyze:', '');
+                                const contextBrand = reports.length > 0 ? reports[0].brand : null;
+                                return (
+                                    <button 
+                                        onClick={() => runAnalysis(compName, contextBrand)} 
+                                        className="text-[#2563EB] hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left"
+                                    >
+                                        {children} ↗
+                                    </button>
+                                );
+                            }
+                            return <a href={href} className="text-[#2563EB] font-bold hover:underline" target="_blank" {...props}>{children}</a>;
+                        }
+                    };
 
                     return (
                         <div key={report.id} className="relative bg-white border-2 border-black p-8 brutal-shadow print:shadow-none print:border-0 min-w-0">
@@ -282,39 +297,20 @@ const DeepDive = ({ onBack }) => {
                                 <p className="font-mono text-gray-500 text-sm">Audit Report • {new Date().toLocaleDateString()}</p>
                             </div>
 
+                            {/* Free Content */}
                             <div className="prose prose-lg font-serif max-w-none mb-8">
-                                <ReactMarkdown 
-                                    components={{
-                                        h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
-                                        a: ({node, ...props}) => <a className="text-[#2563EB] font-bold hover:underline break-all" target="_blank" {...props} />
-                                    }}
-                                >
+                                <ReactMarkdown components={markdownComponents}>
                                     {freeContent}
                                 </ReactMarkdown>
                             </div>
 
+                            {/* Pro/Gated Content */}
                             <div className={`relative ${!hasAccess ? 'h-[300px] overflow-hidden' : ''}`}>
                                 <div className={!hasAccess ? 'filter blur-sm select-none opacity-40' : ''}>
                                     
                                     {hasAccess && <MarketShareChart data={report.chartData} />}
 
-                                    <ReactMarkdown 
-                                        components={{
-                                            h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
-                                            ul: ({node, ...props}) => <ul className="grid grid-cols-1 gap-2 list-none pl-0" {...props} />, 
-                                            li: ({node, ...props}) => <li className="bg-gray-50 p-3 border-l-4 border-black text-sm" {...props} />,
-                                            a: ({node, href, children, ...props}) => {
-                                                if (href && href.startsWith('analyze:')) {
-                                                    const compName = href.replace('analyze:', '');
-                                                    const contextBrand = reports.length > 0 ? reports[0].brand : null;
-                                                    return <button onClick={() => runAnalysis(compName, contextBrand)} className="text-[#2563EB] hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left" title={`Run Strategy vs ${contextBrand || 'Competitor'}`}>{children} ↗</button>;
-                                                }
-                                                return <a href={href} className="text-[#2563EB] font-bold hover:underline" target="_blank" {...props}>{children}</a>;
-                                            }
-                                        }}
-                                    >
-                                        {finalProContent}
-                                    </ReactMarkdown>
+                                    <ReactMarkdown components={markdownComponents} children={finalProContent} />
                                 </div>
 
                                 {!hasAccess && (
@@ -334,15 +330,15 @@ const DeepDive = ({ onBack }) => {
                                 )}
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
 };
 
 // ... (HeadlineGenerator, AltTextFixer, JargonDestroyer, Header, Hero, HomePage, BlogPage, LabPage, FeedPage, BlogPost, BlogCard, App)
-// These remain exactly the same. 
+// Standard components. Included below for copy/paste.
 
 const HeadlineGenerator = () => {
     const [topic, setTopic] = useState('');
@@ -529,7 +525,7 @@ const BlogPost = () => {
 };
 
 const BlogCard = ({ post }) => {
-    const imageUrl = post.mainImage ? urlFor(post.mainImage).width(800).url() : '[https://via.placeholder.com/800x400?text=No+Image](https://via.placeholder.com/800x400?text=No+Image)';
+    const imageUrl = post.mainImage ? urlFor(post.mainImage).width(800).url() : 'https://via.placeholder.com/800x400?text=No+Image';
     const dateString = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : (post._createdAt ? new Date(post._createdAt).toLocaleDateString() : 'Draft');
     const slug = post.slug?.current || '#';
     return (
@@ -573,11 +569,11 @@ function App() {
                 <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="text-center md:text-left"><h3 className="text-2xl font-black uppercase">AimLow<span className="text-blue-600">.ai</span></h3><p className="font-mono text-sm text-gray-500 mt-2">© 2025 Aim Low, Inc.</p></div>
                     <div className="flex gap-4">
-                        <a href="[https://x.com/aimlow.ai](https://x.com/aimlow.ai)" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a>
-                        <a href="[https://facebook.com/aimlow.ai](https://facebook.com/aimlow.ai)" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="facebook" size={20} /></a>
+                        <a href="https://x.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a>
+                        <a href="https://facebook.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="facebook" size={20} /></a>
                         <a href="mailto:do_more@aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a>
                     </div>
-                    <a href="[https://aimlow.sanity.studio](https://aimlow.sanity.studio)" target="_blank" rel="noopener noreferrer" className="font-mono text-xs font-bold text-gray-400 hover:text-black">ADMIN LOGIN</a>
+                    <a href="https://aimlow.sanity.studio" target="_blank" rel="noopener noreferrer" className="font-mono text-xs font-bold text-gray-400 hover:text-black">ADMIN LOGIN</a>
                 </div>
             </footer>
         </div>
