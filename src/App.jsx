@@ -6,7 +6,7 @@ import { SEO } from './seo-tools/SEOTags';
 import { Newsletter } from './components/Newsletter';
 import { NewsFeed } from './components/NewsFeed';
 import ReactMarkdown from 'react-markdown'; 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'; // NEW: Charting
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { 
     Menu, X, Github, Mail, 
     FlaskConical, ArrowLeft, ArrowRight, 
@@ -15,12 +15,11 @@ import {
 
 // --- Custom X Logo Component ---
 const XLogo = ({ size = 24, color = "currentColor", className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={color} className={className}>
+    <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width={size} height={size} viewBox="0 0 24 24" fill={color} className={className}>
         <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
     </svg>
 );
 
-// --- Icon Mapping ---
 const iconMap = {
     menu: Menu, x: X, twitter: XLogo, github: Github, mail: Mail,
     'flask-conical': FlaskConical, 'arrow-left': ArrowLeft, 'arrow-right': ArrowRight,
@@ -34,7 +33,6 @@ const Icon = ({ name, size = 24, color = "currentColor", className }) => {
     return <LucideIcon size={size} color={color} className={className} />;
 };
 
-// --- Logo Component ---
 const Logo = () => {
     const [error, setError] = useState(false);
     if (error) return <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">AL</div>;
@@ -120,7 +118,7 @@ const LabCard = ({ item }) => (
 
 const AuthorBio = ({ author }) => {
     if (!author) return null;
-    const avatarUrl = author.image ? urlFor(author.image).width(200).height(200).url() : "https://via.placeholder.com/100";
+    const avatarUrl = author.image ? urlFor(author.image).width(200).height(200).url() : "[https://via.placeholder.com/100](https://via.placeholder.com/100)";
     return (
         <div className="mt-16 border-t-4 border-black pt-8">
             <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start bg-white border-2 border-black p-6 brutal-shadow">
@@ -177,28 +175,36 @@ const DeepDive = ({ onBack }) => {
         setIsGenerating(true);
         try {
             const payload = { brand: brandName, context: contextBrand };
-            const response = await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'deep-dive', payload }) });
+            const response = await fetch('/api/generate', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ type: 'deep-dive', payload }) 
+            });
             const data = await response.json(); 
+            
             if (!response.ok || data.error) throw new Error(data.error || "Server Error");
             
             if (data.result) {
-                // Extract Chart Data from JSON block
+                // FIXED: Use RegExp constructor to handle backticks safely
                 let chartData = [];
-                const jsonMatch = data.result.match(/```json\s*([\s\S]*?)\s*```/);
+                const regex = new RegExp('```json\\s*([\\s\\S]*?)\\s*```');
+                const jsonMatch = data.result.match(regex);
                 let cleanContent = data.result;
 
                 if (jsonMatch) {
                     try {
                         const jsonData = JSON.parse(jsonMatch[1]);
                         if (jsonData.market_share) chartData = jsonData.market_share;
-                        // Remove the JSON block from text display
                         cleanContent = data.result.replace(jsonMatch[0], '');
                     } catch (e) { console.error("Chart parse error", e); }
                 }
 
                 setReports(prev => [...prev, { id: Date.now(), brand: brandName, content: cleanContent, chartData }]);
             }
-        } catch (err) { console.error(err); alert(`Error: ${err.message}`); } finally { setIsGenerating(false); }
+        } catch (err) { 
+            console.error(err); 
+            alert(`Error: ${err.message}`);
+        } finally { setIsGenerating(false); }
     };
 
     const handleFormSubmit = (e) => {
@@ -212,37 +218,61 @@ const DeepDive = ({ onBack }) => {
         e.preventDefault();
         setSignupStatus('loading');
         try {
-            await fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+            await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
             localStorage.setItem('aimlow_beta_access', 'granted');
             setHasAccess(true);
             setSignupStatus('success');
-        } catch (error) { setSignupStatus('error'); setTimeout(() => setSignupStatus('idle'), 3000); }
+        } catch (error) {
+            setSignupStatus('error');
+            setTimeout(() => setSignupStatus('idle'), 3000);
+        }
     };
 
-    const handlePrint = () => window.print();
-    const removeReport = (id) => setReports(reports.filter(r => r.id !== id));
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const removeReport = (id) => {
+        setReports(reports.filter(r => r.id !== id));
+    };
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-12"> 
             <SEO title="The Deep Dive" description="Professional brand analyst. 4P & SWOT Reports." />
             <div className="print:hidden">
                 <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
+                
                 <div className="brutal-card p-8 bg-yellow-300 brutal-shadow mb-12">
-                    <div className="flex justify-between items-start"><h1 className="text-4xl font-black uppercase mb-2">The Deep Dive</h1><span className="bg-black text-white px-3 py-1 font-mono font-bold text-xs">BETA ANALYST</span></div>
+                    <div className="flex justify-between items-start">
+                        <h1 className="text-4xl font-black uppercase mb-2">The Deep Dive</h1>
+                        <span className="bg-black text-white px-3 py-1 font-mono font-bold text-xs">BETA ANALYST</span>
+                    </div>
                     <p className="font-mono font-bold mb-6">Instant strategic audits. Enter a brand to start.</p>
                     <form onSubmit={handleFormSubmit} className="bg-white border-2 border-black p-4 flex gap-2 flex-col sm:flex-row">
-                        <input value={inputBrand} onChange={(e) => setInputBrand(e.target.value)} className="flex-1 font-bold text-lg p-2 focus:outline-none" placeholder="e.g. Nike, Liquid Death..." name="brand" />
-                        <button type="submit" disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">{isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE BRAND"}</button>
+                        <input 
+                            value={inputBrand} 
+                            onChange={(e) => setInputBrand(e.target.value)} 
+                            className="flex-1 font-bold text-lg p-2 focus:outline-none" 
+                            placeholder="e.g. Nike, Liquid Death..." 
+                            name="brand" 
+                        />
+                        <button type="submit" disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
+                            {isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE BRAND"}
+                        </button>
                     </form>
                 </div>
             </div>
 
             <div className={`grid gap-8 ${reports.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                 {reports.map((report) => {
-                    // Safe splitting of content
                     const splitMarker = "---PRO_CONTENT_START---";
                     const [freeContent, proContent] = report.content.split(splitMarker);
-                    const finalProContent = proContent || ""; // Handle case where split might fail gracefully
+                    // Safe fallback if split doesn't work perfectly
+                    const finalProContent = proContent || "";
 
                     return (
                         <div key={report.id} className="relative bg-white border-2 border-black p-8 brutal-shadow print:shadow-none print:border-0 min-w-0">
@@ -252,11 +282,9 @@ const DeepDive = ({ onBack }) => {
                                 <p className="font-mono text-gray-500 text-sm">Audit Report • {new Date().toLocaleDateString()}</p>
                             </div>
 
-                            {/* Free Content */}
                             <div className="prose prose-lg font-serif max-w-none mb-8">
                                 <ReactMarkdown 
                                     components={{
-                                        // STYLING: Headers with spacing, Blue Links
                                         h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
                                         a: ({node, ...props}) => <a className="text-[#2563EB] font-bold hover:underline break-all" target="_blank" {...props} />
                                     }}
@@ -265,11 +293,9 @@ const DeepDive = ({ onBack }) => {
                                 </ReactMarkdown>
                             </div>
 
-                            {/* Pro Content */}
                             <div className={`relative ${!hasAccess ? 'h-[300px] overflow-hidden' : ''}`}>
                                 <div className={!hasAccess ? 'filter blur-sm select-none opacity-40' : ''}>
                                     
-                                    {/* CHART */}
                                     {hasAccess && <MarketShareChart data={report.chartData} />}
 
                                     <ReactMarkdown 
@@ -295,10 +321,14 @@ const DeepDive = ({ onBack }) => {
                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-10 p-6 text-center print:hidden">
                                         <Icon name="lock" size={48} className="mb-4 text-black" />
                                         <h3 className="text-2xl font-black uppercase mb-2">Unlock Full Analysis</h3>
-                                        <p className="font-mono text-sm font-bold text-gray-600 mb-4">Join the Beta to see 4P Strategy, Financials, and Charts.</p>
+                                        <p className="font-mono text-sm font-bold text-gray-600 mb-4">
+                                            Join the Beta to see 4P Strategy, Financials, and Charts.
+                                        </p>
                                         <form onSubmit={handleBetaSignup} className="w-full flex flex-col gap-2">
                                             <input type="email" required placeholder="Enter email..." value={email} onChange={e => setEmail(e.target.value)} className="w-full border-2 border-black p-2 font-bold" />
-                                            <button type="submit" disabled={signupStatus === 'loading'} className="w-full bg-black text-white py-2 font-black uppercase hover:bg-blue-600 transition-colors flex justify-center items-center gap-2">{signupStatus === 'loading' ? <Icon name="loader" className="animate-spin" /> : <><Icon name="unlock" /> UNLOCK</>}</button>
+                                            <button type="submit" disabled={signupStatus === 'loading'} className="w-full bg-black text-white py-2 font-black uppercase hover:bg-blue-600 transition-colors flex justify-center items-center gap-2">
+                                                {signupStatus === 'loading' ? <Icon name="loader" className="animate-spin" /> : <><Icon name="unlock" /> UNLOCK</>}
+                                            </button>
                                         </form>
                                     </div>
                                 )}
@@ -312,7 +342,7 @@ const DeepDive = ({ onBack }) => {
 };
 
 // ... (HeadlineGenerator, AltTextFixer, JargonDestroyer, Header, Hero, HomePage, BlogPage, LabPage, FeedPage, BlogPost, BlogCard, App)
-// Including full file content for completeness:
+// These remain exactly the same. 
 
 const HeadlineGenerator = () => {
     const [topic, setTopic] = useState('');
@@ -499,7 +529,7 @@ const BlogPost = () => {
 };
 
 const BlogCard = ({ post }) => {
-    const imageUrl = post.mainImage ? urlFor(post.mainImage).width(800).url() : 'https://via.placeholder.com/800x400?text=No+Image';
+    const imageUrl = post.mainImage ? urlFor(post.mainImage).width(800).url() : '[https://via.placeholder.com/800x400?text=No+Image](https://via.placeholder.com/800x400?text=No+Image)';
     const dateString = post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : (post._createdAt ? new Date(post._createdAt).toLocaleDateString() : 'Draft');
     const slug = post.slug?.current || '#';
     return (
@@ -543,11 +573,11 @@ function App() {
                 <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="text-center md:text-left"><h3 className="text-2xl font-black uppercase">AimLow<span className="text-blue-600">.ai</span></h3><p className="font-mono text-sm text-gray-500 mt-2">© 2025 Aim Low, Inc.</p></div>
                     <div className="flex gap-4">
-                        <a href="https://x.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a>
-                        <a href="https://facebook.com/aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="facebook" size={20} /></a>
+                        <a href="[https://x.com/aimlow.ai](https://x.com/aimlow.ai)" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="twitter" size={20} /></a>
+                        <a href="[https://facebook.com/aimlow.ai](https://facebook.com/aimlow.ai)" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="facebook" size={20} /></a>
                         <a href="mailto:do_more@aimlow.ai" className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-colors"><Icon name="mail" size={20} /></a>
                     </div>
-                    <a href="https://aimlow.sanity.studio" target="_blank" rel="noopener noreferrer" className="font-mono text-xs font-bold text-gray-400 hover:text-black">ADMIN LOGIN</a>
+                    <a href="[https://aimlow.sanity.studio](https://aimlow.sanity.studio)" target="_blank" rel="noopener noreferrer" className="font-mono text-xs font-bold text-gray-400 hover:text-black">ADMIN LOGIN</a>
                 </div>
             </footer>
         </div>
