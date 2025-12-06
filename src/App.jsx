@@ -37,7 +37,7 @@ const Icon = ({ name, size = 24, color = "currentColor", className }) => {
 const Logo = () => {
     const [error, setError] = useState(false);
     if (error) return <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">AL</div>;
-    return <img src="/logo.jpg" alt="AimLow Logo" className="h-10 w-auto object-contain" onError={() => setError(true)} />;
+    return <img src="/logo.png" alt="AimLow Logo" className="h-10 w-auto object-contain" onError={() => setError(true)} />;
 };
 
 // --- LAB CONFIG ---
