@@ -37,6 +37,7 @@ const Icon = ({ name, size = 24, color = "currentColor", className }) => {
 const Logo = () => {
     const [error, setError] = useState(false);
     if (error) return <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">AL</div>;
+    // FIXED: Pointing to .png explicitly
     return <img src="/logo.png" alt="AimLow Logo" className="h-10 w-auto object-contain" onError={() => setError(true)} />;
 };
 
@@ -267,7 +268,7 @@ const DeepDive = ({ onBack }) => {
                                         <Icon name="lock" size={48} className="mb-4 text-black" />
                                         <h3 className="text-2xl font-black uppercase mb-2">Unlock Full Analysis</h3>
                                         <p className="font-mono text-sm font-bold text-gray-600 mb-4">
-                                            Join the Beta to see 4P Strategy and Competitive Tactics.
+                                            Join the Beta to see 4P Strategy, Financials, and Charts.
                                         </p>
                                         <form onSubmit={handleBetaSignup} className="w-full flex flex-col gap-2">
                                             <input type="email" required placeholder="Enter email..." value={email} onChange={e => setEmail(e.target.value)} className="w-full border-2 border-black p-2 font-bold" />
@@ -286,7 +287,9 @@ const DeepDive = ({ onBack }) => {
     );
 };
 
-// ... Tools (Headline, AltText, Jargon) ...
+// ... (HeadlineGenerator, AltTextFixer, JargonDestroyer, Header, Hero, HomePage, BlogPage, LabPage, FeedPage, BlogPost, BlogCard, App)
+// Standard components remain unchanged.
+
 const HeadlineGenerator = () => {
     const [topic, setTopic] = useState('');
     const [results, setResults] = useState([]);
@@ -486,9 +489,6 @@ const BlogCard = ({ post }) => {
 function App() {
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const { pathname } = useLocation();
-    useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
-
     useEffect(() => {
         const fetchPosts = async () => {
             try { const query = `*[_type == "post"] | order(publishedAt desc) {_id, title, slug, publishedAt, _createdAt, mainImage, "excerpt": pt::text(body)[0...150] + "...", body}`; const data = await client.fetch(query); setPosts(data); setLoading(false); } catch (error) { console.error("Sanity fetch failed:", error); setLoading(false); }
