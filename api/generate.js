@@ -57,29 +57,32 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // TOOL 4: DEEP DIVE (Intelligent Data Fallback)
+    // TOOL 4: DEEP DIVE (Corporate Hierarchy Logic)
     if (type === 'deep-dive') {
       const { brand, context, country = "Global" } = payload;
       
       let systemPrompt = `You are a ruthless senior brand strategist. Provide a comprehensive strategic audit in Markdown for the market: ${country}.
             
-            IMPORTANT DATA RULES:
-            1. **Financials**: Look for confirmed annual revenue for "${brand}". 
-               - If the company is PRIVATE or data is unavailable, provide the **Estimated Market Size** for their specific niche instead (e.g., "Smart Lighting Market").
-               - If niche data is unavailable, zoom out to the broader industry (e.g. "Consumer Lighting").
-               - You MUST update the "sales_chart_title" in the JSON to reflect what data you are showing.
-            2. **JSON**: Include a single JSON block wrapped in triple backticks.
-            3. **Split**: Use "---PRO_CONTENT_START---" to separate free/pro content.
+            IMPORTANT DATA PROTOCOL (STRICT):
+            1. **Corporate Hierarchy**: Check if "${brand}" is owned by a parent company (e.g. Philips Hue -> Signify N.V.).
+            2. **Financials (Annual Sales)**: 
+               - Attempt to find reported revenue for the specific brand/division first.
+               - If unavailable, default to the **Parent Company's** total revenue.
+               - **CRITICAL**: Update the JSON "sales_chart_title" to accurately reflect the data source (e.g. "Signify N.V. Revenue (Parent of Hue)").
+               - If NO public data exists (private company, no leaks), leave the 'annual_sales' array empty. Do NOT guess.
+            3. **Market Sizing**:
+               - Include a separate dataset for Market Share for the brand's specific category if possible.
+            4. **JSON**: Include a SINGLE JSON block wrapped in triple backticks named 'json'.
             
             JSON Structure:
             { 
-              "ticker": "NKE", // Stock ticker or null
-              "sales_chart_title": "Estimated Annual Revenue (Philips Hue)", // OR "Global Smart Lighting Market Size"
-              "market_share": [ {"name": "Brand/Leader", "value": 30}, {"name": "Competitor 1", "value": 20}, ... ],
-              "annual_sales": [ {"year": "2020", "revenue": 5.2}, {"year": "2021", "revenue": 6.1}, ... ]
+              "ticker": "LIGHT.AS", // Ticker for Brand or Parent (or null if private)
+              "sales_chart_title": "Signify Annual Revenue", // Dynamic title based on source
+              "market_share": [ {"name": "Brand", "value": 30}, {"name": "Comp1", "value": 20}, ... ],
+              "annual_sales": [ {"year": "2020", "revenue": 6.5}, {"year": "2021", "revenue": 6.9}, ... ]
             }
             
-            Required Structure:
+            Required Markdown Structure:
             
             ### Quick Links
             Official Website and Investor Relations (list).
@@ -94,7 +97,7 @@ export default async function handler(req) {
 
             ### Financial Performance
             (The JSON block goes here).
-            Brief text summary of the financial trajectory.
+            Brief text summary. Explicitly state if data represents the Parent Company. If data is unavailable, state "Financial data unavailable for private company."
 
             ### 4P Marketing Mix
             - **Product**: Core & Augmentations.
@@ -103,7 +106,7 @@ export default async function handler(req) {
             - **Promotion**: Messaging.
 
             ### Retail Mix
-            List top 5 retailers carrying the brand (e.g. Amazon, Best Buy, D2C).
+            Top 5 retailers (Online & Offline).
             
             ### SWOT Analysis
             - **Strengths**
@@ -112,13 +115,12 @@ export default async function handler(req) {
             - **Threats**
             
             ### Competitive Landscape
-            List Top 5 Competitors (Incumbents + High Growth Challengers).
-            Format: [Name](analyze:Name): One sentence differentiator.
+            List Top 5 Competitors. Format: [Name](analyze:Name): One sentence differentiator.
             
             ### Strategic Recommendations
             3 actionable next steps.
 
-            Tone: Professional, direct, critical. No fluff.`;
+            Tone: Professional, direct, critical. No fluff. If sections like "Financials" are empty due to lack of data, omit the text summary for that section.`;
 
       if (context) {
           systemPrompt += `\n\n### Head-to-Head Strategy: ${context} vs ${brand}\n   - Provide top 3 recommendations for **${context}** to compete directly with **${brand}**.\n   - Explain WHY each recommendation makes sense based on ${brand}'s weaknesses found above.`;
