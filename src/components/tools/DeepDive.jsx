@@ -3,7 +3,7 @@ import { SEO } from '../../seo-tools/SEOTags';
 import { Icon } from '../Layout';
 import ReactMarkdown from 'react-markdown'; 
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, ChevronDown } from 'lucide-react';
 
 const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999', '#555555'];
 
@@ -30,11 +30,11 @@ const MarketShareChart = ({ data }) => {
     );
 };
 
-const SalesChart = ({ data }) => {
+const SalesChart = ({ data, title }) => {
     if (!data || data.length === 0) return null;
     return (
         <div className="h-64 w-full mb-8">
-            <h4 className="font-black uppercase text-sm text-gray-500 mb-2">Estimated Annual Sales (Billions)</h4>
+            <h4 className="font-black uppercase text-sm text-gray-500 mb-2">{title || "Estimated Annual Sales (Billions)"}</h4>
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
@@ -50,6 +50,7 @@ const SalesChart = ({ data }) => {
 
 export const DeepDive = ({ onBack }) => {
     const [inputBrand, setInputBrand] = useState('');
+    const [country, setCountry] = useState('Global');
     const [reports, setReports] = useState([]); 
     const [isGenerating, setIsGenerating] = useState(false);
     const [hasAccess, setHasAccess] = useState(false);
@@ -65,7 +66,7 @@ export const DeepDive = ({ onBack }) => {
         if (!brandName) return;
         setIsGenerating(true);
         try {
-            const payload = { brand: brandName, context: contextBrand };
+            const payload = { brand: brandName, context: contextBrand, country: country };
             const response = await fetch('/api/generate', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
@@ -79,6 +80,7 @@ export const DeepDive = ({ onBack }) => {
                 let shareData = [];
                 let salesData = [];
                 let ticker = null;
+                let salesTitle = "Estimated Annual Sales (Billions)";
                 let cleanContent = data.result;
 
                 // Robust JSON Extraction
@@ -90,6 +92,7 @@ export const DeepDive = ({ onBack }) => {
                         if (jsonData.market_share) shareData = jsonData.market_share;
                         if (jsonData.annual_sales) salesData = jsonData.annual_sales;
                         if (jsonData.ticker) ticker = jsonData.ticker;
+                        if (jsonData.sales_chart_title) salesTitle = jsonData.sales_chart_title;
                         
                         // Clean the JSON block out of the text
                         cleanContent = data.result.replace(jsonMatch[0], '');
@@ -104,6 +107,7 @@ export const DeepDive = ({ onBack }) => {
                     content: cleanContent, 
                     shareData, 
                     salesData,
+                    salesTitle,
                     ticker 
                 }]);
             }
@@ -158,16 +162,36 @@ export const DeepDive = ({ onBack }) => {
                         <span className="bg-black text-white px-3 py-1 font-mono font-bold text-xs">BETA ANALYST</span>
                     </div>
                     <p className="font-mono font-bold mb-6">Instant strategic audits. Enter a brand to start.</p>
-                    <form onSubmit={handleFormSubmit} className="bg-white border-2 border-black p-4 flex gap-2 flex-col sm:flex-row">
+                    <form onSubmit={handleFormSubmit} className="bg-white border-2 border-black p-4 flex flex-col md:flex-row gap-2">
                         <input 
                             value={inputBrand} 
                             onChange={(e) => setInputBrand(e.target.value)} 
-                            className="flex-1 font-bold text-lg p-2 focus:outline-none" 
+                            className="flex-grow font-bold text-lg p-2 focus:outline-none" 
                             placeholder="e.g. Nike, Liquid Death..." 
                             name="brand" 
                         />
+                        
+                        {/* COUNTRY DROPDOWN */}
+                        <div className="relative min-w-[150px]">
+                            <select 
+                                value={country} 
+                                onChange={(e) => setCountry(e.target.value)}
+                                className="w-full h-full appearance-none border-l-2 border-black bg-white pl-4 pr-10 py-2 font-bold text-lg focus:outline-none focus:bg-yellow-50 cursor-pointer"
+                            >
+                                <option value="Global">Global</option>
+                                <option value="United States">United States</option>
+                                <option value="United Kingdom">United Kingdom</option>
+                                <option value="Canada">Canada</option>
+                                <option value="Europe">Europe</option>
+                                <option value="Asia">Asia</option>
+                            </select>
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <ChevronDown size={20} />
+                            </div>
+                        </div>
+
                         <button type="submit" disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
-                            {isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE BRAND"}
+                            {isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE"}
                         </button>
                     </form>
                 </div>
@@ -187,7 +211,7 @@ export const DeepDive = ({ onBack }) => {
                         a: ({node, href, children, ...props}) => {
                             if (href && href.startsWith('analyze:')) {
                                 const compName = href.replace('analyze:', '');
-                                // Pass current brand as context
+                                // Context brand logic
                                 return (
                                     <button 
                                         onClick={() => runAnalysis(compName, report.brand)} 
@@ -243,13 +267,13 @@ export const DeepDive = ({ onBack }) => {
                                                     rel="noopener noreferrer"
                                                     className="flex items-center gap-1 font-bold text-blue-600 hover:underline"
                                                 >
-                                                    VERIFY SOURCE DATA <ExternalLink size={12} />
+                                                    VERIFY DATA <ExternalLink size={12} />
                                                 </a>
                                             </div>
 
                                             <div className="grid grid-cols-1 gap-8 mb-8">
                                                 {report.shareData && <MarketShareChart data={report.shareData} />}
-                                                {report.salesData && <SalesChart data={report.salesData} />}
+                                                {report.salesData && <SalesChart data={report.salesData} title={report.salesTitle} />}
                                             </div>
                                         </>
                                     )}
