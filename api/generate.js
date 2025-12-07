@@ -1,94 +1,145 @@
 import OpenAI from 'openai';
 
+export const config = {
+  runtime: 'edge',
+};
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// SYSTEM PROMPT: Enforces the split between "Teaser" and "Pro" content
-const SYSTEM_PROMPT = `
-You are the Senior Brand Strategist for AimLow.ai. You provide "brutally honest," high-level strategic audits of brands. 
-
-Your goal is to hook the user with a sharp summary, then gate the deeper analysis behind a specific marker.
-
-### DATA INSTRUCTIONS
-1. Use real-world data for Financials/Market Share if known. If exact 2024/2025 figures are unavailable, use the latest available public data and estimate based on trends.
-2. Do not hallucinate tickers. If a company is private, set "ticker": null.
-3. For "annual_sales", provide the last 4-5 years of revenue in Billions (or Millions if smaller).
-
-### FORMATTING RULES (STRICT)
-1. Do not use Markdown bolding (**) for the headers "SWOT Analysis" or "The 4 Ps". Use ### Headers.
-2. You MUST include the text "---PRO_CONTENT_START---" exactly where the free content ends and the pro content begins.
-3. At the very end of your response, you MUST include a JSON code block with financial data.
-
-### RESPONSE STRUCTURE
-
-[SECTION 1: FREE TEASER]
-# Brand Name
-**Executive Summary**: A sharp, 2-3 sentence summary of where the brand stands today.
-**SWOT Analysis**:
-* **Strengths**: 3 bullet points.
-* **Weaknesses**: 3 bullet points.
-* **Opportunities**: 2 bullet points.
-* **Threats**: 2 bullet points.
-
-[INSERT MARKER HERE: ---PRO_CONTENT_START---]
-
-[SECTION 2: PRO DEEP DIVE]
-**The 4 Ps Strategy**:
-* **Product**: Analysis of their core offering.
-* **Price**: Their pricing strategy (Premium, Economy, Skimming, etc).
-* **Place**: Distribution strategy (DTC, Retail, Wholesale).
-* **Promotion**: How they acquire customers.
-
-**Key Competitors**:
-List 3 competitors. For each, link them using this format: [Competitor Name](analyze:CompetitorName). 
-(Example: [Adidas](analyze:Adidas))
-
-[SECTION 3: JSON DATA]
-\`\`\`json
-{
-  "ticker": "STOCK_TICKER_OR_NULL",
-  "sales_chart_title": "Estimated Revenue (USD Billions)", 
-  "market_share": [
-    { "name": "Brand Name", "value": 30 },
-    { "name": "Competitor A", "value": 25 },
-    { "name": "Competitor B", "value": 15 },
-    { "name": "Others", "value": 30 }
-  ],
-  "annual_sales": [
-    { "year": "2020", "revenue": 10.5 },
-    { "year": "2021", "revenue": 12.0 },
-    { "year": "2022", "revenue": 11.5 },
-    { "year": "2023", "revenue": 13.2 }
-  ]
-}
-\`\`\`
-`;
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
-
-  const { type, payload } = req.body;
-
-  if (type === 'deep-dive') {
-    try {
-      const userMessage = `Analyze brand: ${payload.brand}. Focus market: ${payload.country}. ${payload.context ? `Compare specifically against context: ${payload.context}` : ''}`;
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o", // Or gpt-4-turbo
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage }
-        ],
-        temperature: 0.7,
-      });
-
-      return res.status(200).json({ result: completion.choices[0].message.content });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'AI generation failed.' });
-    }
+export default async function handler(req) {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
   }
 
-  return res.status(400).json({ error: 'Invalid request type.' });
+  try {
+    const { type, payload } = await req.json();
+
+    // TOOL 1: HEADLINE GENERATOR
+    if (type === 'headline') {
+      const { topic } = payload;
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.85,
+        messages: [
+          { role: "system", content: "You are a viral marketing expert. Return exactly 3 distinct clickbait/viral headlines. Use these angles: 1. Negative/Warning. 2. How-To/Benefit. 3. Bizarre/Curiosity. Separate with new lines. No numbers." },
+          { role: "user", content: `Topic: ${topic}` },
+        ],
+      });
+      const headlines = completion.choices[0].message.content.split('\n').filter(line => line.trim() !== '');
+      return new Response(JSON.stringify({ result: headlines }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // TOOL 2: ALT-TEXT FIXER
+    if (type === 'alt-text') {
+      const { image } = payload; 
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 100,
+        messages: [
+          { role: "user", content: [{ type: "text", text: "Write a concise, descriptive SEO alt-text for this image." }, { type: "image_url", image_url: { url: image } }] },
+        ],
+      });
+      return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // TOOL 3: JARGON DESTROYER
+    if (type === 'jargon-destroyer') {
+      const { text } = payload;
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "Translate corporate jargon to plain, direct English. Remove fluff." },
+          { role: "user", content: `Translate: "${text}"` },
+        ],
+      });
+      return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // TOOL 4: DEEP DIVE (Corporate Hierarchy Logic)
+    if (type === 'deep-dive') {
+      const { brand, context, country = "Global" } = payload;
+      
+      let systemPrompt = `You are a ruthless senior brand strategist. Provide a comprehensive strategic audit in Markdown for the market: ${country}.
+            
+            IMPORTANT DATA PROTOCOL (STRICT):
+            1. **Corporate Hierarchy**: Check if "${brand}" is owned by a parent company (e.g. Philips Hue -> Signify N.V.).
+            2. **Financials (Annual Sales)**: 
+               - Attempt to find reported revenue for the specific brand/division first.
+               - If unavailable, default to the **Parent Company's** total revenue.
+               - **CRITICAL**: Update the JSON "sales_chart_title" to accurately reflect the data source (e.g. "Signify N.V. Revenue (Parent of Hue)").
+               - If NO public data exists (private company, no leaks), leave the 'annual_sales' array empty. Do NOT guess.
+            3. **Market Sizing**:
+               - Include a separate dataset for Market Share for the brand's specific category if possible.
+            4. **JSON**: Include a SINGLE JSON block wrapped in triple backticks named 'json'.
+            
+            JSON Structure:
+            { 
+              "ticker": "LIGHT.AS", // Ticker for Brand or Parent (or null if private)
+              "sales_chart_title": "Signify Annual Revenue", // Dynamic title based on source
+              "market_share": [ {"name": "Brand", "value": 30}, {"name": "Comp1", "value": 20}, ... ],
+              "annual_sales": [ {"year": "2020", "revenue": 6.5}, {"year": "2021", "revenue": 6.9}, ... ]
+            }
+            
+            Required Markdown Structure:
+            
+            ### Quick Links
+            Official Website and Investor Relations (list).
+
+            ### Executive Summary
+            3 punchy bullet points.
+
+            ### Target Persona
+            Demographics, Psychographics, Job to be Done.
+
+            ---PRO_CONTENT_START---
+
+            ### Financial Performance
+            (The JSON block goes here).
+            Brief text summary. Explicitly state if data represents the Parent Company. If data is unavailable, state "Financial data unavailable for private company."
+
+            ### 4P Marketing Mix
+            - **Product**: Core & Augmentations.
+            - **Price**: Strategy.
+            - **Place**: Channels.
+            - **Promotion**: Messaging.
+
+            ### Retail Mix
+            Top 5 retailers (Online & Offline).
+            
+            ### SWOT Analysis
+            - **Strengths**
+            - **Weaknesses**
+            - **Opportunities**
+            - **Threats**
+            
+            ### Competitive Landscape
+            List Top 5 Competitors. Format: [Name](analyze:Name): One sentence differentiator.
+            
+            ### Strategic Recommendations
+            3 actionable next steps.
+
+            Tone: Professional, direct, critical. No fluff. If sections like "Financials" are empty due to lack of data, omit the text summary for that section.`;
+
+      if (context) {
+          systemPrompt += `\n\n### Head-to-Head Strategy: ${context} vs ${brand}\n   - Provide top 3 recommendations for **${context}** to compete directly with **${brand}**.\n   - Explain WHY each recommendation makes sense based on ${brand}'s weaknesses found above.`;
+      }
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Analyze Brand: "${brand}"` },
+        ],
+      });
+      
+      return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    return new Response(JSON.stringify({ error: 'Invalid tool type' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message || 'AI generation failed' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
 }
