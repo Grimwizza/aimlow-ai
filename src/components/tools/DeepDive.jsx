@@ -3,11 +3,16 @@ import { SEO } from '../../seo-tools/SEOTags';
 import { Icon } from '../Layout';
 import ReactMarkdown from 'react-markdown'; 
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { ExternalLink } from 'lucide-react';
 
 const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999', '#555555'];
 
+// FIXED: Using hex code \x60 for backticks to prevent file truncation during copy/paste
+// Matches ```json ... ``` or just ``` ... ``` blocks
+const JSON_REGEX = new RegExp('\x60\x60\x60(?:json)?\\s*([\\s\\S]*?)\x60\x60\x60', 'g');
+
 const MarketShareChart = ({ data }) => {
-    if (!data || !Array.isArray(data) || data.length === 0) return null;
+    if (!data || data.length === 0) return null;
     return (
         <div className="h-64 w-full mb-8">
             <h4 className="font-black uppercase text-sm text-gray-500 mb-2">Estimated Market Share</h4>
@@ -26,7 +31,7 @@ const MarketShareChart = ({ data }) => {
 };
 
 const SalesChart = ({ data }) => {
-    if (!data || !Array.isArray(data) || data.length === 0) return null;
+    if (!data || data.length === 0) return null;
     return (
         <div className="h-64 w-full mb-8">
             <h4 className="font-black uppercase text-sm text-gray-500 mb-2">Estimated Annual Sales (Billions)</h4>
@@ -73,37 +78,34 @@ export const DeepDive = ({ onBack }) => {
             if (data.result) {
                 let shareData = [];
                 let salesData = [];
+                let ticker = null;
                 let cleanContent = data.result;
 
-                // --- ROBUST PARSING (No Regex) ---
-                // Find JSON block by simple string matching
-                const jsonStartMarker = "```json";
-                const jsonEndMarker = "```";
+                // Robust JSON Extraction
+                const jsonMatch = JSON_REGEX.exec(data.result);
                 
-                const startIndex = data.result.indexOf(jsonStartMarker);
-                
-                if (startIndex !== -1) {
-                    const endIndex = data.result.indexOf(jsonEndMarker, startIndex + jsonStartMarker.length);
-                    
-                    if (endIndex !== -1) {
-                        const jsonString = data.result.substring(startIndex + jsonStartMarker.length, endIndex);
-                        try {
-                            const jsonData = JSON.parse(jsonString);
-                            if (jsonData.market_share) shareData = jsonData.market_share;
-                            if (jsonData.annual_sales) salesData = jsonData.annual_sales;
-                            
-                            // Remove the JSON block from the text content
-                            // We replace the whole block (start to end + markers) with empty string
-                            const fullBlock = data.result.substring(startIndex, endIndex + jsonEndMarker.length);
-                            cleanContent = data.result.replace(fullBlock, '');
-                            
-                        } catch (e) {
-                            console.error("JSON Parsing Error:", e);
-                        }
+                if (jsonMatch && jsonMatch[1]) {
+                    try {
+                        const jsonData = JSON.parse(jsonMatch[1]);
+                        if (jsonData.market_share) shareData = jsonData.market_share;
+                        if (jsonData.annual_sales) salesData = jsonData.annual_sales;
+                        if (jsonData.ticker) ticker = jsonData.ticker;
+                        
+                        // Clean the JSON block out of the text
+                        cleanContent = data.result.replace(jsonMatch[0], '');
+                    } catch (e) { 
+                        console.error("Chart parse error", e); 
                     }
                 }
 
-                setReports(prev => [...prev, { id: Date.now(), brand: brandName, content: cleanContent, shareData, salesData }]);
+                setReports(prev => [...prev, { 
+                    id: Date.now(), 
+                    brand: brandName, 
+                    content: cleanContent, 
+                    shareData, 
+                    salesData,
+                    ticker 
+                }]);
             }
         } catch (err) { 
             console.error(err); 
@@ -134,6 +136,10 @@ export const DeepDive = ({ onBack }) => {
             setSignupStatus('error');
             setTimeout(() => setSignupStatus('idle'), 3000);
         }
+    };
+
+    const handlePrint = () => {
+        window.print();
     };
 
     const removeReport = (id) => {
@@ -181,12 +187,12 @@ export const DeepDive = ({ onBack }) => {
                         a: ({node, href, children, ...props}) => {
                             if (href && href.startsWith('analyze:')) {
                                 const compName = href.replace('analyze:', '');
-                                const contextBrand = reports.length > 0 ? reports[0].brand : null;
+                                // Pass current brand as context
                                 return (
                                     <button 
-                                        onClick={() => runAnalysis(compName, contextBrand)} 
+                                        onClick={() => runAnalysis(compName, report.brand)} 
                                         className="text-[#2563EB] hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left"
-                                        title={`Run Strategy vs ${contextBrand || 'Competitor'}`}
+                                        title={`Run Strategy vs ${report.brand}`}
                                     >
                                         {children} ↗
                                     </button>
@@ -220,19 +226,35 @@ export const DeepDive = ({ onBack }) => {
                             <div className={`relative ${!hasAccess ? 'h-[300px] overflow-hidden' : ''}`}>
                                 <div className={!hasAccess ? 'filter blur-sm select-none opacity-40' : ''}>
                                     
-                                    {/* CHARTS SECTION - With Error Boundary safety */}
+                                    {/* CHARTS SECTION */}
                                     {hasAccess && (
-                                        <div className="grid grid-cols-1 gap-8 mb-8">
-                                            {report.shareData && report.shareData.length > 0 && (
-                                                <MarketShareChart data={report.shareData} />
-                                            )}
-                                            {report.salesData && report.salesData.length > 0 && (
-                                                <SalesChart data={report.salesData} />
-                                            )}
-                                        </div>
+                                        <>
+                                            {/* FINANCIAL VERIFICATION LINK */}
+                                            <div className="mb-6 flex items-center justify-between bg-gray-100 p-2 text-xs font-mono border-l-4 border-yellow-400">
+                                                <span className="text-gray-500">
+                                                    *Charts are estimates based on public data.
+                                                </span>
+                                                <a 
+                                                    href={report.ticker 
+                                                        ? `https://www.google.com/finance/quote/${report.ticker}:NASDAQ` 
+                                                        : `https://www.google.com/search?q=${report.brand}+annual+revenue+financials`
+                                                    }
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-1 font-bold text-blue-600 hover:underline"
+                                                >
+                                                    VERIFY SOURCE DATA <ExternalLink size={12} />
+                                                </a>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-8 mb-8">
+                                                {report.shareData && <MarketShareChart data={report.shareData} />}
+                                                {report.salesData && <SalesChart data={report.salesData} />}
+                                            </div>
+                                        </>
                                     )}
 
-                                    <ReactMarkdown components={markdownComponents} children={proContent} />
+                                    <ReactMarkdown components={markdownComponents} children={proContent || ""} />
                                 </div>
 
                                 {!hasAccess && (

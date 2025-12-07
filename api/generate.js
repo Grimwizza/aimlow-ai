@@ -65,15 +65,14 @@ export default async function handler(req) {
             
             IMPORTANT:
             1. Separate "Free" from "Pro" content with: ---PRO_CONTENT_START---
-            2. Include a SINGLE JSON block wrapped in triple backticks named 'json' containing two datasets: 'market_share' and 'annual_sales' (estimated revenue for last 5 years).
+            2. Include a SINGLE JSON block wrapped in triple backticks named 'json'.
             
-            Example JSON Structure:
-            \`\`\`json
+            JSON Structure:
             { 
-              "market_share": [ {"name": "Brand", "value": 30}, {"name": "Comp1", "value": 20}, {"name": "Comp2", "value": 15}, {"name": "Others", "value": 35} ],
+              "ticker": "NKE", // Stock ticker (or null if private)
+              "market_share": [ {"name": "Brand", "value": 30}, {"name": "Comp1", "value": 20}, {"name": "Others", "value": 50} ],
               "annual_sales": [ {"year": "2020", "revenue": 5.2}, {"year": "2021", "revenue": 6.1}, {"year": "2022", "revenue": 6.8}, {"year": "2023", "revenue": 7.5}, {"year": "2024", "revenue": 8.2} ]
             }
-            \`\`\`
             
             Required Structure:
             
@@ -108,8 +107,7 @@ export default async function handler(req) {
             - **Threats**
             
             ### Competitive Landscape
-            List Top 5 Competitors (Incumbents + Challengers).
-            Format: [Name](analyze:Name): One sentence differentiator.
+            List Top 5 Competitors. Format: [Name](analyze:Name): One sentence differentiator.
             
             ### Strategic Recommendations
             3 actionable next steps.
