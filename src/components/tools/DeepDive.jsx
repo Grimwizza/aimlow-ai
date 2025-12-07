@@ -3,12 +3,11 @@ import { SEO } from '../../seo-tools/SEOTags';
 import { Icon } from '../Layout';
 import ReactMarkdown from 'react-markdown'; 
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ExternalLink, ChevronDown } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
 const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999', '#555555'];
 
 // FIXED: Using hex code \x60 for backticks to prevent file truncation during copy/paste
-// Matches ```json ... ``` or just ``` ... ``` blocks
 const JSON_REGEX = new RegExp('\x60\x60\x60(?:json)?\\s*([\\s\\S]*?)\x60\x60\x60', 'g');
 
 const MarketShareChart = ({ data }) => {
@@ -30,11 +29,11 @@ const MarketShareChart = ({ data }) => {
     );
 };
 
-const SalesChart = ({ data, title }) => {
+const SalesChart = ({ data }) => {
     if (!data || data.length === 0) return null;
     return (
         <div className="h-64 w-full mb-8">
-            <h4 className="font-black uppercase text-sm text-gray-500 mb-2">{title || "Estimated Annual Sales (Billions)"}</h4>
+            <h4 className="font-black uppercase text-sm text-gray-500 mb-2">Estimated Annual Sales (Billions)</h4>
             <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
@@ -80,7 +79,6 @@ export const DeepDive = ({ onBack }) => {
                 let shareData = [];
                 let salesData = [];
                 let ticker = null;
-                let salesTitle = "Estimated Annual Sales (Billions)";
                 let cleanContent = data.result;
 
                 // Robust JSON Extraction
@@ -92,7 +90,6 @@ export const DeepDive = ({ onBack }) => {
                         if (jsonData.market_share) shareData = jsonData.market_share;
                         if (jsonData.annual_sales) salesData = jsonData.annual_sales;
                         if (jsonData.ticker) ticker = jsonData.ticker;
-                        if (jsonData.sales_chart_title) salesTitle = jsonData.sales_chart_title;
                         
                         // Clean the JSON block out of the text
                         cleanContent = data.result.replace(jsonMatch[0], '');
@@ -107,7 +104,6 @@ export const DeepDive = ({ onBack }) => {
                     content: cleanContent, 
                     shareData, 
                     salesData,
-                    salesTitle,
                     ticker 
                 }]);
             }
@@ -211,7 +207,6 @@ export const DeepDive = ({ onBack }) => {
                         a: ({node, href, children, ...props}) => {
                             if (href && href.startsWith('analyze:')) {
                                 const compName = href.replace('analyze:', '');
-                                // Context brand logic
                                 return (
                                     <button 
                                         onClick={() => runAnalysis(compName, report.brand)} 
@@ -260,8 +255,8 @@ export const DeepDive = ({ onBack }) => {
                                                 </span>
                                                 <a 
                                                     href={report.ticker 
-                                                        ? `https://www.google.com/finance/quote/${report.ticker}:NASDAQ` 
-                                                        : `https://www.google.com/search?q=${report.brand}+annual+revenue+financials`
+                                                        ? `https://www.google.com/finance?q=${report.ticker}` 
+                                                        : `https://www.google.com/search?q=${report.brand}+annual+revenue`
                                                     }
                                                     target="_blank"
                                                     rel="noopener noreferrer"
@@ -273,7 +268,7 @@ export const DeepDive = ({ onBack }) => {
 
                                             <div className="grid grid-cols-1 gap-8 mb-8">
                                                 {report.shareData && <MarketShareChart data={report.shareData} />}
-                                                {report.salesData && <SalesChart data={report.salesData} title={report.salesTitle} />}
+                                                {report.salesData && <SalesChart data={report.salesData} />}
                                             </div>
                                         </>
                                     )}
