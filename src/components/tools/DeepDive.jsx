@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { SEO } from '../../seo-tools/SEOTags';
 import { Icon } from '../Layout';
 import ReactMarkdown from 'react-markdown'; 
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ExternalLink, ChevronDown } from 'lucide-react';
 
 const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999', '#555555'];
 
-// FIXED: Using hex code \x60 for backticks to prevent file truncation during copy/paste
-// Matches ```json ... ``` or just ``` ... ``` blocks
+// Regex to extract JSON blocks safely
 const JSON_REGEX = new RegExp('\x60\x60\x60(?:json)?\\s*([\\s\\S]*?)\x60\x60\x60', 'g');
 
 const MarketShareChart = ({ data }) => {
@@ -142,10 +141,6 @@ export const DeepDive = ({ onBack }) => {
         }
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
-
     const removeReport = (id) => {
         setReports(reports.filter(r => r.id !== id));
     };
@@ -171,7 +166,6 @@ export const DeepDive = ({ onBack }) => {
                             name="brand" 
                         />
                         
-                        {/* COUNTRY DROPDOWN */}
                         <div className="relative min-w-[150px]">
                             <select 
                                 value={country} 
@@ -199,9 +193,11 @@ export const DeepDive = ({ onBack }) => {
 
             <div className={`grid gap-8 ${reports.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                 {reports.map((report) => {
+                    // Logic to split Free/Pro content
                     const splitMarker = "---PRO_CONTENT_START---";
                     const parts = report.content.split(splitMarker);
-                    const freeContent = parts[0] || "";
+                    // Fallback: If AI fails to insert marker, show everything in free section so we don't truncate
+                    const freeContent = parts[0] || report.content;
                     const proContent = parts[1] || "";
 
                     const markdownComponents = {
@@ -211,7 +207,6 @@ export const DeepDive = ({ onBack }) => {
                         a: ({node, href, children, ...props}) => {
                             if (href && href.startsWith('analyze:')) {
                                 const compName = href.replace('analyze:', '');
-                                // Context brand logic
                                 return (
                                     <button 
                                         onClick={() => runAnalysis(compName, report.brand)} 
@@ -239,33 +234,30 @@ export const DeepDive = ({ onBack }) => {
                                 <img src="/logo.jpg" alt="AimLow" className="h-12 w-auto object-contain opacity-80" />
                             </div>
 
-                            {/* Free Content */}
+                            {/* Free Content (Teaser) */}
                             <div className="prose prose-lg font-serif max-w-none mb-8">
                                 <ReactMarkdown components={markdownComponents}>
                                     {freeContent}
                                 </ReactMarkdown>
                             </div>
 
-                            {/* Pro/Gated Content */}
-                            <div className={`relative ${!hasAccess ? 'h-[300px] overflow-hidden' : ''}`}>
-                                <div className={!hasAccess ? 'filter blur-sm select-none opacity-40' : ''}>
-                                    
-                                    {/* CHARTS SECTION */}
+                            {/* Pro/Gated Content Section */}
+                            <div className={`relative ${!hasAccess ? 'h-[400px] overflow-hidden' : ''}`}>
+                                
+                                <div className={!hasAccess ? 'filter blur-md select-none opacity-30 transition-all duration-500' : ''}>
                                     {hasAccess && (
                                         <>
                                             {/* FINANCIAL VERIFICATION LINK */}
-                                            <div className="mb-6 flex items-center justify-between bg-gray-100 p-2 text-xs font-mono border-l-4 border-yellow-400">
-                                                <span className="text-gray-500">
-                                                    *Charts are estimates based on public data.
-                                                </span>
+                                            <div className="mb-6 flex items-center justify-between bg-gray-100 p-2 text-xs font-mono border-l-4 border-[#FEC43D]">
+                                                <span className="text-gray-500">*Charts are estimates based on public data.</span>
                                                 <a 
                                                     href={report.ticker 
-                                                        ? `https://www.google.com/finance/quote/${report.ticker}:NASDAQ` 
-                                                        : `https://www.google.com/search?q=${report.brand}+annual+revenue+financials`
+                                                        ? `https://www.google.com/finance?q=${report.ticker}` 
+                                                        : `https://www.google.com/search?q=${report.brand}+financial+results`
                                                     }
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="flex items-center gap-1 font-bold text-blue-600 hover:underline"
+                                                    className="flex items-center gap-1 font-bold text-[#2563EB] hover:underline"
                                                 >
                                                     VERIFY DATA <ExternalLink size={12} />
                                                 </a>
@@ -277,23 +269,48 @@ export const DeepDive = ({ onBack }) => {
                                             </div>
                                         </>
                                     )}
-
                                     <ReactMarkdown components={markdownComponents} children={proContent || ""} />
                                 </div>
 
+                                {/* THE LOCKED OVERLAY (AimLow Style) */}
                                 {!hasAccess && (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-10 p-6 text-center print:hidden">
-                                        <Icon name="lock" size={48} className="mb-4 text-black" />
-                                        <h3 className="text-2xl font-black uppercase mb-2">Unlock Full Analysis</h3>
-                                        <p className="font-mono text-sm font-bold text-gray-600 mb-4">
-                                            Join the Beta to see 4P Strategy, Financials, and Charts.
-                                        </p>
-                                        <form onSubmit={handleBetaSignup} className="w-full flex flex-col gap-2">
-                                            <input type="email" required placeholder="Enter email..." value={email} onChange={e => setEmail(e.target.value)} className="w-full border-2 border-black p-2 font-bold" />
-                                            <button type="submit" disabled={signupStatus === 'loading'} className="w-full bg-black text-white py-2 font-black uppercase hover:bg-blue-600 transition-colors flex justify-center items-center gap-2">
-                                                {signupStatus === 'loading' ? <Icon name="loader" className="animate-spin" /> : <><Icon name="unlock" /> UNLOCK</>}
-                                            </button>
-                                        </form>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-4">
+                                        <div className="bg-white border-4 border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-md w-full text-center relative">
+                                            
+                                            {/* Beta Badge */}
+                                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#FEC43D] text-black font-black uppercase px-4 py-1 border-2 border-black transform -rotate-2">
+                                                Free Pro Beta
+                                            </div>
+
+                                            <Icon name="lock" size={40} className="mx-auto mb-4 text-[#2563EB]" />
+                                            
+                                            <h3 className="text-2xl font-black uppercase mb-2">Unlock The Strategy</h3>
+                                            <p className="font-mono text-sm font-bold text-gray-500 mb-6">
+                                                Enter your email to unlock the 4P Strategy, Competitor Analysis, and Financial Charts.
+                                            </p>
+
+                                            <form onSubmit={handleBetaSignup} className="w-full flex flex-col gap-3">
+                                                <input 
+                                                    type="email" 
+                                                    required 
+                                                    placeholder="you@example.com" 
+                                                    value={email} 
+                                                    onChange={e => setEmail(e.target.value)} 
+                                                    className="w-full border-2 border-black bg-gray-50 p-3 font-bold text-center focus:outline-none focus:bg-[#FEC43D] transition-colors" 
+                                                />
+                                                
+                                                <button 
+                                                    type="submit" 
+                                                    disabled={signupStatus === 'loading'} 
+                                                    className="w-full bg-black text-white py-3 font-black uppercase hover:bg-[#2563EB] hover:shadow-lg transition-all flex justify-center items-center gap-2"
+                                                >
+                                                    {signupStatus === 'loading' ? <Icon name="loader" className="animate-spin" /> : "UNLOCK FULL REPORT"}
+                                                </button>
+                                                
+                                                {signupStatus === 'error' && <p className="text-red-600 font-bold text-xs mt-2">Something went wrong. Try again.</p>}
+                                                <p className="text-xs text-gray-400 mt-2 font-mono">No spam. Unsubscribe anytime.</p>
+                                            </form>
+                                        </div>
                                     </div>
                                 )}
                             </div>
