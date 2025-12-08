@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SEO } from '../../seo-tools/SEOTags';
-import { Icon } from '../Layout';
+import { Icon } from '../ui/Icon';
 import { ChevronDown, Printer } from 'lucide-react';
 import { cleanReportContent } from './deep-dive/utils';
 import { ReportView } from './deep-dive/ReportView';

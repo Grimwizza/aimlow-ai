@@ -1,7 +1,7 @@
 import React from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { COLORS } from './utils';
-import { Icon } from '../../Layout';
+import { Icon } from '../../ui/Icon';
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {

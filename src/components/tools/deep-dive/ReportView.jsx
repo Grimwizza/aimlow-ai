@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ExternalLink, Lock } from 'lucide-react';
-import { Icon } from '../../Layout';
+import { Icon } from '../../ui/Icon';
 import { MarketShareChart, SalesChart } from './Charts';
 import { getMarkdownComponents } from './utils';
 

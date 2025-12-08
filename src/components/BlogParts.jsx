@@ -3,19 +3,19 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { client, urlFor } from '../client';
 import { PortableText } from '@portabletext/react';
 import { SEO } from '../seo-tools/SEOTags';
-import { Icon } from './Layout';
+import { Icon } from './ui/Icon';
 
 // --- Rich Text Styling ---
 export const ptComponents = {
     types: { image: ({ value }) => value?.asset?._ref ? <img src={urlFor(value).width(800).fit('max').url()} alt={value.alt || ' '} className="my-8 w-full border-2 border-black brutal-shadow" /> : null },
     block: {
-        h1: ({children}) => <h1 className="text-4xl font-black uppercase mt-12 mb-6">{children}</h1>,
-        h2: ({children}) => <h2 className="text-3xl font-bold uppercase mt-10 mb-4 border-b-2 border-black pb-2 inline-block">{children}</h2>,
-        h3: ({children}) => <h3 className="text-2xl font-bold mt-8 mb-3">{children}</h3>,
-        normal: ({children}) => <p className="mb-6 leading-relaxed text-lg">{children}</p>,
-        blockquote: ({children}) => <blockquote className="border-l-4 border-black pl-4 italic my-8 bg-yellow-100 p-6 font-serif text-xl">{children}</blockquote>,
+        h1: ({ children }) => <h1 className="text-4xl font-black uppercase mt-12 mb-6">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-3xl font-bold uppercase mt-10 mb-4 border-b-2 border-black pb-2 inline-block">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-2xl font-bold mt-8 mb-3">{children}</h3>,
+        normal: ({ children }) => <p className="mb-6 leading-relaxed text-lg">{children}</p>,
+        blockquote: ({ children }) => <blockquote className="border-l-4 border-black pl-4 italic my-8 bg-yellow-100 p-6 font-serif text-xl">{children}</blockquote>,
     },
-    list: { bullet: ({children}) => <ul className="list-disc ml-6 mb-6 space-y-2 text-lg">{children}</ul>, number: ({children}) => <ol className="list-decimal ml-6 mb-6 space-y-2 text-lg">{children}</ol> }
+    list: { bullet: ({ children }) => <ul className="list-disc ml-6 mb-6 space-y-2 text-lg">{children}</ul>, number: ({ children }) => <ol className="list-decimal ml-6 mb-6 space-y-2 text-lg">{children}</ol> }
 }
 
 // --- Sub-Components ---
@@ -42,7 +42,7 @@ export const AuthorBio = ({ author }) => {
     return (
         <div className="mt-16 border-t-4 border-black pt-8">
             <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start bg-white border-2 border-black p-6 brutal-shadow">
-                <img src={avatarUrl} alt={author.name} className="w-20 h-20 rounded-full border-2 border-black object-cover"/>
+                <img src={avatarUrl} alt={author.name} className="w-20 h-20 rounded-full border-2 border-black object-cover" />
                 <div className="text-center sm:text-left">
                     <p className="font-mono text-xs font-bold text-gray-500 uppercase mb-1">Written By</p>
                     <h3 className="text-2xl font-black uppercase mb-2">{author.name}</h3>
@@ -82,7 +82,7 @@ export const BlogPost = () => {
                 author->{name, image, bio} 
             }`;
             const data = await client.fetch(query, { slug });
-            setPost(data); 
+            setPost(data);
             setLoading(false);
         };
         fetchPost();
