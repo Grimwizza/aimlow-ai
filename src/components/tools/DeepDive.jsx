@@ -1,57 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { SEO } from '../../seo-tools/SEOTags';
 import { Icon } from '../Layout';
-import ReactMarkdown from 'react-markdown'; 
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ExternalLink, ChevronDown } from 'lucide-react';
+import { ChevronDown, Printer } from 'lucide-react';
+import { cleanReportContent } from './deep-dive/utils';
+import { ReportView } from './deep-dive/ReportView';
 
-const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999', '#555555'];
-
-// FIXED: Using hex code \x60 for backticks to prevent file truncation during copy/paste
-// Matches ```json ... ``` or just ``` ... ``` blocks
-const JSON_REGEX = new RegExp('\x60\x60\x60(?:json)?\\s*([\\s\\S]*?)\x60\x60\x60', 'g');
-
-const MarketShareChart = ({ data }) => {
-    if (!data || data.length === 0) return null;
-    return (
-        <div className="h-64 w-full mb-8">
-            <h4 className="font-black uppercase text-sm text-gray-500 mb-2">Estimated Market Share</h4>
-            <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                    <Pie data={data} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                        {data.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="black" strokeWidth={2} />
-                        ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ border: '2px solid black', boxShadow: '4px 4px 0px 0px #000' }} />
-                </PieChart>
-            </ResponsiveContainer>
+const SkeletonLoader = () => (
+    <div className="bg-white border-4 border-black p-0 brutal-shadow-lg h-[600px] flex flex-col animate-pulse">
+        <div className="h-48 bg-gray-200 border-b-4 border-black p-8">
+            <div className="h-12 w-2/3 bg-gray-300 mb-4 rounded"></div>
+            <div className="h-6 w-1/3 bg-gray-300 rounded"></div>
         </div>
-    );
-};
-
-const SalesChart = ({ data, title }) => {
-    if (!data || data.length === 0) return null;
-    return (
-        <div className="h-64 w-full mb-8">
-            <h4 className="font-black uppercase text-sm text-gray-500 mb-2">{title || "Estimated Annual Sales (Billions)"}</h4>
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
-                    <XAxis dataKey="year" style={{ fontSize: '12px', fontWeight: 'bold' }} />
-                    <YAxis style={{ fontSize: '12px' }} />
-                    <Tooltip contentStyle={{ border: '2px solid black', boxShadow: '4px 4px 0px 0px #000' }} />
-                    <Bar dataKey="revenue" fill="#2563EB" stroke="black" strokeWidth={2} />
-                </BarChart>
-            </ResponsiveContainer>
+        <div className="p-8 space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-full"></div>
+            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+            <div className="h-4 bg-gray-200 rounded w-full"></div>
         </div>
-    );
-};
+    </div>
+);
 
 export const DeepDive = ({ onBack }) => {
     const [inputBrand, setInputBrand] = useState('');
     const [country, setCountry] = useState('Global');
-    const [reports, setReports] = useState([]); 
+    const [reports, setReports] = useState([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [hasAccess, setHasAccess] = useState(false);
     const [email, setEmail] = useState('');
@@ -65,54 +37,36 @@ export const DeepDive = ({ onBack }) => {
     const runAnalysis = async (brandName, contextBrand = null) => {
         if (!brandName) return;
         setIsGenerating(true);
+        // Scroll to bottom to show loader
+        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+
         try {
             const payload = { brand: brandName, context: contextBrand, country: country };
-            const response = await fetch('/api/generate', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ type: 'deep-dive', payload }) 
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'deep-dive', payload })
             });
-            const data = await response.json(); 
-            
+            const data = await response.json();
+
             if (!response.ok || data.error) throw new Error(data.error || "Server Error");
-            
+
             if (data.result) {
-                let shareData = [];
-                let salesData = [];
-                let ticker = null;
-                let salesTitle = "Estimated Annual Sales (Billions)";
-                let cleanContent = data.result;
+                const { cleanText, shareData, salesData, ticker, salesTitle } = cleanReportContent(data.result);
 
-                // Robust JSON Extraction
-                const jsonMatch = JSON_REGEX.exec(data.result);
-                
-                if (jsonMatch && jsonMatch[1]) {
-                    try {
-                        const jsonData = JSON.parse(jsonMatch[1]);
-                        if (jsonData.market_share) shareData = jsonData.market_share;
-                        if (jsonData.annual_sales) salesData = jsonData.annual_sales;
-                        if (jsonData.ticker) ticker = jsonData.ticker;
-                        if (jsonData.sales_chart_title) salesTitle = jsonData.sales_chart_title;
-                        
-                        // Clean the JSON block out of the text
-                        cleanContent = data.result.replace(jsonMatch[0], '');
-                    } catch (e) { 
-                        console.error("Chart parse error", e); 
-                    }
-                }
-
-                setReports(prev => [...prev, { 
-                    id: Date.now(), 
-                    brand: brandName, 
-                    content: cleanContent, 
-                    shareData, 
+                setReports(prev => [...prev, {
+                    id: Date.now(),
+                    brand: brandName,
+                    content: cleanText,
+                    shareData,
                     salesData,
                     salesTitle,
-                    ticker 
+                    ticker,
+                    country
                 }]);
             }
-        } catch (err) { 
-            console.error(err); 
+        } catch (err) {
+            console.error(err);
             alert(`Error: ${err.message}`);
         } finally { setIsGenerating(false); }
     };
@@ -151,155 +105,80 @@ export const DeepDive = ({ onBack }) => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-12"> 
+        <div className="max-w-7xl mx-auto px-4 py-12">
             <SEO title="The Deep Dive" description="Professional brand analyst. 4P & SWOT Reports." />
             <div className="print:hidden">
-                <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold mb-8 hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
-                
+                <div className="flex justify-between items-center mb-8">
+                    <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
+                    {reports.length > 0 && (
+                        <button onClick={handlePrint} className="flex items-center gap-2 font-mono font-bold bg-white border-2 border-black px-4 py-2 hover:bg-gray-100 brutal-shadow">
+                            <Printer size={18} /> PRINT REPORT
+                        </button>
+                    )}
+                </div>
+
                 <div className="brutal-card p-8 bg-yellow-300 brutal-shadow mb-12">
-                    <div className="flex justify-between items-start">
-                        <h1 className="text-4xl font-black uppercase mb-2">The Deep Dive</h1>
-                        <span className="bg-black text-white px-3 py-1 font-mono font-bold text-xs">BETA ANALYST</span>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-4xl md:text-5xl font-black uppercase">The Deep Dive</h1>
+                                <span className="bg-black text-white px-2 py-1 font-mono font-bold text-xs uppercase -rotate-2">Pro Analyst</span>
+                            </div>
+                            <p className="font-mono font-bold mt-2">Instant strategic audits. Enter a brand to starting mining.</p>
+                        </div>
                     </div>
-                    <p className="font-mono font-bold mb-6">Instant strategic audits. Enter a brand to start.</p>
-                    <form onSubmit={handleFormSubmit} className="bg-white border-2 border-black p-4 flex flex-col md:flex-row gap-2">
-                        <input 
-                            value={inputBrand} 
-                            onChange={(e) => setInputBrand(e.target.value)} 
-                            className="flex-grow font-bold text-lg p-2 focus:outline-none" 
-                            placeholder="e.g. Nike, Liquid Death..." 
-                            name="brand" 
-                        />
-                        
+
+                    <form onSubmit={handleFormSubmit} className="bg-white border-4 border-black p-2 flex flex-col md:flex-row gap-2 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         {/* COUNTRY DROPDOWN */}
-                        <div className="relative min-w-[150px]">
-                            <select 
-                                value={country} 
+                        <div className="relative min-w-[140px] border-b-2 md:border-b-0 md:border-r-2 border-gray-200">
+                            <select
+                                value={country}
                                 onChange={(e) => setCountry(e.target.value)}
-                                className="w-full h-full appearance-none border-l-2 border-black bg-white pl-4 pr-10 py-2 font-bold text-lg focus:outline-none focus:bg-yellow-50 cursor-pointer"
+                                className="w-full h-full appearance-none bg-transparent pl-4 pr-10 py-3 font-bold text-lg focus:outline-none cursor-pointer hover:bg-gray-50 uppercase"
                             >
                                 <option value="Global">Global</option>
-                                <option value="United States">United States</option>
-                                <option value="United Kingdom">United Kingdom</option>
+                                <option value="United States">USA</option>
+                                <option value="United Kingdom">UK</option>
                                 <option value="Canada">Canada</option>
                                 <option value="Europe">Europe</option>
                                 <option value="Asia">Asia</option>
                             </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <ChevronDown size={20} />
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-black">
+                                <ChevronDown size={20} strokeWidth={3} />
                             </div>
                         </div>
 
-                        <button type="submit" disabled={isGenerating} className="bg-black text-white px-6 py-3 font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">
+                        <input
+                            value={inputBrand}
+                            onChange={(e) => setInputBrand(e.target.value)}
+                            className="flex-grow font-bold text-xl p-3 focus:outline-none placeholder:text-gray-300 uppercase"
+                            placeholder="ENTER BRAND (E.G. NIKE)..."
+                            name="brand"
+                            autoComplete="off"
+                        />
+
+                        <button type="submit" disabled={isGenerating || !inputBrand} className="bg-black text-white px-8 py-3 font-black text-xl hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400">
                             {isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE"}
                         </button>
                     </form>
                 </div>
             </div>
 
-            <div className={`grid gap-8 ${reports.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-                {reports.map((report) => {
-                    const splitMarker = "---PRO_CONTENT_START---";
-                    const parts = report.content.split(splitMarker);
-                    const freeContent = parts[0] || "";
-                    const proContent = parts[1] || "";
-
-                    const markdownComponents = {
-                        h3: ({node, ...props}) => <h3 className="text-2xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2" {...props} />,
-                        ul: ({node, ...props}) => <ul className="grid grid-cols-1 gap-2 list-none pl-0" {...props} />,
-                        li: ({node, ...props}) => <li className="bg-gray-50 p-3 border-l-4 border-black text-sm" {...props} />,
-                        a: ({node, href, children, ...props}) => {
-                            if (href && href.startsWith('analyze:')) {
-                                const compName = href.replace('analyze:', '');
-                                // Context brand logic
-                                return (
-                                    <button 
-                                        onClick={() => runAnalysis(compName, report.brand)} 
-                                        className="text-[#2563EB] hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left"
-                                        title={`Run Strategy vs ${report.brand}`}
-                                    >
-                                        {children} ↗
-                                    </button>
-                                );
-                            }
-                            return <a href={href} className="text-[#2563EB] font-bold hover:underline" target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
-                        }
-                    };
-
-                    return (
-                        <div key={report.id} className="relative bg-white border-2 border-black p-8 brutal-shadow print:shadow-none print:border-0 min-w-0">
-                            <button onClick={() => removeReport(report.id)} className="absolute top-4 right-4 text-gray-400 hover:text-red-600 print:hidden"><Icon name="close" size={24} /></button>
-                            
-                            {/* Report Header */}
-                            <div className="border-b-4 border-black pb-4 mb-8 pr-8 flex justify-between items-start">
-                                <div>
-                                    <h2 className="text-3xl font-black uppercase">{report.brand}</h2>
-                                    <p className="font-mono text-gray-500 text-sm">Strategic Audit • {new Date().toLocaleDateString()}</p>
-                                </div>
-                                <img src="/logo.jpg" alt="AimLow" className="h-12 w-auto object-contain opacity-80" />
-                            </div>
-
-                            {/* Free Content */}
-                            <div className="prose prose-lg font-serif max-w-none mb-8">
-                                <ReactMarkdown components={markdownComponents}>
-                                    {freeContent}
-                                </ReactMarkdown>
-                            </div>
-
-                            {/* Pro/Gated Content */}
-                            <div className={`relative ${!hasAccess ? 'h-[300px] overflow-hidden' : ''}`}>
-                                <div className={!hasAccess ? 'filter blur-sm select-none opacity-40' : ''}>
-                                    
-                                    {/* CHARTS SECTION */}
-                                    {hasAccess && (
-                                        <>
-                                            {/* FINANCIAL VERIFICATION LINK */}
-                                            <div className="mb-6 flex items-center justify-between bg-gray-100 p-2 text-xs font-mono border-l-4 border-yellow-400">
-                                                <span className="text-gray-500">
-                                                    *Charts are estimates based on public data.
-                                                </span>
-                                                <a 
-                                                    href={report.ticker 
-                                                        ? `https://www.google.com/finance/quote/${report.ticker}:NASDAQ` 
-                                                        : `https://www.google.com/search?q=${report.brand}+annual+revenue+financials`
-                                                    }
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-1 font-bold text-blue-600 hover:underline"
-                                                >
-                                                    VERIFY DATA <ExternalLink size={12} />
-                                                </a>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 gap-8 mb-8">
-                                                {report.shareData && <MarketShareChart data={report.shareData} />}
-                                                {report.salesData && <SalesChart data={report.salesData} title={report.salesTitle} />}
-                                            </div>
-                                        </>
-                                    )}
-
-                                    <ReactMarkdown components={markdownComponents} children={proContent || ""} />
-                                </div>
-
-                                {!hasAccess && (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-10 p-6 text-center print:hidden">
-                                        <Icon name="lock" size={48} className="mb-4 text-black" />
-                                        <h3 className="text-2xl font-black uppercase mb-2">Unlock Full Analysis</h3>
-                                        <p className="font-mono text-sm font-bold text-gray-600 mb-4">
-                                            Join the Beta to see 4P Strategy, Financials, and Charts.
-                                        </p>
-                                        <form onSubmit={handleBetaSignup} className="w-full flex flex-col gap-2">
-                                            <input type="email" required placeholder="Enter email..." value={email} onChange={e => setEmail(e.target.value)} className="w-full border-2 border-black p-2 font-bold" />
-                                            <button type="submit" disabled={signupStatus === 'loading'} className="w-full bg-black text-white py-2 font-black uppercase hover:bg-blue-600 transition-colors flex justify-center items-center gap-2">
-                                                {signupStatus === 'loading' ? <Icon name="loader" className="animate-spin" /> : <><Icon name="unlock" /> UNLOCK</>}
-                                            </button>
-                                        </form>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
+            <div className="grid grid-cols-1 gap-12">
+                {reports.map((report) => (
+                    <ReportView
+                        key={report.id}
+                        report={report}
+                        hasAccess={hasAccess}
+                        runAnalysis={runAnalysis}
+                        removeReport={removeReport}
+                        handleBetaSignup={handleBetaSignup}
+                        email={email}
+                        setEmail={setEmail}
+                        signupStatus={signupStatus}
+                    />
+                ))}
+                {isGenerating && <SkeletonLoader />}
             </div>
         </div>
     );
