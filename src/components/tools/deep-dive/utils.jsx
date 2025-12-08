@@ -31,6 +31,12 @@ export const cleanReportContent = (content) => {
         }
     }
 
+    // FIX: The AI sometimes generates markdown links with spaces in the URL (e.g. [Brand](analyze:Brand Name))
+    // Standard markdown breaks on spaces in URLs. We need to encode them.
+    cleanText = cleanText.replace(/\[([^\]]+)\]\((analyze:[^)]+)\)/g, (match, text, url) => {
+        return `[${text}](${url.replace(/ /g, '%20')})`;
+    });
+
     return {
         cleanText,
         shareData,
