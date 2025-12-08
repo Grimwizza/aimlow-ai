@@ -69,7 +69,8 @@ export default async function handler(req) {
                - **RULE 1**: If specific brand revenue is unavailable, you **MUST** use the Parent Company's global revenue (e.g., if analyzing 'Hue', use 'Signify N.V.' data).
                - **RULE 2**: NEVER leave the 'annual_sales' array empty if a Parent Company exists. Private companies are the ONLY exception.
                - **RULE 3**: Update "sales_chart_title" to explicitly state the source (e.g. "Signify Global Revenue (Parent of Hue)").
-            
+               - **TIMEFRAME**: You MUST provide data for the **last 5 completed fiscal years** (e.g. 2020-2024). Do not provide data older than 2018.
+
             3. **Key Financial Metrics**:
                - **market_cap**: Use Parent Company.
                - **pe_ratio**: Use Parent Company.
@@ -85,7 +86,13 @@ export default async function handler(req) {
               "ticker": "LIGHT.AS", 
               "sales_chart_title": "Signify Global Revenue", 
               "market_share": [ {"name": "Signify", "value": 30}, {"name": "Comp1", "value": 20}, ... ],
-              "annual_sales": [ {"year": "2020", "revenue": 6.5}, {"year": "2021", "revenue": 6.9}, ... ],
+              "annual_sales": [ 
+                  {"year": "2020", "revenue": 6.5}, 
+                  {"year": "2021", "revenue": 6.9}, 
+                  {"year": "2022", "revenue": 7.5}, 
+                  {"year": "2023", "revenue": 7.2}, 
+                  {"year": "2024", "revenue": 7.8} 
+              ],
               "key_metrics": { ... }
             }
             

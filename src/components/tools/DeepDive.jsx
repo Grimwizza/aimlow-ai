@@ -37,8 +37,7 @@ export const DeepDive = ({ onBack }) => {
     const runAnalysis = async (brandName, contextBrand = null) => {
         if (!brandName) return;
         setIsGenerating(true);
-        // Scroll to bottom to show loader
-        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+
 
         try {
             const payload = { brand: brandName, context: contextBrand, country: country };
