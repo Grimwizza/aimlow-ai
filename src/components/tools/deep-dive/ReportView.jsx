@@ -21,6 +21,30 @@ const StatCard = ({ label, value, icon, link }) => (
     </div>
 );
 
+// --- FINANCIAL METRICS GRID COMPONENT ---
+const FinancialMetricsGrid = ({ metrics }) => {
+    if (!metrics) return null;
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <StatCard label="Market Cap" value={metrics.market_cap || "N/A"} icon="briefcase" />
+            <StatCard label="P/E Ratio" value={metrics.pe_ratio || "N/A"} icon="percent" />
+            <StatCard label="Dividend Yield" value={metrics.dividend_yield || "N/A"} icon="trending-up" />
+            <StatCard label="Profit Margin" value={metrics.profit_margin || "N/A"} icon="pie-chart" />
+            <StatCard label="Est. Revenue" value={metrics.est_revenue || "N/A"} icon="dollar-sign" />
+            <StatCard
+                label="Risk Level"
+                value={metrics.risk_level || "N/A"}
+                icon="shield"
+                className={`
+                    ${metrics.risk_level === 'High' ? 'bg-red-100 text-red-700' : ''}
+                    ${metrics.risk_level === 'Medium' ? 'bg-yellow-100 text-yellow-800' : ''}
+                    ${metrics.risk_level === 'Low' ? 'bg-green-100 text-green-800' : ''}
+                `}
+            />
+        </div>
+    );
+};
+
 export const ReportView = ({ report, hasAccess, runAnalysis, removeReport, handleBetaSignup, email, setEmail, signupStatus }) => {
     const [activeTab, setActiveTab] = useState('overview');
 
@@ -32,6 +56,7 @@ export const ReportView = ({ report, hasAccess, runAnalysis, removeReport, handl
     const analysisDate = new Date(report.id).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
     const markdownComponents = getMarkdownComponents(runAnalysis, report.brand);
+    const metrics = report.keyMetrics || {};
 
     return (
         <div className="relative bg-white border-4 border-black p-0 brutal-shadow-lg print:shadow-none print:border-0 min-w-0 flex flex-col h-full">
@@ -56,8 +81,8 @@ export const ReportView = ({ report, hasAccess, runAnalysis, removeReport, handl
             <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border-b-4 border-black">
                 <StatCard label="Ticker / Symbol" value={report.ticker || "PVT"} icon="trending-up" link={report.ticker ? `https://www.google.com/finance/quote/${report.ticker}:NASDAQ` : null} />
                 <StatCard label="Market" value={report.country || "Global"} icon="globe" />
-                <StatCard label="Risk Level" value="Analyst Est." icon="activity" />
-                <StatCard label="Est. Revenue" value={report.salesData ? "Data Avail." : "N/A"} icon="dollar-sign" />
+                <StatCard label="Risk Level" value={metrics.risk_level || "Analyst Est."} icon="activity" />
+                <StatCard label="Est. Revenue" value={metrics.est_revenue || (report.salesData ? "Data Avail." : "N/A")} icon="dollar-sign" />
             </div>
 
             {/* --- TABS --- */}
@@ -90,14 +115,20 @@ export const ReportView = ({ report, hasAccess, runAnalysis, removeReport, handl
                     {!hasAccess && activeTab === 'financials' ? (
                         <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} />
                     ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-                            {report.shareData && <MarketShareChart data={report.shareData} />}
-                            {report.salesData && <SalesChart data={report.salesData} title={report.salesTitle} />}
-                            {!report.shareData && !report.salesData && (
-                                <div className="col-span-2 p-12 bg-gray-50 border-2 border-dashed border-gray-300 text-center font-mono text-gray-500">
-                                    Financial data not available for this entity.
-                                </div>
-                            )}
+                        <div>
+                            {/* NEW FINANCIAL METRICS GRID */}
+                            <h3 className="text-3xl font-black uppercase mb-6 border-b-2 border-gray-200 pb-2">Key Financial Metrics</h3>
+                            <FinancialMetricsGrid metrics={metrics} />
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+                                {report.shareData && <MarketShareChart data={report.shareData} />}
+                                {report.salesData && <SalesChart data={report.salesData} title={report.salesTitle} />}
+                                {!report.shareData && !report.salesData && !report.keyMetrics && (
+                                    <div className="col-span-2 p-12 bg-gray-50 border-2 border-dashed border-gray-300 text-center font-mono text-gray-500">
+                                        Financial data not available for this entity.
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

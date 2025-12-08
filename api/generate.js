@@ -33,7 +33,7 @@ export default async function handler(req) {
 
     // TOOL 2: ALT-TEXT FIXER
     if (type === 'alt-text') {
-      const { image } = payload; 
+      const { image } = payload;
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         max_tokens: 100,
@@ -60,7 +60,7 @@ export default async function handler(req) {
     // TOOL 4: DEEP DIVE (Corporate Hierarchy Logic)
     if (type === 'deep-dive') {
       const { brand, context, country = "Global" } = payload;
-      
+
       let systemPrompt = `You are a ruthless senior brand strategist. Provide a comprehensive strategic audit in Markdown for the market: ${country}.
             
             IMPORTANT DATA PROTOCOL (STRICT):
@@ -68,18 +68,34 @@ export default async function handler(req) {
             2. **Financials (Annual Sales)**: 
                - Attempt to find reported revenue for the specific brand/division first.
                - If unavailable, default to the **Parent Company's** total revenue.
-               - **CRITICAL**: Update the JSON "sales_chart_title" to accurately reflect the data source (e.g. "Signify N.V. Revenue (Parent of Hue)").
-               - If NO public data exists (private company, no leaks), leave the 'annual_sales' array empty. Do NOT guess.
-            3. **Market Sizing**:
-               - Include a separate dataset for Market Share for the brand's specific category if possible.
-            4. **JSON**: Include a SINGLE JSON block wrapped in triple backticks named 'json'.
+               - **CRITICAL**: Update the JSON "sales_chart_title" to accurately reflect the data source.
+            
+            3. **Key Financial Metrics (Google Finance Style)**:
+               - You MUST populate the "key_metrics" object in the JSON.
+               - **Market Cap**: Use Parent Company if subsidiary.
+               - **P/E Ratio**: Use Parent Company if subsidiary.
+               - **Risk Level**: Evaluate based on market volatility, competition, and recent news (Low/Medium/High/Extreme).
+               - **Profit Margin**: Net Profit Margin (recent fiscal year).
+               - **Est. Revenue**: The most recent annual revenue figure (in Billions).
+
+            4. **Market Sizing**:
+               - Include a separate dataset for Market Share.
+            5. **JSON**: Include a SINGLE JSON block wrapped in triple backticks named 'json'.
             
             JSON Structure:
             { 
-              "ticker": "LIGHT.AS", // Ticker for Brand or Parent (or null if private)
-              "sales_chart_title": "Signify Annual Revenue", // Dynamic title based on source
+              "ticker": "LIGHT.AS", 
+              "sales_chart_title": "Signify Annual Revenue", 
               "market_share": [ {"name": "Brand", "value": 30}, {"name": "Comp1", "value": 20}, ... ],
-              "annual_sales": [ {"year": "2020", "revenue": 6.5}, {"year": "2021", "revenue": 6.9}, ... ]
+              "annual_sales": [ {"year": "2020", "revenue": 6.5}, {"year": "2021", "revenue": 6.9}, ... ],
+              "key_metrics": {
+                  "market_cap": "€3.5B",
+                  "pe_ratio": "14.2",
+                  "risk_level": "Medium",
+                  "dividend_yield": "2.4%",
+                  "profit_margin": "8.5%",
+                  "est_revenue": "€7.2B"
+              }
             }
             
             Required Markdown Structure:
@@ -123,7 +139,7 @@ export default async function handler(req) {
             Tone: Professional, direct, critical. No fluff. If sections like "Financials" are empty due to lack of data, omit the text summary for that section.`;
 
       if (context) {
-          systemPrompt += `\n\n### Head-to-Head Strategy: ${context} vs ${brand}\n   - Provide top 3 recommendations for **${context}** to compete directly with **${brand}**.\n   - Explain WHY each recommendation makes sense based on ${brand}'s weaknesses found above.`;
+        systemPrompt += `\n\n### Head-to-Head Strategy: ${context} vs ${brand}\n   - Provide top 3 recommendations for **${context}** to compete directly with **${brand}**.\n   - Explain WHY each recommendation makes sense based on ${brand}'s weaknesses found above.`;
       }
 
       const completion = await openai.chat.completions.create({
@@ -133,7 +149,7 @@ export default async function handler(req) {
           { role: "user", content: `Analyze Brand: "${brand}"` },
         ],
       });
-      
+
       return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 

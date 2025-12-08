@@ -11,7 +11,7 @@ export const cleanReportContent = (content) => {
     let shareData = [];
     let salesData = [];
     let ticker = null;
-    let salesTitle = "Estimated Annual Sales (Billions)";
+    let keyMetrics = null;
     let cleanText = content;
 
     const jsonMatch = JSON_REGEX.exec(content);
@@ -23,6 +23,7 @@ export const cleanReportContent = (content) => {
             if (jsonData.annual_sales) salesData = jsonData.annual_sales;
             if (jsonData.ticker) ticker = jsonData.ticker;
             if (jsonData.sales_chart_title) salesTitle = jsonData.sales_chart_title;
+            if (jsonData.key_metrics) keyMetrics = jsonData.key_metrics;
 
             // Clean the JSON block out of the text
             cleanText = content.replace(jsonMatch[0], '');
@@ -42,7 +43,8 @@ export const cleanReportContent = (content) => {
         shareData,
         salesData,
         ticker,
-        salesTitle
+        salesTitle,
+        keyMetrics
     };
 };
 

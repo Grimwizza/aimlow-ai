@@ -52,7 +52,7 @@ export const DeepDive = ({ onBack }) => {
             if (!response.ok || data.error) throw new Error(data.error || "Server Error");
 
             if (data.result) {
-                const { cleanText, shareData, salesData, ticker, salesTitle } = cleanReportContent(data.result);
+                const { cleanText, shareData, salesData, ticker, salesTitle, keyMetrics } = cleanReportContent(data.result);
 
                 setReports(prev => [...prev, {
                     id: Date.now(),
@@ -62,6 +62,7 @@ export const DeepDive = ({ onBack }) => {
                     salesData,
                     salesTitle,
                     ticker,
+                    keyMetrics,
                     country
                 }]);
             }
