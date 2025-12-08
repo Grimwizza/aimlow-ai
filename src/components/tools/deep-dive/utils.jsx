@@ -1,6 +1,5 @@
 import React from 'react';
-import { ExternalLink, Star, TrendingUp, AlertTriangle } from 'lucide-react';
-import { Icon } from '../../Layout';
+
 
 export const COLORS = ['#000000', '#FEC43D', '#2563EB', '#999999', '#555555'];
 
