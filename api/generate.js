@@ -65,37 +65,28 @@ export default async function handler(req) {
             
             IMPORTANT DATA PROTOCOL (STRICT):
             1. **Corporate Hierarchy**: Check if "${brand}" is owned by a parent company (e.g. Philips Hue -> Signify N.V.).
-            2. **Financials (Annual Sales)**: 
-               - Attempt to find reported revenue for the specific brand/division first.
-               - If unavailable, default to the **Parent Company's** total revenue.
-               - **CRITICAL**: Update the JSON "sales_chart_title" to accurately reflect the data source.
+            2. **Financials (CRITICAL PROTOCOL)**: 
+               - **RULE 1**: If specific brand revenue is unavailable, you **MUST** use the Parent Company's global revenue (e.g., if analyzing 'Hue', use 'Signify N.V.' data).
+               - **RULE 2**: NEVER leave the 'annual_sales' array empty if a Parent Company exists. Private companies are the ONLY exception.
+               - **RULE 3**: Update "sales_chart_title" to explicitly state the source (e.g. "Signify Global Revenue (Parent of Hue)").
             
-            3. **Key Financial Metrics (Google Finance Style)**:
-               - You MUST populate the "key_metrics" object in the JSON.
-               - **Market Cap**: Use Parent Company if subsidiary.
-               - **P/E Ratio**: Use Parent Company if subsidiary.
-               - **Risk Level**: Evaluate based on market volatility, competition, and recent news (Low/Medium/High/Extreme).
-               - **Profit Margin**: Net Profit Margin (recent fiscal year).
-               - **Est. Revenue**: The most recent annual revenue figure (in Billions).
+            3. **Key Financial Metrics**:
+               - **market_cap**: Use Parent Company.
+               - **pe_ratio**: Use Parent Company.
+               - **risk_level**: Evaluate based on market context.
+               - **est_revenue**: Use Parent Company Global Revenue if brand split is unknown.
 
             4. **Market Sizing**:
-               - Include a separate dataset for Market Share.
+               - Include a separate dataset for Market Share (Global or US).
             5. **JSON**: Include a SINGLE JSON block wrapped in triple backticks named 'json'.
             
             JSON Structure:
             { 
               "ticker": "LIGHT.AS", 
-              "sales_chart_title": "Signify Annual Revenue", 
-              "market_share": [ {"name": "Brand", "value": 30}, {"name": "Comp1", "value": 20}, ... ],
+              "sales_chart_title": "Signify Global Revenue", 
+              "market_share": [ {"name": "Signify", "value": 30}, {"name": "Comp1", "value": 20}, ... ],
               "annual_sales": [ {"year": "2020", "revenue": 6.5}, {"year": "2021", "revenue": 6.9}, ... ],
-              "key_metrics": {
-                  "market_cap": "€3.5B",
-                  "pe_ratio": "14.2",
-                  "risk_level": "Medium",
-                  "dividend_yield": "2.4%",
-                  "profit_margin": "8.5%",
-                  "est_revenue": "€7.2B"
-              }
+              "key_metrics": { ... }
             }
             
             Required Markdown Structure:

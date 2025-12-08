@@ -17,6 +17,7 @@ export const cleanReportContent = (content) => {
 
     const jsonMatch = JSON_REGEX.exec(content);
 
+    // Method 1: Strict Regex Match (Preferred)
     if (jsonMatch && jsonMatch[1]) {
         try {
             const jsonData = JSON.parse(jsonMatch[1]);
@@ -26,10 +27,37 @@ export const cleanReportContent = (content) => {
             if (jsonData.sales_chart_title) salesTitle = jsonData.sales_chart_title;
             if (jsonData.key_metrics) keyMetrics = jsonData.key_metrics;
 
-            // Clean the JSON block out of the text
             cleanText = content.replace(jsonMatch[0], '');
         } catch (e) {
-            console.error("Chart parse error", e);
+            console.error("Regex parse failed, trying fallback", e);
+        }
+    }
+
+    // Method 2: Fallback Brute Force (Look for first { and last })
+    if (!shareData.length && !salesData.length && content.includes('{')) {
+        try {
+            const start = content.indexOf('{');
+            const end = content.lastIndexOf('}');
+            if (end > start) {
+                const potentialJson = content.substring(start, end + 1);
+                // Simple validation to ensure it looks like our schema
+                if (potentialJson.includes('market_share') || potentialJson.includes('annual_sales')) {
+                    const jsonData = JSON.parse(potentialJson);
+                    if (jsonData.market_share) shareData = jsonData.market_share;
+                    if (jsonData.annual_sales) salesData = jsonData.annual_sales;
+                    if (jsonData.ticker) ticker = jsonData.ticker;
+                    if (jsonData.sales_chart_title) salesTitle = jsonData.sales_chart_title;
+                    if (jsonData.key_metrics) keyMetrics = jsonData.key_metrics;
+
+                    // Remove the raw JSON block
+                    cleanText = content.replace(potentialJson, '');
+
+                    // Also try to clean up any leftover backticks around it
+                    cleanText = cleanText.replace(/```json/g, '').replace(/```/g, '');
+                }
+            }
+        } catch (e) {
+            console.error("Fallback parse failed", e);
         }
     }
 
