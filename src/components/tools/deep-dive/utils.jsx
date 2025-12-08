@@ -11,6 +11,7 @@ export const cleanReportContent = (content) => {
     let shareData = [];
     let salesData = [];
     let ticker = null;
+    let salesTitle = "Estimated Annual Sales (Billions)";
     let keyMetrics = null;
     let cleanText = content;
 
