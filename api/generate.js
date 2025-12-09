@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 
 export const config = {
-  runtime: 'edge',
+  maxDuration: 60, // Allow up to 60 seconds for generation
 };
 
 const openai = new OpenAI({

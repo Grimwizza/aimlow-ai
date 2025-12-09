@@ -46,7 +46,17 @@ export const DeepDive = ({ onBack }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type: 'deep-dive', payload })
             });
-            const data = await response.json();
+            let data;
+            try {
+                const text = await response.text();
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    throw new Error(`Server returned non-JSON response: ${text.slice(0, 50)}...`);
+                }
+            } catch (e) {
+                throw new Error("Failed to read server response.");
+            }
 
             if (!response.ok || data.error) throw new Error(data.error || "Server Error");
 
