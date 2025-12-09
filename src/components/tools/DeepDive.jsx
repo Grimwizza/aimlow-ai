@@ -34,25 +34,36 @@ export const DeepDive = ({ onBack }) => {
         if (access === 'granted') setHasAccess(true);
     }, []);
 
+    const [error, setError] = useState(null);
+
     const runAnalysis = async (brandName, contextBrand = null) => {
         if (!brandName) return;
         setIsGenerating(true);
+        setError(null);
 
+        // 70s Client-Side Timeout (slightly longer than server's 60s to allow for network latency)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 70000);
 
         try {
             const payload = { brand: brandName, context: contextBrand, country: country };
+
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'deep-dive', payload })
+                body: JSON.stringify({ type: 'deep-dive', payload }),
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
+
             let data;
             try {
                 const text = await response.text();
                 try {
                     data = JSON.parse(text);
                 } catch (e) {
-                    throw new Error(`Server returned non-JSON response: ${text.slice(0, 50)}...`);
+                    throw new Error(`Server Error (Invalid JSON: ${text.substring(0, 100)}...)`);
                 }
             } catch (e) {
                 throw new Error("Failed to read server response.");
@@ -77,8 +88,15 @@ export const DeepDive = ({ onBack }) => {
             }
         } catch (err) {
             console.error(err);
-            alert(`Error: ${err.message}`);
-        } finally { setIsGenerating(false); }
+            let errorMessage = err.message;
+            if (err.name === 'AbortError') {
+                errorMessage = "Network Timeout: The report took too long to generate (over 70s). Please try again with a better connection.";
+            }
+            setError(errorMessage);
+        } finally {
+            setIsGenerating(false);
+            clearTimeout(timeoutId);
+        }
     };
 
     const handleFormSubmit = (e) => {
@@ -173,6 +191,16 @@ export const DeepDive = ({ onBack }) => {
                     </form>
                 </div>
             </div>
+
+            {error && (
+                <div className="bg-red-100 border-4 border-red-600 p-6 mb-12 flex items-start gap-4">
+                    <Icon name="alert-triangle" className="text-red-600 flex-shrink-0" size={32} />
+                    <div>
+                        <h3 className="font-black text-xl uppercase text-red-700">Analysis Failed</h3>
+                        <p className="font-bold font-mono text-red-800 mt-1">{error}</p>
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 gap-12">
                 {reports.map((report) => (
