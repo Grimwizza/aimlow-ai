@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { SEO } from '../../seo-tools/SEOTags';
 import { Icon } from '../ui/Icon';
 import { ChevronDown, Printer } from 'lucide-react';
-import { cleanReportContent } from './deep-dive/utils';
 import { ReportView } from './deep-dive/ReportView';
 
 const SkeletonLoader = () => (
@@ -40,6 +39,7 @@ export const DeepDive = ({ onBack }) => {
         if (!brandName) return;
         setIsGenerating(true);
         setError(null);
+        setReports([]); // Clear previous results
 
         // 70s Client-Side Timeout (slightly longer than server's 60s to allow for network latency)
         const controller = new AbortController();
@@ -58,31 +58,23 @@ export const DeepDive = ({ onBack }) => {
             clearTimeout(timeoutId);
 
             let data;
+            const text = await response.text();
             try {
-                const text = await response.text();
-                try {
-                    data = JSON.parse(text);
-                } catch (e) {
-                    throw new Error(`Server Error (Invalid JSON: ${text.substring(0, 100)}...)`);
-                }
+                data = JSON.parse(text);
             } catch (e) {
-                throw new Error("Failed to read server response.");
+                console.error("JSON Parse Error:", text);
+                throw new Error(`Server Error: Received Invalid JSON. (Response likely HTML or empty). Preview: ${text.substring(0, 50)}...`);
             }
 
             if (!response.ok || data.error) throw new Error(data.error || "Server Error");
 
             if (data.result) {
-                const { cleanText, shareData, salesData, ticker, salesTitle, keyMetrics } = cleanReportContent(data.result);
+                const reportData = data.result;
 
-                setReports(prev => [...prev, {
+                setReports([{
                     id: Date.now(),
                     brand: brandName,
-                    content: cleanText,
-                    shareData,
-                    salesData,
-                    salesTitle,
-                    ticker,
-                    keyMetrics,
+                    data: reportData, // Store the structured JSON directly
                     country
                 }]);
             }
@@ -134,7 +126,7 @@ export const DeepDive = ({ onBack }) => {
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-12">
-            <SEO title="The Deep Dive" description="Professional brand analyst. 4P & SWOT Reports." />
+            <SEO title="The Deep Dive" description="BETA Pro Brand Analyst. 4P & SWOT Reports." />
             <div className="print:hidden">
                 <div className="flex justify-between items-center mb-8">
                     <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
@@ -150,7 +142,7 @@ export const DeepDive = ({ onBack }) => {
                         <div>
                             <div className="flex items-center gap-3">
                                 <h1 className="text-4xl md:text-5xl font-black uppercase">The Deep Dive</h1>
-                                <span className="bg-black text-white px-2 py-1 font-mono font-bold text-xs uppercase -rotate-2">Pro Analyst</span>
+                                <span className="bg-black text-white px-2 py-1 font-mono font-bold text-xs uppercase -rotate-2">BETA Pro Analyst</span>
                             </div>
                             <p className="font-mono font-bold mt-2">Instant strategic audits. Enter a brand to starting mining.</p>
                         </div>

@@ -10,7 +10,7 @@ const CustomTooltip = ({ active, payload, label }) => {
                 <p className="font-bold text-sm mb-1">{label || payload[0].name}</p>
                 <p className="font-mono text-xs text-blue-600 font-bold">
                     {payload[0].value}
-                    {payload[0].unit || (typeof payload[0].value === 'number' && payload[0].value < 100 ? '%' : 'B')}
+                    {payload[0].payload?.unit || payload[0].unit || (typeof payload[0].value === 'number' && payload[0].value < 100 ? '%' : 'B')}
                 </p>
             </div>
         );

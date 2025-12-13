@@ -4,9 +4,13 @@ export const config = {
   maxDuration: 60, // Allow up to 60 seconds for generation
 };
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const getOpenAI = () => {
+  const key = process.env.OPENAI_API_KEY || '';
+  console.log('API Key being used:', key.substring(0, 7) + '...');
+  return new OpenAI({
+    apiKey: key,
+  });
+};
 
 export default async function handler(req) {
   if (req.method !== 'POST') {
@@ -19,7 +23,7 @@ export default async function handler(req) {
     // TOOL 1: HEADLINE GENERATOR
     if (type === 'headline') {
       const { topic } = payload;
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAI().chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0.85,
         messages: [
@@ -34,7 +38,7 @@ export default async function handler(req) {
     // TOOL 2: ALT-TEXT FIXER
     if (type === 'alt-text') {
       const { image } = payload;
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAI().chat.completions.create({
         model: "gpt-4o-mini",
         max_tokens: 100,
         messages: [
@@ -47,7 +51,7 @@ export default async function handler(req) {
     // TOOL 3: JARGON DESTROYER
     if (type === 'jargon-destroyer') {
       const { text } = payload;
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAI().chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: "Translate corporate jargon to plain, direct English. Remove fluff." },
@@ -57,98 +61,77 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // TOOL 4: DEEP DIVE (Corporate Hierarchy Logic)
+    // TOOL 4: DEEP DIVE (Structured JSON Logic)
     if (type === 'deep-dive') {
       const { brand, context, country = "Global" } = payload;
 
-      let systemPrompt = `You are a ruthless senior brand strategist. Provide a comprehensive strategic audit in Markdown for the market: ${country}.
-            
-            IMPORTANT DATA PROTOCOL (STRICT):
-            1. **Corporate Hierarchy**: Check if "${brand}" is owned by a parent company (e.g. Philips Hue -> Signify N.V.).
-            2. **Financials (CRITICAL PROTOCOL)**: 
-               - **RULE 1**: If specific brand revenue is unavailable, you **MUST** use the Parent Company's global revenue (e.g., if analyzing 'Hue', use 'Signify N.V.' data).
-               - **RULE 2**: NEVER leave the 'annual_sales' array empty if a Parent Company exists. Private companies are the ONLY exception.
-               - **RULE 3**: Update "sales_chart_title" to explicitly state the source (e.g. "Signify Global Revenue (Parent of Hue)").
-               - **TIMEFRAME**: You MUST provide data for the **last 5 completed fiscal years** (e.g. 2020-2024). Do not provide data older than 2018.
+      const systemPrompt = `You are a Senior Brand Strategist. Your goal is to provide a comprehensive, fact-based audit of the brand "${brand}" for the market: ${country}.
 
-            3. **Key Financial Metrics**:
-               - **market_cap**: Use Parent Company.
-               - **pe_ratio**: Use Parent Company.
-               - **risk_level**: Evaluate based on market context.
-               - **est_revenue**: Use Parent Company Global Revenue if brand split is unknown.
+      CRITICAL DATA INTEGRITY RULES:
+      1. **REAL DATA ONLY**: Do not guess numbers. If financial data (Revenue, Market Cap, PE Ratio) is unavailable (e.g., private company), explicitly state "Data Unavailable" or "Private Company".
+      2. **PARENT COMPANY**: If the brand is a subsidiary (e.g., Old Spice -> P&G), you MAY use Parent Company financial data but MUST explicitly label it as such in the 'financial_note' field.
+      3. **SOURCES**: You MUST list the sources used for financial and market data in the 'sources' array.
 
-            4. **Market Sizing**:
-               - Include a separate dataset for Market Share (Global or US).
-            5. **JSON**: Include a SINGLE JSON block wrapped in triple backticks named 'json'.
-            
-            JSON Structure:
-            { 
-              "ticker": "LIGHT.AS", 
-              "sales_chart_title": "Signify Global Revenue", 
-              "market_share": [ {"name": "Signify", "value": 30}, {"name": "Comp1", "value": 20}, ... ],
-              "annual_sales": [ 
-                  {"year": "2020", "revenue": 6.5}, 
-                  {"year": "2021", "revenue": 6.9}, 
-                  {"year": "2022", "revenue": 7.5}, 
-                  {"year": "2023", "revenue": 7.2}, 
-                  {"year": "2024", "revenue": 7.8} 
-              ],
-              "key_metrics": { ... }
-            }
-            
-            Required Markdown Structure:
-            
-            ### Quick Links
-            Official Website and Investor Relations (list).
-
-            ### Executive Summary
-            3 punchy bullet points.
-
-            ### Target Persona
-            Demographics, Psychographics, Job to be Done.
-
-            ---PRO_CONTENT_START---
-
-            ### Financial Performance
-            (The JSON block goes here).
-            Brief text summary. Explicitly state if data represents the Parent Company. If data is unavailable, state "Financial data unavailable for private company."
-
-            ### 4P Marketing Mix
-            - **Product**: Core & Augmentations.
-            - **Price**: Strategy.
-            - **Place**: Channels.
-            - **Promotion**: Messaging.
-
-            ### Retail Mix
-            Top 5 retailers (Online & Offline).
-            
-            ### SWOT Analysis
-            - **Strengths**
-            - **Weaknesses**
-            - **Opportunities**
-            - **Threats**
-            
-            ### Competitive Landscape
-            List Top 5 Competitors. Format: [Name](analyze:Name): One sentence differentiator.
-            
-            ### Strategic Recommendations
-            3 actionable next steps.
-
-            Tone: Professional, direct, critical. No fluff. If sections like "Financials" are empty due to lack of data, omit the text summary for that section.`;
-
-      if (context) {
-        systemPrompt += `\n\n### Head-to-Head Strategy: ${context} vs ${brand}\n   - Provide top 3 recommendations for **${context}** to compete directly with **${brand}**.\n   - Explain WHY each recommendation makes sense based on ${brand}'s weaknesses found above.`;
-      }
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Analyze Brand: "${brand}"` },
+      RESPONSE FORMAT:
+      Return a SINGLE valid JSON object. Do not include markdown formatting like \`\`\`json.
+      
+      JSON Schema:
+      {
+        "brand_name": "String",
+        "ticker": "String (e.g. 'NYSE: NKE') or 'Private'",
+        "parent_company": "String (or null)",
+        "logo_url": "String (optional)",
+        "executive_summary": ["Key Point 1", "Key Point 2", "Key Point 3"],
+        "target_persona": {
+          "demographics": "String",
+          "psychographics": "String",
+          "job_to_be_done": "String"
+        },
+        "marketing_4ps": {
+          "product": "String (Core products & value prop)",
+          "price": "String (Pricing strategy e.g. Premium, Value)",
+          "place": "String (Distribution channels)",
+          "promotion": "String (Marketing mix & key campaigns)"
+        },
+        "swot": {
+          "strengths": ["Point 1", "Point 2", ...],
+          "weaknesses": ["Point 1", "Point 2", ...],
+          "opportunities": ["Point 1", "Point 2", ...],
+          "threats": ["Point 1", "Point 2", ...]
+        },
+        "financials": {
+          "financial_note": "String (e.g. 'Figures reflect Parent Company X global revenue')",
+          "currency": "String (e.g. USD, EUR)",
+          "market_cap": "String (e.g. $140B) or 'N/A'",
+          "pe_ratio": "String or 'N/A'",
+          "revenue_latest": "String or 'N/A'",
+          "annual_sales_data": [
+            {"year": "2023", "amount": 10.5, "unit": "B"},
+            {"year": "2022", "amount": 9.8, "unit": "B"}
+            // Include last 3-5 years if available
+          ]
+        },
+        "competitors": [
+           {"name": "Competitor 1", "differentiator": "Analysis..."},
+           {"name": "Competitor 2", "differentiator": "Analysis..."}
         ],
+        "recommendations": ["Strategy 1", "Strategy 2", "Strategy 3"],
+        "sources": ["Source 1", "Source 2"]
+      }`;
+
+      const messages = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Analyze Brand: "${brand}". ${context ? `Context: Compare against ${context}.` : ''}` }
+      ];
+
+      const completion = await getOpenAI().chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: messages,
+        response_format: { type: "json_object" }, // Enforce JSON mode
+        temperature: 0.7,
       });
 
-      return new Response(JSON.stringify({ result: completion.choices[0].message.content }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ result: JSON.parse(completion.choices[0].message.content) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
     return new Response(JSON.stringify({ error: 'Invalid tool type' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
