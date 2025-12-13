@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ExternalLink, Lock, Printer, TrendingUp, DollarSign, Globe, Shield, Target, Users, Zap, AlertTriangle, Layers, BarChart3, PieChart } from 'lucide-react';
 import { Icon } from '../../ui/Icon';
 import { SalesChart } from './Charts';
+import { TradingViewWidget } from './TradingViewWidget';
 
 const StatCard = ({ label, value, icon, link, className = "" }) => (
     <div className={`bg-gray-50 border-2 border-black p-4 flex flex-col justify-between group hover:bg-yellow-50 transition-colors ${className}`}>
@@ -44,12 +45,19 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
 
     const analysisDate = new Date(report.id).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
-    // Transform sales data for the chart if available
-    const salesChartData = d.financials?.annual_sales_data?.map(s => ({
-        year: s.year,
-        revenue: s.amount, // Chart expects 'revenue'
-        unit: s.unit
-    })) || [];
+    // Transform quarterly data for the chart if available
+    const salesChartData = (d.financials?.quarterly_revenue_data?.map(s => ({
+        name: s.period,    // X-axis label
+        revenue: s.revenue,
+        unit: s.unit,
+        growth: s.growth_yoy // YoY Growth %
+    })) || []).sort((a, b) => {
+        // Custom sort for "Qx YYYY"
+        const [qA, yA] = a.name.split(' ');
+        const [qB, yB] = b.name.split(' ');
+        if (yA !== yB) return parseInt(yA) - parseInt(yB);
+        return parseInt(qA.replace('Q', '')) - parseInt(qB.replace('Q', ''));
+    });
 
     const isFinancialsAvailable = d.financials?.revenue_latest !== "Data Unavailable" && d.financials?.revenue_latest !== "Private Company";
 
@@ -235,6 +243,10 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                                     <StatCard label="P/E Ratio" value={d.financials?.pe_ratio} icon={<BarChart3 size={16} />} />
                                     <StatCard label="Currency" value={d.financials?.currency} icon={<Globe size={16} />} />
                                 </div>
+
+                                {d.ticker && d.ticker !== 'Private' && (
+                                    <TradingViewWidget ticker={d.ticker} />
+                                )}
 
                                 {salesChartData.length > 0 && (
                                     <SalesChart data={salesChartData} title={`Annual Revenue (${salesChartData[0]?.unit || 'B'})`} />

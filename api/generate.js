@@ -100,15 +100,15 @@ export default async function handler(req) {
           "threats": ["Point 1", "Point 2", ...]
         },
         "financials": {
-          "financial_note": "String (e.g. 'Figures reflect Parent Company X global revenue')",
+          "financial_note": "String (e.g. 'Figures reflect Parent Company X')",
           "currency": "String (e.g. USD, EUR)",
           "market_cap": "String (e.g. $140B) or 'N/A'",
           "pe_ratio": "String or 'N/A'",
-          "revenue_latest": "String or 'N/A'",
-          "annual_sales_data": [
-            {"year": "2023", "amount": 10.5, "unit": "B"},
-            {"year": "2022", "amount": 9.8, "unit": "B"}
-            // Include last 3-5 years if available
+          "revenue_latest": "String (e.g. $12.4B Q3 2025)",
+          "quarterly_revenue_data": [
+            {"period": "Q1 2025", "revenue": 12.8, "unit": "B", "growth_yoy": 1.1},
+            {"period": "Q4 2024", "revenue": 13.2, "unit": "B", "growth_yoy": -2.3}
+            // Include last 4-6 quarters. Order: Newest to Oldest in JSON (UI will sort).
           ]
         },
         "competitors": [
@@ -116,7 +116,7 @@ export default async function handler(req) {
            {"name": "Competitor 2", "differentiator": "Analysis..."}
         ],
         "recommendations": ["Strategy 1", "Strategy 2", "Strategy 3"],
-        "sources": ["Source 1", "Source 2"]
+        "sources": ["Source 1 (e.g. SEC Filings)", "Source 2 (e.g. Investor Relations)"]
       }`;
 
       const messages = [

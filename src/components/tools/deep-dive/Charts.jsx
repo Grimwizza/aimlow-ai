@@ -5,13 +5,19 @@ import { Icon } from '../../ui/Icon';
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+        const data = payload[0].payload;
         return (
             <div className="bg-white border-2 border-black p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                 <p className="font-bold text-sm mb-1">{label || payload[0].name}</p>
-                <p className="font-mono text-xs text-blue-600 font-bold">
-                    {payload[0].value}
-                    {payload[0].payload?.unit || payload[0].unit || (typeof payload[0].value === 'number' && payload[0].value < 100 ? '%' : 'B')}
+                <p className="font-mono text-xs text-blue-600 font-bold mb-1">
+                    Revenue: {payload[0].value}
+                    {data.unit || (typeof payload[0].value === 'number' && payload[0].value < 100 ? '%' : 'B')}
                 </p>
+                {data.growth !== undefined && (
+                    <p className={`font-mono text-[10px] font-bold ${data.growth >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        YoY Growth: {data.growth > 0 ? '+' : ''}{data.growth}%
+                    </p>
+                )}
             </div>
         );
     }
