@@ -117,7 +117,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
             <div className="p-6 md:p-10 min-h-[500px]">
 
                 {/* TAB: OVERVIEW */}
-                {activeTab === 'overview' && (
+                <div className={activeTab === 'overview' ? 'block' : 'hidden print:block'}>
                     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
                         <div>
                             <SectionHeader title="Executive Summary" icon={<Zap />} />
@@ -156,10 +156,10 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
 
                 {/* TAB: MARKETING 4PS */}
-                {activeTab === 'marketing' && (
+                <div className={activeTab === 'marketing' ? 'block' : 'hidden print:block'}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -182,10 +182,10 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                             </div>
                         )}
                     </div>
-                )}
+                </div>
 
                 {/* TAB: SWOT */}
-                {activeTab === 'swot' && (
+                <div className={activeTab === 'swot' ? 'block' : 'hidden print:block'}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -216,10 +216,10 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                             </div>
                         )}
                     </div>
-                )}
+                </div>
 
                 {/* TAB: FINANCIALS */}
-                {activeTab === 'financials' && (
+                <div className={activeTab === 'financials' ? 'block' : 'hidden print:block'}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {/* Always show high level metrics if available? Or also Gate? Let's gate it as per original design */}
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
@@ -249,15 +249,19 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                                 )}
 
                                 {salesChartData.length > 0 && (
-                                    <SalesChart data={salesChartData} title={`Annual Revenue (${salesChartData[0]?.unit || 'B'})`} />
+                                    <SalesChart
+                                        data={salesChartData}
+                                        title="Reported Quarterly Revenue"
+                                        unit={salesChartData[0]?.unit || 'B'}
+                                    />
                                 )}
                             </>
                         )}
                     </div>
-                )}
+                </div>
 
                 {/* TAB: SOURCES */}
-                {activeTab === 'sources' && (
+                <div className={activeTab === 'sources' ? 'block' : 'hidden print:block'}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         <SectionHeader title="Data Sources" icon={<ExternalLink />} />
                         <ul className="space-y-2">
@@ -270,7 +274,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                             {(!d.sources || d.sources.length === 0) && <li className="text-gray-500 italic">No specific sources cited.</li>}
                         </ul>
                     </div>
-                )}
+                </div>
 
             </div>
             {/* PRINT FOOTER */}
@@ -283,7 +287,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
 };
 
 const LockedState = ({ email, setEmail, handleBetaSignup, signupStatus }) => (
-    <div className="flex flex-col items-center justify-center text-center p-8 bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-md mx-auto my-12">
+    <div className="flex flex-col items-center justify-center text-center p-8 bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-md mx-auto my-12 print:hidden">
         <div className="bg-black text-white p-4 rounded-full mb-4"><Lock size={32} /></div>
         <h3 className="text-3xl font-black uppercase mb-2">Pro Access Required</h3>
         <p className="font-serif text-lg mb-6 max-w-xs mx-auto">

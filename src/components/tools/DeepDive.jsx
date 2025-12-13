@@ -21,7 +21,7 @@ const SkeletonLoader = () => (
 
 export const DeepDive = ({ onBack }) => {
     const [inputBrand, setInputBrand] = useState('');
-    const [country, setCountry] = useState('Global');
+    const [country, setCountry] = useState('United States');
     const [reports, setReports] = useState([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [hasAccess, setHasAccess] = useState(false);
@@ -150,11 +150,12 @@ export const DeepDive = ({ onBack }) => {
 
                     <form onSubmit={handleFormSubmit} className="bg-white border-4 border-black p-2 flex flex-col md:flex-row gap-2 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         {/* COUNTRY DROPDOWN */}
-                        <div className="relative min-w-[140px] border-b-2 md:border-b-0 md:border-r-2 border-gray-200">
+                        <div className="relative min-w-[160px] border-b-2 md:border-b-0 md:border-r-2 border-gray-200 group bg-gray-50/50">
+                            <label className="absolute top-2 left-4 text-[10px] font-black text-gray-500 font-mono tracking-widest pointer-events-none">TARGET MARKET</label>
                             <select
                                 value={country}
                                 onChange={(e) => setCountry(e.target.value)}
-                                className="w-full h-full appearance-none bg-transparent pl-4 pr-10 py-3 font-bold text-lg focus:outline-none cursor-pointer hover:bg-gray-50 uppercase"
+                                className="w-full h-full appearance-none bg-transparent pl-4 pr-10 pt-6 pb-2 font-bold text-lg focus:outline-none cursor-pointer hover:bg-gray-100 uppercase"
                             >
                                 <option value="Global">Global</option>
                                 <option value="United States">USA</option>
@@ -163,7 +164,7 @@ export const DeepDive = ({ onBack }) => {
                                 <option value="Europe">Europe</option>
                                 <option value="Asia">Asia</option>
                             </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-black">
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-black mt-2">
                                 <ChevronDown size={20} strokeWidth={3} />
                             </div>
                         </div>

@@ -60,26 +60,35 @@ export const MarketShareChart = ({ data }) => {
     );
 };
 
-export const SalesChart = ({ data, title }) => {
+export const SalesChart = ({ data, title, unit }) => {
     if (!data || data.length === 0) return null;
+
+    // Determine label based on unit
+    let yAxisLabel = "REVENUE";
+    if (unit === 'B') yAxisLabel = "REVENUE (BILLIONS)";
+    if (unit === 'M') yAxisLabel = "REVENUE (MILLIONS)";
+    if (unit === '%') yAxisLabel = "PERCENTAGE";
+
     return (
         <div className="w-full h-[350px] bg-white border-2 border-black p-4 brutal-shadow mb-8 print:shadow-none print:border-gray-300 print:h-[300px] break-inside-avoid">
             <h4 className="font-black uppercase text-sm text-gray-500 mb-4 flex items-center gap-2">
                 <Icon name="bar-chart-2" size={16} /> {title || "Annual Sales (Est.)"}
             </h4>
             <ResponsiveContainer width="100%" height="85%">
-                <BarChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
                     <XAxis
-                        dataKey="year"
+                        dataKey="name"
                         style={{ fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold' }}
                         tick={{ fill: 'black' }}
                         axisLine={{ stroke: 'black', strokeWidth: 2 }}
+                        label={{ value: "PERIOD", position: "insideBottom", offset: -10, style: { fontSize: '10px', fontWeight: 'bold', fontFamily: 'monospace' } }}
                     />
                     <YAxis
                         style={{ fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold' }}
                         tick={{ fill: 'black' }}
                         axisLine={{ stroke: 'black', strokeWidth: 2 }}
+                        label={{ value: yAxisLabel, angle: -90, position: "insideLeft", style: { fontSize: '10px', fontWeight: 'bold', fontFamily: 'monospace' } }}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar

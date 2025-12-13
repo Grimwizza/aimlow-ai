@@ -65,10 +65,12 @@ export default async function handler(req) {
     if (type === 'deep-dive') {
       const { brand, context, country = "Global" } = payload;
 
+      const currentDate = new Date().toDateString();
       const systemPrompt = `You are a Senior Brand Strategist. Your goal is to provide a comprehensive, fact-based audit of the brand "${brand}" for the market: ${country}.
+      Current Date for context: ${currentDate}.
 
       CRITICAL DATA INTEGRITY RULES:
-      1. **REAL DATA ONLY**: Do not guess numbers. If financial data (Revenue, Market Cap, PE Ratio) is unavailable (e.g., private company), explicitly state "Data Unavailable" or "Private Company".
+      1. **LATEST DATA REQUIRED**: Use proven real-world data where possible. HOWEVER, if your training data lags behind the current date (${currentDate}), you MUST provide **High Confidence Estimates** or **Prospective Data** for 2024 and 2025 to ensure the report is current. Do NOT return old data (e.g. stopping at 2023). Label estimated revenues as such in the notes if needed.
       2. **PARENT COMPANY**: If the brand is a subsidiary (e.g., Old Spice -> P&G), you MAY use Parent Company financial data but MUST explicitly label it as such in the 'financial_note' field.
       3. **SOURCES**: You MUST list the sources used for financial and market data in the 'sources' array.
 
@@ -108,7 +110,7 @@ export default async function handler(req) {
           "quarterly_revenue_data": [
             {"period": "Q1 2025", "revenue": 12.8, "unit": "B", "growth_yoy": 1.1},
             {"period": "Q4 2024", "revenue": 13.2, "unit": "B", "growth_yoy": -2.3}
-            // Include last 4-6 quarters. Order: Newest to Oldest in JSON (UI will sort).
+            // Include last 4-6 quarters. You MUST include 2024/2025 data (Est/Projected is acceptable if actuals missing).
           ]
         },
         "competitors": [
