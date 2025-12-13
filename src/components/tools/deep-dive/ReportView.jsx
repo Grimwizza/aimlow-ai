@@ -287,7 +287,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
 };
 
 const LockedState = ({ email, setEmail, handleBetaSignup, signupStatus }) => (
-    <div className="flex flex-col items-center justify-center text-center p-8 bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-md mx-auto my-12 print:hidden">
+    <div className="flex flex-col items-center justify-center text-center p-8 bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-md mx-auto my-12 print:!hidden">
         <div className="bg-black text-white p-4 rounded-full mb-4"><Lock size={32} /></div>
         <h3 className="text-3xl font-black uppercase mb-2">Pro Access Required</h3>
         <p className="font-serif text-lg mb-6 max-w-xs mx-auto">
