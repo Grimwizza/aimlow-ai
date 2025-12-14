@@ -70,7 +70,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
     ];
 
     return (
-        <div id={`report-view-${report.id}`} className="relative bg-white border-4 border-black p-0 brutal-shadow-lg print:shadow-none print:border-0 min-w-0 flex flex-col h-full animate-in fade-in duration-500">
+        <div id={`report-view-${report.id}`} className={`relative bg-white border-4 border-black p-0 brutal-shadow-lg print:shadow-none print:border-0 min-w-0 animate-in fade-in duration-500 ${forceShowAll ? '!block h-auto' : 'flex flex-col h-full'} print:block`}>
 
             {/* --- HEADER --- */}
             <div className="bg-black text-white p-6 md:p-8 flex justify-between items-start print:bg-white print:text-black print:border-b-4 print:border-black">
@@ -159,7 +159,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: MARKETING 4PS */}
-                <div className={`${activeTab === 'marketing' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page ${forceShowAll ? 'break-before-page' : ''}`}>
+                <div className={`${activeTab === 'marketing' || forceShowAll ? 'block' : 'hidden print:block'}`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -185,7 +185,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: SWOT */}
-                <div className={`${activeTab === 'swot' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page ${forceShowAll ? 'break-before-page' : ''}`}>
+                <div className={`${activeTab === 'swot' || forceShowAll ? 'block' : 'hidden print:block'}`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -219,7 +219,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: FINANCIALS */}
-                <div className={`${activeTab === 'financials' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page ${forceShowAll ? 'break-before-page' : ''}`}>
+                <div className={`${activeTab === 'financials' || forceShowAll ? 'block' : 'hidden print:block'}`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {/* Always show high level metrics if available? Or also Gate? Let's gate it as per original design */}
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
@@ -261,7 +261,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: SOURCES */}
-                <div className={`${activeTab === 'sources' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page ${forceShowAll ? 'break-before-page' : ''}`}>
+                <div className={`${activeTab === 'sources' || forceShowAll ? 'block' : 'hidden print:block'}`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         <SectionHeader title="Data Sources" icon={<ExternalLink />} />
                         <ul className="space-y-2">
