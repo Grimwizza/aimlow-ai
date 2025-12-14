@@ -33,7 +33,7 @@ export const TradingViewWidget = ({ ticker }) => {
     }, [ticker]);
 
     return (
-        <div className="h-[400px] w-full border-4 border-black brutal-shadow mb-8 bg-white" ref={container}>
+        <div className="h-[400px] w-full border-4 border-black brutal-shadow mb-8 bg-white break-inside-avoid" ref={container}>
             <div className="tradingview-widget-container" style={{ height: "100%", width: "100%" }}>
                 <div className="tradingview-widget-container__widget" style={{ height: "100%", width: "100%" }}></div>
             </div>

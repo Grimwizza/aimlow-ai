@@ -5,7 +5,7 @@ import { SalesChart } from './Charts';
 import { TradingViewWidget } from './TradingViewWidget';
 
 const StatCard = ({ label, value, icon, link, className = "" }) => (
-    <div className={`bg-gray-50 border-2 border-black p-4 flex flex-col justify-between group hover:bg-yellow-50 transition-colors ${className}`}>
+    <div className={`bg-gray-50 border-2 border-black p-4 flex flex-col justify-between group hover:bg-yellow-50 transition-colors break-inside-avoid ${className}`}>
         <div className="flex justify-between items-start mb-2">
             <span className="font-mono text-xs font-bold text-gray-500 uppercase">{label}</span>
             {icon}
@@ -159,7 +159,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: MARKETING 4PS */}
-                <div className={`${activeTab === 'marketing' || forceShowAll ? 'block' : 'hidden print:block'}`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
+                <div className={`${activeTab === 'marketing' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -185,7 +185,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: SWOT */}
-                <div className={`${activeTab === 'swot' || forceShowAll ? 'block' : 'hidden print:block'}`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
+                <div className={`${activeTab === 'swot' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -219,7 +219,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: FINANCIALS */}
-                <div className={`${activeTab === 'financials' || forceShowAll ? 'block' : 'hidden print:block'}`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
+                <div className={`${activeTab === 'financials' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {/* Always show high level metrics if available? Or also Gate? Let's gate it as per original design */}
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
@@ -237,7 +237,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 break-inside-avoid">
                                     <StatCard label="Market Cap" value={d.financials?.market_cap} icon={<DollarSign size={16} />} />
                                     <StatCard label="Revenue (Latest)" value={d.financials?.revenue_latest} icon={<TrendingUp size={16} />} />
                                     <StatCard label="P/E Ratio" value={d.financials?.pe_ratio} icon={<BarChart3 size={16} />} />
@@ -261,7 +261,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: SOURCES */}
-                <div className={`${activeTab === 'sources' || forceShowAll ? 'block' : 'hidden print:block'}`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
+                <div className={`${activeTab === 'sources' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page`} style={forceShowAll ? { breakBefore: 'page', pageBreakBefore: 'always' } : {}}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         <SectionHeader title="Data Sources" icon={<ExternalLink />} />
                         <ul className="space-y-2">
