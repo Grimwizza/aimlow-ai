@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { SEO } from '../../seo-tools/SEOTags';
 import { Icon } from '../ui/Icon';
-import { ChevronDown, Printer } from 'lucide-react';
+import { ChevronDown, Printer, Mail, Download } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 import { ReportView } from './deep-dive/ReportView';
 
 const SkeletonLoader = () => (
@@ -27,10 +29,13 @@ export const DeepDive = ({ onBack }) => {
     const [hasAccess, setHasAccess] = useState(false);
     const [email, setEmail] = useState('');
     const [signupStatus, setSignupStatus] = useState('idle');
+    const [isPDFGenerating, setIsPDFGenerating] = useState(false);
 
     useEffect(() => {
         const access = localStorage.getItem('aimlow_beta_access');
+        const storedEmail = localStorage.getItem('aimlow_beta_email');
         if (access === 'granted') setHasAccess(true);
+        if (storedEmail) setEmail(storedEmail);
     }, []);
 
     const [error, setError] = useState(null);
@@ -63,7 +68,7 @@ export const DeepDive = ({ onBack }) => {
                 data = JSON.parse(text);
             } catch (e) {
                 console.error("JSON Parse Error:", text);
-                throw new Error(`Server Error: Received Invalid JSON. (Response likely HTML or empty). Preview: ${text.substring(0, 50)}...`);
+                throw new Error(`Server Error: Received Invalid JSON. (Response likely HTML or empty).Preview: ${text.substring(0, 50)}...`);
             }
 
             if (!response.ok || data.error) throw new Error(data.error || "Server Error");
@@ -108,11 +113,81 @@ export const DeepDive = ({ onBack }) => {
                 body: JSON.stringify({ email }),
             });
             localStorage.setItem('aimlow_beta_access', 'granted');
+            localStorage.setItem('aimlow_beta_email', email);
             setHasAccess(true);
             setSignupStatus('success');
         } catch (error) {
             setSignupStatus('error');
             setTimeout(() => setSignupStatus('idle'), 3000);
+        }
+    };
+
+    const handleDownloadPDF = () => {
+        setIsPDFGenerating(true);
+        // Wait for render to update styles (force show all tabs)
+        setTimeout(() => {
+            const report = reports[reports.length - 1];
+            if (!report) {
+                setIsPDFGenerating(false);
+                return;
+            }
+            const element = document.getElementById(`report-view-${report.id}`);
+            if (!element) {
+                setIsPDFGenerating(false);
+                return;
+            }
+
+            const opt = {
+                margin: 0.25, // Increased margin slightly
+                filename: `${report.brand}_Deep_Dive_Report.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                setIsPDFGenerating(false);
+            });
+        }, 500); // 500ms delay to ensure DOM update and chart rendering
+    };
+
+    const handleEmailReport = async () => {
+        if (!email) {
+            alert("Please Unlock Pro Access first to enable email reports.");
+            return;
+        }
+
+        const reportToSend = reports[reports.length - 1]; // Send the most recent report
+        if (!reportToSend) return;
+
+        const button = document.activeElement;
+        if (button) button.disabled = true;
+        const originalText = button ? button.innerText : "";
+        if (button) button.innerText = "SENDING...";
+
+        try {
+            const response = await fetch('/api/send-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, report: reportToSend.data })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert(`Report successfully sent to ${email} `);
+            } else {
+                throw new Error(result.error || "Failed to send");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error sending email: " + err.message);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.innerText = originalText || "EMAIL REPORT";
+            }
         }
     };
 
@@ -130,11 +205,7 @@ export const DeepDive = ({ onBack }) => {
             <div className="print:hidden">
                 <div className="flex justify-between items-center mb-8">
                     <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
-                    {reports.length > 0 && (
-                        <button onClick={handlePrint} className="flex items-center gap-2 font-mono font-bold bg-white border-2 border-black px-4 py-2 hover:bg-gray-100 brutal-shadow">
-                            <Printer size={18} /> PRINT REPORT
-                        </button>
-                    )}
+
                 </div>
 
                 <div className="brutal-card p-8 bg-yellow-300 brutal-shadow mb-12">
@@ -185,6 +256,20 @@ export const DeepDive = ({ onBack }) => {
                 </div>
             </div>
 
+            {reports.length > 0 && (
+                <div className="flex justify-end gap-4 mb-8 print:hidden flex-wrap">
+                    <button disabled={isPDFGenerating} onClick={handleDownloadPDF} className="flex items-center gap-2 font-mono font-bold bg-white border-2 border-black px-4 py-2 hover:bg-gray-100 brutal-shadow transition-colors disabled:opacity-50">
+                        {isPDFGenerating ? <Icon name="loader" className="animate-spin" size={18} /> : <Download size={18} />} DOWNLOAD PDF
+                    </button>
+                    <button onClick={handleEmailReport} className="flex items-center gap-2 font-mono font-bold bg-white border-2 border-black px-4 py-2 hover:bg-yellow-300 brutal-shadow transition-colors">
+                        <Mail size={18} /> EMAIL REPORT
+                    </button>
+                    <button onClick={handlePrint} className="flex items-center gap-2 font-mono font-bold bg-white border-2 border-black px-4 py-2 hover:bg-gray-100 brutal-shadow transition-colors">
+                        <Printer size={18} /> PRINT REPORT
+                    </button>
+                </div>
+            )}
+
             {error && (
                 <div className="bg-red-100 border-4 border-red-600 p-6 mb-12 flex items-start gap-4">
                     <Icon name="alert-triangle" className="text-red-600 flex-shrink-0" size={32} />
@@ -207,10 +292,21 @@ export const DeepDive = ({ onBack }) => {
                         email={email}
                         setEmail={setEmail}
                         signupStatus={signupStatus}
+                        forceShowAll={isPDFGenerating}
                     />
                 ))}
                 {isGenerating && <SkeletonLoader />}
             </div>
+
+            {/* Overlay for PDF Generation State */}
+            {isPDFGenerating && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex flex-col items-center justify-center text-white print:hidden">
+                    <Icon name="loader" size={48} className="animate-spin mb-4" />
+                    <h2 className="text-2xl font-black uppercase">Generating PDF...</h2>
+                    <p className="font-mono mt-2">Please wait while we capture the report.</p>
+                </div>
+            )}
+
         </div>
     );
 };

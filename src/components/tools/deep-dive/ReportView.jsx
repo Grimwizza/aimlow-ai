@@ -37,7 +37,7 @@ const BulletList = ({ items }) => (
     </ul>
 );
 
-export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, email, setEmail, signupStatus }) => {
+export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, email, setEmail, signupStatus, forceShowAll }) => {
     const d = report.data;
     const [activeTab, setActiveTab] = useState('overview');
 
@@ -70,7 +70,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
     ];
 
     return (
-        <div className="relative bg-white border-4 border-black p-0 brutal-shadow-lg print:shadow-none print:border-0 min-w-0 flex flex-col h-full animate-in fade-in duration-500">
+        <div id={`report-view-${report.id}`} className="relative bg-white border-4 border-black p-0 brutal-shadow-lg print:shadow-none print:border-0 min-w-0 flex flex-col h-full animate-in fade-in duration-500">
 
             {/* --- HEADER --- */}
             <div className="bg-black text-white p-6 md:p-8 flex justify-between items-start print:bg-white print:text-black print:border-b-4 print:border-black">
@@ -86,7 +86,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                     <p className="font-serif italic text-lg opacity-80 max-w-2xl mt-2">{d.parent_company ? `Subsidiary of ${d.parent_company}` : `Market: ${report.country}`}</p>
                 </div>
                 <div className="flex flex-col items-end gap-4">
-                    <button onClick={() => removeReport(report.id)} className="text-gray-400 hover:text-white transition-colors bg-white/10 p-2 rounded-full print:hidden">
+                    <button onClick={() => removeReport(report.id)} className={`text-gray-400 hover:text-white transition-colors bg-white/10 p-2 rounded-full print:hidden ${forceShowAll ? 'hidden' : ''}`}>
                         <Icon name="x" size={24} />
                     </button>
                     <div className="flex items-center gap-3">
@@ -100,7 +100,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
             </div>
 
             {/* --- TABS --- */}
-            <div className="flex overflow-x-auto border-b-4 border-black bg-gray-100 print:hidden sticky top-0 z-20 no-scrollbar">
+            <div className={`flex overflow-x-auto border-b-4 border-black bg-gray-100 print:hidden sticky top-0 z-20 no-scrollbar ${forceShowAll ? 'hidden' : ''}`}>
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
@@ -117,7 +117,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
             <div className="p-6 md:p-10 min-h-[500px]">
 
                 {/* TAB: OVERVIEW */}
-                <div className={activeTab === 'overview' ? 'block' : 'hidden print:block'}>
+                <div className={activeTab === 'overview' || forceShowAll ? 'block' : 'hidden print:block'}>
                     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
                         <div>
                             <SectionHeader title="Executive Summary" icon={<Zap />} />
@@ -129,16 +129,16 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                                 <SectionHeader title="Target Persona" icon={<Users />} />
                                 <div className="bg-blue-50 border-2 border-blue-900 p-6 space-y-4">
                                     <div>
-                                        <h4 className="font-bold uppercase text-xs text-blue-500 mb-1">Demographics</h4>
-                                        <p className="font-serif font-bold text-lg">{d.target_persona?.demographics}</p>
+                                        <h4 className="font-bold uppercase text-xs text-blue-600 mb-1">Demographics</h4>
+                                        <p className="font-serif text-lg">{d.target_persona?.demographics}</p>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold uppercase text-xs text-blue-500 mb-1">Psychographics</h4>
+                                        <h4 className="font-bold uppercase text-xs text-blue-600 mb-1">Psychographics</h4>
                                         <p className="font-serif text-lg">{d.target_persona?.psychographics}</p>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold uppercase text-xs text-blue-500 mb-1">Job to be Done</h4>
-                                        <p className="font-serif italic text-lg opacity-80">"{d.target_persona?.job_to_be_done}"</p>
+                                        <h4 className="font-bold uppercase text-xs text-blue-600 mb-1">Job to be Done</h4>
+                                        <p className="font-serif italic text-lg opacity-90">"{d.target_persona?.job_to_be_done}"</p>
                                     </div>
                                 </div>
                             </div>
@@ -148,8 +148,8 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                                 <div className="grid gap-3">
                                     {d.competitors?.map((comp, i) => (
                                         <div key={i} className="bg-gray-50 p-4 border-2 border-gray-200">
-                                            <h4 className="font-black uppercase">{comp.name}</h4>
-                                            <p className="text-sm font-serif mt-1">{comp.differentiator}</p>
+                                            <h4 className="font-black uppercase text-base mb-1">{comp.name}</h4>
+                                            <p className="font-serif text-lg">{comp.differentiator}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -159,7 +159,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: MARKETING 4PS */}
-                <div className={activeTab === 'marketing' ? 'block' : 'hidden print:block'}>
+                <div className={`${activeTab === 'marketing' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page ${forceShowAll ? 'break-before-page' : ''}`}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -185,7 +185,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: SWOT */}
-                <div className={activeTab === 'swot' ? 'block' : 'hidden print:block'}>
+                <div className={`${activeTab === 'swot' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page ${forceShowAll ? 'break-before-page' : ''}`}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -219,7 +219,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: FINANCIALS */}
-                <div className={activeTab === 'financials' ? 'block' : 'hidden print:block'}>
+                <div className={`${activeTab === 'financials' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page ${forceShowAll ? 'break-before-page' : ''}`}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         {/* Always show high level metrics if available? Or also Gate? Let's gate it as per original design */}
                         {!hasAccess ? <LockedState email={email} setEmail={setEmail} handleBetaSignup={handleBetaSignup} signupStatus={signupStatus} /> : (
@@ -261,7 +261,7 @@ export const ReportView = ({ report, hasAccess, removeReport, handleBetaSignup, 
                 </div>
 
                 {/* TAB: SOURCES */}
-                <div className={activeTab === 'sources' ? 'block' : 'hidden print:block'}>
+                <div className={`${activeTab === 'sources' || forceShowAll ? 'block' : 'hidden print:block'} print:break-before-page ${forceShowAll ? 'break-before-page' : ''}`}>
                     <div className="animate-in slide-in-from-bottom-2 duration-300">
                         <SectionHeader title="Data Sources" icon={<ExternalLink />} />
                         <ul className="space-y-2">
