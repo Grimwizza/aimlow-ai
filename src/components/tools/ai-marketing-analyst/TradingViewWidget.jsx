@@ -26,7 +26,7 @@ export const TradingViewWidget = ({ ticker }) => {
         "symbol": "${symbol}",
         "interval": "W",
         "timezone": "Etc/UTC",
-        "theme": "${theme === 'dark' ? 'dark' : 'light'}",
+        "theme": "${theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'}",
         "style": "1",
         "locale": "en",
         "enable_publishing": false,

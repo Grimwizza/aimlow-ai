@@ -34,7 +34,7 @@ const FeatureCard = () => (
                 <p className="text-lg md:text-xl text-primary-foreground/80 mb-8 max-w-xl leading-relaxed">
                     Generate consultant-grade brand reports, 4P analysis, and SWOT charts in seconds.
                 </p>
-                <Link to="/apps/deep-dive">
+                <Link to="/apps/ai-marketing-analyst">
                     <Button variant="secondary" size="lg" className="h-12 px-8 font-semibold shadow-md gap-2">
                         Start Analysis <Icon name="arrow-right" size={16} />
                     </Button>
@@ -58,7 +58,7 @@ const FeatureCard = () => (
 export const AppsPage = () => {
     const [activeTab, setActiveTab] = useState('work');
 
-    const workTools = LAB_ITEMS.filter(item => item.mode === 'work' && item.slug !== 'deep-dive');
+    const workTools = LAB_ITEMS.filter(item => item.mode === 'work' && item.slug !== 'ai-marketing-analyst');
     const lifeTools = LAB_ITEMS.filter(item => item.mode === 'life');
 
     return (

@@ -4,7 +4,7 @@ import { Icon } from '../ui/Icon';
 import { Newsletter } from '../Newsletter';
 
 export const Footer = () => (
-    <footer className="dark bg-background border-t border-border py-12 mt-12 block w-full text-foreground">
+    <footer className="bg-background border-t border-border py-12 mt-12 block w-full">
         <div className="max-w-[1400px] mx-auto px-6">
             <Newsletter />
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">

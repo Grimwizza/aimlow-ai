@@ -19,8 +19,8 @@ import { BlogCard, BlogPost, LabCard } from './components/BlogParts';
 // 3. IMPORT TOOLS
 import { HeadlineGenerator } from './components/tools/HeadlineGenerator';
 import { AltTextFixer } from './components/tools/AltTextFixer';
-import { JargonDestroyer } from './components/tools/JargonDestroyer';
-import { DeepDive } from './components/tools/DeepDive';
+import { ContentSimplifier } from './components/tools/ContentSimplifier';
+import { AIMarketingAnalyst } from './components/tools/AIMarketingAnalyst';
 
 // 4. IMPORT DATA
 import { LAB_ITEMS } from './data';
@@ -85,8 +85,8 @@ function App() {
                     {/* Tools */}
                     <Route path="/apps/headline-generator" element={<HeadlineGenerator onBack={() => window.history.back()} />} />
                     <Route path="/apps/alt-text" element={<AltTextFixer onBack={() => window.history.back()} />} />
-                    <Route path="/apps/jargon-destroyer" element={<JargonDestroyer onBack={() => window.history.back()} />} />
-                    <Route path="/apps/deep-dive" element={<DeepDive onBack={() => window.history.back()} />} />
+                    <Route path="/apps/content-simplifier" element={<ContentSimplifier onBack={() => window.history.back()} />} />
+                    <Route path="/apps/ai-marketing-analyst" element={<AIMarketingAnalyst onBack={() => window.history.back()} />} />
 
                     {/* Dynamic Post Route */}
                     <Route path="/post/:slug" element={<BlogPost />} />

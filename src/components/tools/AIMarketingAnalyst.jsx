@@ -4,7 +4,7 @@ import { SEO } from '../../seo-tools/SEOTags';
 import { Icon } from '../ui/Icon';
 import { ChevronDown, Printer, Mail, Download } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-import { ReportView } from './deep-dive/ReportView';
+import { ReportView } from './ai-marketing-analyst/ReportView';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
@@ -24,7 +24,7 @@ const SkeletonLoader = () => (
     </Card>
 );
 
-export const DeepDive = ({ onBack }) => {
+export const AIMarketingAnalyst = ({ onBack }) => {
     const [inputBrand, setInputBrand] = useState('');
     const [country, setCountry] = useState('United States');
     const [reports, setReports] = useState([]);
@@ -204,7 +204,7 @@ export const DeepDive = ({ onBack }) => {
 
     return (
         <div className="max-w-7xl mx-auto px-6 py-12">
-            <SEO title="The Deep Dive" description="BETA Pro Brand Analyst. 4P & SWOT Reports." />
+            <SEO title="AI Marketing Analyst" description="BETA AI Marketing Analyst. 4P & SWOT Reports." />
             <div className="print:hidden">
                 <div className="flex justify-between items-center mb-8">
                     <button onClick={onBack} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
@@ -214,9 +214,9 @@ export const DeepDive = ({ onBack }) => {
 
                 <div className="mb-12 text-center max-w-2xl mx-auto">
                     <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase mb-4 border border-primary/20">
-                        <Icon name="sparkles" size={14} /> Pro Brand Analyst
+                        <Icon name="sparkles" size={14} /> BETA Free
                     </div>
-                    <h1 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight">The Deep Dive</h1>
+                    <h1 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight">AI Marketing Analyst</h1>
                     <p className="text-xl text-muted-foreground">Instant strategic audits. Enter a brand to starting mining.</p>
                 </div>
 

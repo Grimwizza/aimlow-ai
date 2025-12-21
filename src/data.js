@@ -10,7 +10,7 @@ export const LAB_ITEMS = [
     },
     {
         id: 3,
-        slug: "jargon-destroyer",
+        slug: "content-simplifier",
         title: "Content Simplifier",
         desc: "Paste corporate speak, get plain English. Aim low, speak clearly.",
         status: "Free",
@@ -19,7 +19,7 @@ export const LAB_ITEMS = [
     },
     {
         id: 4,
-        slug: "deep-dive",
+        slug: "ai-marketing-analyst",
         title: "AI Marketing Analyst",
         desc: "Instant 4P & SWOT Analysis. Consultant-grade reports.",
         status: "Free BETA",
