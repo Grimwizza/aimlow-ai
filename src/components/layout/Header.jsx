@@ -21,6 +21,8 @@ export const Header = () => {
                     <Link to="/blog" className="hover:underline decoration-2 underline-offset-4">THE LOG</Link>
                     <Link to="/lab" className="hover:underline decoration-2 underline-offset-4">THE LAB</Link>
                     <Link to="/feed" className="hover:underline decoration-2 underline-offset-4">THE LOWDOWN</Link>
+                    <Link to="/updates" className="hover:underline decoration-2 underline-offset-4">UPDATES</Link>
+                    <Link to="/library" className="hover:underline decoration-2 underline-offset-4">LIBRARY</Link>
                 </nav>
                 <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
                     {isMenuOpen ? <Icon name="x" /> : <Icon name="menu" />}
@@ -32,6 +34,8 @@ export const Header = () => {
                         <Link to="/blog" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600 border-b-2 border-gray-100">THE LOG</Link>
                         <Link to="/lab" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">THE LAB</Link>
                         <Link to="/feed" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">THE LOWDOWN</Link>
+                        <Link to="/updates" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">UPDATES</Link>
+                        <Link to="/library" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">LIBRARY</Link>
                     </nav>
                 </div>
             )}

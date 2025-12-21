@@ -32,6 +32,8 @@ import { HomePage } from './pages/HomePage';
 import { BlogPage } from './pages/BlogPage';
 import { FeedPage } from './pages/FeedPage';
 import { LabPage } from './pages/LabPage';
+import { UpdatesPage } from './pages/UpdatesPage';
+import { LibraryPage } from './pages/LibraryPage';
 
 // --- MAIN APP (Router) ---
 function App() {
@@ -78,6 +80,8 @@ function App() {
                     <Route path="/blog" element={<BlogPage posts={posts} />} />
                     <Route path="/lab" element={<LabPage />} />
                     <Route path="/feed" element={<FeedPage />} />
+                    <Route path="/updates" element={<UpdatesPage />} />
+                    <Route path="/library" element={<LibraryPage />} />
 
                     {/* Tools */}
                     <Route path="/lab/headline-generator" element={<HeadlineGenerator onBack={() => window.history.back()} />} />
