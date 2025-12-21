@@ -33,47 +33,51 @@ export const ToolLibrary = () => {
     }, []);
 
     const ToolCard = ({ tool, featured }) => (
-        <Card className={`h-full flex flex-col transition-all hover:scale-[1.02] ${featured ? 'border-yellow-400 border-2 bg-gradient-to-br from-yellow-50 to-amber-50' : 'hover:shadow-lg'}`}>
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
+        <Card className={`h-full flex flex-col transition-all duration-300 ${featured ? 'border-primary/50 bg-secondary/10 shadow-md' : 'hover:shadow-md hover:border-primary/30'}`}>
+            <div className="flex items-start justify-between mb-4 p-5 pb-0">
+                <div className="flex items-center gap-4 w-full">
                     <img
                         src={tool.image}
                         alt={tool.title}
-                        className="w-10 h-10 rounded-lg object-cover border border-gray-200 bg-white"
+                        className="w-12 h-12 rounded-lg object-cover border border-border bg-background"
                         onError={(e) => { e.target.src = 'https://placehold.co/100x100?text=AI' }}
                     />
-                    <div>
-                        <h3 className="font-bold text-base leading-tight">{tool.title}</h3>
-                        {featured && (
-                            <span className="text-xs font-mono bg-yellow-400 text-black px-2 py-0.5 rounded-full uppercase mt-1 inline-flex items-center gap-1">
-                                <Star size={10} className="fill-current" /> Essential
-                            </span>
-                        )}
-                        {tool.isTrending && (
-                            <span className="text-xs font-mono bg-blue-500 text-white px-2 py-0.5 rounded-full uppercase mt-1 inline-flex items-center gap-1">
-                                <Zap size={10} /> Trending
-                            </span>
-                        )}
+                    <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-lg leading-tight mb-1">{tool.title}</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {featured && (
+                                <span className="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 border border-primary/20 w-fit">
+                                    <Star size={8} className="fill-current" /> Essential
+                                </span>
+                            )}
+                            {tool.isTrending && (
+                                <span className="text-[10px] font-semibold bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 w-fit border border-blue-500/20">
+                                    <Zap size={8} /> Trending
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
-            <p className="text-sm text-gray-600 mb-4 flex-1 line-clamp-2">
-                {tool.description}
-            </p>
-            <a href={tool.link} target="_blank" rel="noopener noreferrer" className="mt-auto">
-                <Button className="w-full" variant={featured ? 'primary' : 'secondary'} size="sm">
-                    TRY IT <ExternalLink size={14} className="ml-2" />
-                </Button>
-            </a>
+            <div className="px-5 pb-5 pt-2 flex flex-col flex-1">
+                <p className="text-sm text-muted-foreground mb-4 flex-1 line-clamp-2">
+                    {tool.description}
+                </p>
+                <a href={tool.link} target="_blank" rel="noopener noreferrer" className="mt-auto">
+                    <Button className="w-full gap-2 group" variant={featured ? 'default' : 'outline'} size="sm">
+                        Try Tool <ExternalLink size={14} className="opacity-70 group-hover:translate-x-0.5 transition-transform" />
+                    </Button>
+                </a>
+            </div>
         </Card>
     );
 
     const CategoryButton = ({ id, name, icon: Icon, isActive, onClick }) => (
         <button
             onClick={onClick}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full font-mono text-sm transition-all ${isActive
-                ? 'bg-black text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${isActive
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 }`}
         >
             {Icon && <Icon size={16} />}
@@ -106,15 +110,15 @@ export const ToolLibrary = () => {
     }));
 
     return (
-        <section className="py-12 px-4 max-w-[1400px] mx-auto">
+        <section className="py-16 px-6 max-w-[1400px] mx-auto min-h-screen">
             {/* Header */}
-            <div className="text-center mb-12">
-                <h1 className="text-4xl md:text-6xl font-black mb-4 uppercase flex items-center justify-center gap-3">
-                    <Sparkles className="text-yellow-500" /> The Arsenal
+            <div className="text-center mb-16">
+                <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight flex items-center justify-center gap-3">
+                    <Sparkles className="text-primary" /> Trending AI Tools
                 </h1>
-                <p className="font-mono text-gray-500 max-w-xl mx-auto">
+                <p className="text-muted-foreground max-w-xl mx-auto text-lg">
                     The most powerful AI tools, organized by use case.
-                    Essentials are curator picks. Trending updates automatically.
+                    Essentials are curator picks. Trending tools update automatically.
                 </p>
             </div>
 
@@ -142,22 +146,22 @@ export const ToolLibrary = () => {
             {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-pulse">
                     <div className="space-y-4">
-                        {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>)}
+                        {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-muted rounded-xl"></div>)}
                     </div>
                     <div className="space-y-4">
-                        {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>)}
+                        {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-muted rounded-xl"></div>)}
                     </div>
                 </div>
             ) : activeCategory === 'all' ? (
                 /* ALL VIEW - Side by side with aggregated trending */
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
                     {/* LEFT: Essential Picks */}
-                    <div className="lg:pr-8 lg:border-r-2 border-gray-200">
-                        <div className="flex items-center gap-2 mb-6 border-b-2 border-black pb-2">
-                            <Star className="text-yellow-500 fill-yellow-500" />
-                            <h2 className="text-xl font-black uppercase">Essential Picks</h2>
+                    <div className="lg:pr-8 lg:border-r border-border">
+                        <div className="flex items-center gap-2 mb-8 border-b border-border pb-4">
+                            <Star className="text-primary fill-primary" />
+                            <h2 className="text-xl font-bold tracking-tight">Essential Picks</h2>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {displayData.essentials.map((tool, idx) => (
                                 <ToolCard key={idx} tool={tool} featured={true} />
                             ))}
@@ -165,38 +169,38 @@ export const ToolLibrary = () => {
                     </div>
 
                     {/* RIGHT: Top Trending */}
-                    <div className="lg:pl-8 mt-12 lg:mt-0">
-                        <div className="flex items-center gap-2 mb-6 border-b-2 border-black pb-2">
+                    <div className="mt-8 lg:mt-0">
+                        <div className="flex items-center gap-2 mb-8 border-b border-border pb-4">
                             <Zap className="text-blue-500" />
-                            <h2 className="text-xl font-black uppercase">Hot Right Now</h2>
-                            <span className="ml-auto text-xs font-mono text-gray-400">
+                            <h2 className="text-xl font-bold tracking-tight">Trending Now</h2>
+                            <span className="ml-auto text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
                                 via Product Hunt
                             </span>
                         </div>
                         {displayData.trending.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {displayData.trending.map((tool, idx) => (
                                     <ToolCard key={idx} tool={tool} featured={false} />
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed">
-                                <Zap className="mx-auto text-gray-300 mb-2" size={32} />
-                                <p className="font-mono text-gray-400 text-sm">Loading trending...</p>
+                            <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
+                                <Zap className="mx-auto text-muted-foreground mb-2" size={32} />
+                                <p className="font-mono text-muted-foreground text-sm">Loading trending...</p>
                             </div>
                         )}
                     </div>
                 </div>
             ) : (
                 /* CATEGORY VIEW - Side by side */
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
                     {/* LEFT: Essentials */}
-                    <div className="lg:pr-8 lg:border-r-2 border-gray-200">
-                        <div className="flex items-center gap-2 mb-6 border-b-2 border-black pb-2">
-                            <Star className="text-yellow-500 fill-yellow-500" />
-                            <h2 className="text-xl font-black uppercase">Essential {library[activeCategory]?.name} Tools</h2>
+                    <div className="lg:pr-8 lg:border-r border-border">
+                        <div className="flex items-center gap-2 mb-8 border-b border-border pb-4">
+                            <Star className="text-primary fill-primary" />
+                            <h2 className="text-xl font-bold tracking-tight">Essential {library[activeCategory]?.name} Tools</h2>
                         </div>
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {displayData.essentials.map((tool, idx) => (
                                 <ToolCard key={idx} tool={tool} featured={true} />
                             ))}
@@ -204,24 +208,24 @@ export const ToolLibrary = () => {
                     </div>
 
                     {/* RIGHT: Trending */}
-                    <div className="lg:pl-8 mt-12 lg:mt-0">
-                        <div className="flex items-center gap-2 mb-6 border-b-2 border-black pb-2">
+                    <div className="mt-8 lg:mt-0">
+                        <div className="flex items-center gap-2 mb-8 border-b border-border pb-4">
                             <Zap className="text-blue-500" />
-                            <h2 className="text-xl font-black uppercase">Trending</h2>
-                            <span className="ml-auto text-xs font-mono text-gray-400">
+                            <h2 className="text-xl font-bold tracking-tight">Trending</h2>
+                            <span className="ml-auto text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
                                 via Product Hunt
                             </span>
                         </div>
                         {displayData.trending.length > 0 ? (
-                            <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {displayData.trending.map((tool, idx) => (
                                     <ToolCard key={idx} tool={tool} featured={false} />
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed">
-                                <Zap className="mx-auto text-gray-300 mb-2" size={32} />
-                                <p className="font-mono text-gray-400 text-sm">
+                            <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
+                                <Zap className="mx-auto text-muted-foreground mb-2" size={32} />
+                                <p className="font-mono text-muted-foreground text-sm">
                                     No trending tools right now.
                                 </p>
                             </div>

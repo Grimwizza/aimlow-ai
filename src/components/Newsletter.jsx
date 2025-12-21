@@ -3,7 +3,7 @@ import { Mail, Check, Loader2, Unlock } from 'lucide-react';
 
 export const Newsletter = () => {
     const [email, setEmail] = useState('');
-    const [status, setStatus] = useState('idle'); 
+    const [status, setStatus] = useState('idle');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -33,65 +33,62 @@ export const Newsletter = () => {
     };
 
     return (
-        <div className="w-full bg-[#FEC43D] border-t-4 border-black py-16 px-4">
-            <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-8">
-                
+        <div className="w-full">
+            <div className="flex flex-col md:flex-row items-center gap-12 bg-secondary/5 border border-border rounded-xl p-8 md:p-12 mb-12">
+
                 {/* Left: The Pitch */}
                 <div className="flex-1 text-center md:text-left">
-                    <h2 className="text-4xl font-black uppercase mb-4">
-                        Unlock Pro Tools <br/> For Free.
+                    <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4">
+                        Unlock Pro Tools & <br /> Join the Newsletter.
                     </h2>
-                    <p className="font-mono font-bold text-lg">
-                        Join the Beta Program today. Get unlimited access to "The Deep Dive" analyst and future premium tools while we build.
+                    <p className="text-muted-foreground text-base md:text-lg max-w-lg mx-auto md:mx-0">
+                        Join the Beta Program today. Get unlimited access to our "AI Marketing Analyst" and future premium tools while we build.
                     </p>
                 </div>
 
                 {/* Right: The Form */}
                 <div className="flex-1 w-full max-w-md">
                     {status === 'success' ? (
-                        <div className="bg-black text-white p-8 border-2 border-black text-center brutal-shadow">
-                            <Check size={48} className="mx-auto mb-4 text-[#FEC43D]" />
-                            <h3 className="text-2xl font-black uppercase">Access Granted.</h3>
-                            <p className="font-mono mt-2">Welcome to the Beta. Your tools are unlocked.</p>
+                        <div className="bg-primary text-primary-foreground p-8 rounded-xl text-center shadow-lg animate-in">
+                            <Check size={48} className="mx-auto mb-4" />
+                            <h3 className="text-2xl font-bold">Access Granted.</h3>
+                            <p className="mt-2 text-primary-foreground/90">Welcome to the Beta. Your tools are unlocked.</p>
                         </div>
                     ) : (
-                        <form onSubmit={handleSubmit} className="bg-white p-6 border-2 border-black brutal-shadow relative">
-                            <label htmlFor="beta-email" className="font-mono text-xs font-bold text-gray-500 uppercase mb-2 block">Email Address</label>
-                            <div className="flex flex-col gap-3">
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
-                                    <input 
-                                        type="email" 
-                                        id="beta-email"
-                                        name="email"
-                                        autoComplete="email"
-                                        value={email} 
-                                        onChange={(e) => setEmail(e.target.value)} 
-                                        placeholder="you@example.com" 
-                                        className="w-full pl-10 pr-4 py-3 border-2 border-black font-bold text-lg focus:outline-none focus:bg-yellow-50 transition-colors" 
-                                        required 
-                                    />
+                        <div className="bg-background text-card-foreground p-6 rounded-xl border border-border shadow-sm">
+                            <form onSubmit={handleSubmit} className="relative">
+                                <label htmlFor="beta-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mb-2 block">Email Address</label>
+                                <div className="flex flex-col gap-4">
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                                        <input
+                                            type="email"
+                                            id="beta-email"
+                                            name="email"
+                                            autoComplete="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="you@example.com"
+                                            className="flex h-12 w-full rounded-md border border-input bg-background/50 px-3 py-1 pl-10 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                            required
+                                        />
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={status === 'loading'}
+                                        className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-12 px-8"
+                                    >
+                                        {status === 'loading' ? <Loader2 className="animate-spin" /> : <span className="flex items-center gap-2"><Unlock size={18} /> Join Beta</span>}
+                                    </button>
                                 </div>
-                                <button 
-                                    type="submit" 
-                                    disabled={status === 'loading'}
-                                    className="bg-black text-white py-3 px-6 font-black uppercase hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    {status === 'loading' ? <Loader2 className="animate-spin" /> : <><Unlock size={18} /> JOIN BETA</>}
-                                </button>
-                            </div>
-                            {/* Decorational 'Screw' heads for brutalist look */}
-                            <div className="absolute top-2 left-2 w-2 h-2 bg-gray-300 rounded-full border border-black"></div>
-                            <div className="absolute top-2 right-2 w-2 h-2 bg-gray-300 rounded-full border border-black"></div>
-                            <div className="absolute bottom-2 left-2 w-2 h-2 bg-gray-300 rounded-full border border-black"></div>
-                            <div className="absolute bottom-2 right-2 w-2 h-2 bg-gray-300 rounded-full border border-black"></div>
-                            
-                            {status === 'error' && (
-                                <p className="absolute -bottom-8 left-0 w-full text-center font-mono font-bold text-red-600 bg-white border-2 border-black p-1 text-xs">
-                                    Something went wrong. Try again.
-                                </p>
-                            )}
-                        </form>
+
+                                {status === 'error' && (
+                                    <p className="absolute -bottom-8 left-0 w-full text-center font-medium text-destructive text-sm">
+                                        Something went wrong. Try again.
+                                    </p>
+                                )}
+                            </form>
+                        </div>
                     )}
                 </div>
             </div>

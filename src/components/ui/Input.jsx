@@ -5,19 +5,15 @@ export const Input = forwardRef(({ icon, className = "", ...props }, ref) => {
     return (
         <div className="relative w-full">
             {icon && (
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                    <Icon name={icon} size={20} />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                    <Icon name={icon} size={18} />
                 </div>
             )}
             <input
                 ref={ref}
                 className={`
-                    w-full bg-white border-2 border-black 
-                    py-3 ${icon ? 'pl-10' : 'pl-4'} pr-4 
-                    font-bold text-lg 
-                    focus:outline-none focus:bg-yellow-50 
-                    transition-colors 
-                    placeholder:text-gray-400
+                    flex h-12 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50
+                    ${icon ? 'pl-10' : 'pl-3'} 
                     ${className}
                 `}
                 {...props}

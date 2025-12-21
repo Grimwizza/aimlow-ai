@@ -2,40 +2,46 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../ui/Icon';
 
+import { ThemeToggle } from '../theme/ThemeToggle';
+
 export const Logo = () => {
     const [error, setError] = useState(false);
-    if (error) return <div className="w-10 h-10 bg-black text-white flex items-center justify-center font-bold text-xl border-2 border-transparent group-hover:border-black group-hover:bg-white group-hover:text-black transition-colors">AL</div>;
-    return <img src="/logo.png" alt="AimLow Logo" className="h-10 w-auto object-contain" onError={() => setError(true)} />;
+    if (error) return <div className="w-10 h-10 bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl rounded-lg">AL</div>;
+    return <img src="/logo.png" alt="AimLow Logo" className="h-10 w-auto object-contain dark:invert" onError={() => setError(true)} />;
 };
 
 export const Header = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     return (
-        <header className="border-b-4 border-black bg-white sticky top-0 z-50">
-            <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-                <Link to="/" className="flex items-center gap-2 cursor-pointer group">
+        <header className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50 transition-colors duration-300">
+            <div className="max-w-[1400px] mx-auto px-6 py-4 flex justify-between items-center">
+                <Link to="/" className="flex items-center gap-3 cursor-pointer group">
                     <Logo />
-                    <h1 className="text-2xl font-black tracking-tighter uppercase">AimLow<span className="text-blue-600">.ai</span></h1>
+                    <h1 className="text-xl font-bold tracking-tight uppercase">AimLow<span className="text-primary">.ai</span></h1>
                 </Link>
-                <nav className="hidden md:flex gap-6 font-mono font-bold text-sm">
-                    <Link to="/blog" className="hover:underline decoration-2 underline-offset-4">THE LOG</Link>
-                    <Link to="/lab" className="hover:underline decoration-2 underline-offset-4">THE LAB</Link>
-                    <Link to="/feed" className="hover:underline decoration-2 underline-offset-4">THE LOWDOWN</Link>
-                    <Link to="/updates" className="hover:underline decoration-2 underline-offset-4">UPDATES</Link>
-                    <Link to="/library" className="hover:underline decoration-2 underline-offset-4">LIBRARY</Link>
-                </nav>
-                <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-                    {isMenuOpen ? <Icon name="x" /> : <Icon name="menu" />}
-                </button>
+                <div className="flex items-center gap-6">
+                    <nav className="hidden md:flex gap-8 font-medium text-sm text-muted-foreground">
+
+                        <Link to="/tools" className="hover:text-foreground transition-colors">Trending AI Tools</Link>
+                        <Link to="/feed" className="hover:text-foreground transition-colors">AI News Feed</Link>
+                        <Link to="/updates" className="hover:text-foreground transition-colors">AI Changelog</Link>
+                        <Link to="/apps" className="hover:text-foreground transition-colors">AimLow Apps</Link>
+                    </nav>
+                    <div className="hidden md:block w-px h-6 bg-border"></div>
+                    <ThemeToggle />
+                    <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                        {isMenuOpen ? <Icon name="x" /> : <Icon name="menu" />}
+                    </button>
+                </div>
             </div>
             {isMenuOpen && (
-                <div className="md:hidden border-t-4 border-black bg-white absolute w-full left-0 shadow-xl">
-                    <nav className="flex flex-col p-4 font-mono font-bold text-lg gap-4">
-                        <Link to="/blog" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600 border-b-2 border-gray-100">THE LOG</Link>
-                        <Link to="/lab" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">THE LAB</Link>
-                        <Link to="/feed" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">THE LOWDOWN</Link>
-                        <Link to="/updates" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">UPDATES</Link>
-                        <Link to="/library" onClick={() => setIsMenuOpen(false)} className="text-left py-2 hover:text-blue-600">LIBRARY</Link>
+                <div className="md:hidden border-b border-border bg-background absolute w-full left-0 shadow-lg p-6 animate-in">
+                    <nav className="flex flex-col gap-6 font-medium text-lg">
+
+                        <Link to="/tools" onClick={() => setIsMenuOpen(false)} className="hover:text-primary">Trending AI Tools</Link>
+                        <Link to="/feed" onClick={() => setIsMenuOpen(false)} className="hover:text-primary">AI News Feed</Link>
+                        <Link to="/updates" onClick={() => setIsMenuOpen(false)} className="hover:text-primary">AI Changelog</Link>
+                        <Link to="/apps" onClick={() => setIsMenuOpen(false)} className="hover:text-primary">AimLow Apps</Link>
                     </nav>
                 </div>
             )}

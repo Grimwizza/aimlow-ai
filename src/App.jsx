@@ -31,9 +31,9 @@ import { LAB_ITEMS } from './data';
 import { HomePage } from './pages/HomePage';
 import { BlogPage } from './pages/BlogPage';
 import { FeedPage } from './pages/FeedPage';
-import { LabPage } from './pages/LabPage';
+import { AppsPage } from './pages/AppsPage';
 import { UpdatesPage } from './pages/UpdatesPage';
-import { LibraryPage } from './pages/LibraryPage';
+import { ToolsPage } from './pages/ToolsPage';
 
 // --- MAIN APP (Router) ---
 function App() {
@@ -69,34 +69,33 @@ function App() {
         fetchPosts();
     }, []);
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f0f0f0]"><div className="animate-spin"><Icon name="loader" size={48} /></div></div>;
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-background text-foreground"><div className="animate-spin"><Icon name="loader" size={48} /></div></div>;
 
     return (
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
             <Header />
             <main className="flex-1">
                 <Routes>
                     <Route path="/" element={<HomePage posts={posts} />} />
-                    <Route path="/blog" element={<BlogPage posts={posts} />} />
-                    <Route path="/lab" element={<LabPage />} />
-                    <Route path="/feed" element={<FeedPage />} />
+                    <Route path="/apps" element={<AppsPage />} />
+                    <Route path="/feed" element={<FeedPage posts={posts} />} />
                     <Route path="/updates" element={<UpdatesPage />} />
-                    <Route path="/library" element={<LibraryPage />} />
+                    <Route path="/tools" element={<ToolsPage />} />
 
                     {/* Tools */}
-                    <Route path="/lab/headline-generator" element={<HeadlineGenerator onBack={() => window.history.back()} />} />
-                    <Route path="/lab/alt-text" element={<AltTextFixer onBack={() => window.history.back()} />} />
-                    <Route path="/lab/jargon-destroyer" element={<JargonDestroyer onBack={() => window.history.back()} />} />
-                    <Route path="/lab/deep-dive" element={<DeepDive onBack={() => window.history.back()} />} />
+                    <Route path="/apps/headline-generator" element={<HeadlineGenerator onBack={() => window.history.back()} />} />
+                    <Route path="/apps/alt-text" element={<AltTextFixer onBack={() => window.history.back()} />} />
+                    <Route path="/apps/jargon-destroyer" element={<JargonDestroyer onBack={() => window.history.back()} />} />
+                    <Route path="/apps/deep-dive" element={<DeepDive onBack={() => window.history.back()} />} />
 
                     {/* Dynamic Post Route */}
                     <Route path="/post/:slug" element={<BlogPost />} />
                 </Routes>
             </main>
-            <Newsletter />
+
             <Footer />
         </div>
     );
 }
 
-export default App;
+export default App; // Updated layout v4

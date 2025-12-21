@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Newspaper, ArrowRight, ChevronUp, Bookmark, BookmarkCheck, Share2, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../ui/Button';
 import { NewsCard } from './NewsCard';
 import { FilterBar } from './FilterBar';
 import { Card } from '../../ui/Card';
+import { urlFor } from '../../../client';
 
 // --- Source Logo Mapping ---
 const SOURCE_LOGOS = {
+    'AimLow.ai': '/logo.png',
     'TechCrunch': 'https://www.google.com/s2/favicons?domain=techcrunch.com&sz=128',
     'VentureBeat': 'https://www.google.com/s2/favicons?domain=venturebeat.com&sz=128',
     'The Verge': 'https://www.google.com/s2/favicons?domain=theverge.com&sz=128',
@@ -21,17 +23,17 @@ const SOURCE_LOGOS = {
 };
 
 const NewsSkeleton = () => (
-    <div className="h-full border-2 border-black bg-white flex flex-col brutal-shadow animate-pulse">
-        <div className="h-48 w-full bg-gray-200 border-b-2 border-black" />
+    <div className="h-full border border-border bg-card rounded-xl overflow-hidden flex flex-col shadow-sm animate-pulse">
+        <div className="h-48 w-full bg-muted" />
         <div className="p-5 flex flex-col flex-1 space-y-4">
-            <div className="h-6 bg-gray-200 w-3/4 rounded" />
-            <div className="h-4 bg-gray-200 w-full rounded" />
-            <div className="h-4 bg-gray-200 w-1/2 rounded" />
+            <div className="h-6 bg-muted w-3/4 rounded" />
+            <div className="h-4 bg-muted w-full rounded" />
+            <div className="h-4 bg-muted w-1/2 rounded" />
         </div>
     </div>
 );
 
-export const NewsFeed = ({ limit, showAllLink = false }) => {
+export const NewsFeed = ({ limit, showAllLink = false, internalPosts = [] }) => {
     const [articles, setArticles] = useState([]);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
@@ -48,6 +50,26 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     const [bookmarkedArticles, setBookmarkedArticles] = useState(new Set());
     const [showBackToTop, setShowBackToTop] = useState(false);
     const [selectedIndex, setSelectedIndex] = useState(-1); // For keyboard nav
+
+    // Process Internal Posts
+    const formattedInternalPosts = useMemo(() => {
+        return internalPosts.map(post => ({
+            title: post.title,
+            summary: post.excerpt,
+            link: `/post/${post.slug.current}`,
+            image: post.mainImage ? urlFor(post.mainImage).width(800).url() : null,
+            source: 'AimLow.ai',
+            pubDate: post.publishedAt,
+            isInternal: true
+        }));
+    }, [internalPosts]);
+
+    // Combine Articles
+    const allArticles = useMemo(() => {
+        const combined = [...formattedInternalPosts, ...articles];
+        // Sort by date desc
+        return combined.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    }, [formattedInternalPosts, articles]);
 
     const fetchNews = async (pageNum = 1, append = false) => {
         try {
@@ -117,7 +139,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [limit, selectedIndex]);
+    }, [limit, selectedIndex, allArticles, searchQuery, activeCategory, activeSource]); // Added deps
 
     const loadMore = useCallback(() => {
         if (hasMore && !loadingMore) {
@@ -224,8 +246,8 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
         return false;
     };
 
-    const getFilteredArticles = () => {
-        return articles.filter(article => {
+    const getFilteredArticles = useCallback(() => {
+        return allArticles.filter(article => {
             const searchContent = (article.title + " " + article.summary).toLowerCase();
             const matchesSearch = searchContent.includes(searchQuery.toLowerCase());
             const matchesSource = activeSource === 'All Sources' || article.source === activeSource;
@@ -236,12 +258,12 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
             }
             return matchesSearch && matchesCategory && matchesSource;
         });
-    };
+    }, [allArticles, searchQuery, activeCategory, activeSource]);
 
     // Calculate counts for filters
     const categoryCounts = {};
     if (!limit) { // Only calculate on full feed page
-        const baseArticles = articles.filter(article => {
+        const baseArticles = allArticles.filter(article => {
             const searchContent = (article.title + " " + article.summary).toLowerCase();
             const matchesSearch = searchContent.includes(searchQuery.toLowerCase());
             const matchesSource = activeSource === 'All Sources' || article.source === activeSource;
@@ -273,20 +295,20 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
     const showControls = !limit;
 
     return (
-        <section className="bg-white border-t-4 border-black py-16 px-4">
-            <div className="max-w-[1400px] mx-auto"> {/* Wider container for grid */}
+        <section className={`py-16 px-6 ${limit ? '' : 'bg-muted/30'}`}>
+            <div className="max-w-[1400px] mx-auto">
 
-                <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 border-b-4 border-black pb-4 gap-4">
+                <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 pb-4 gap-4 border-b border-border">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
-                            <Newspaper size={32} />
-                            <h2 className="text-4xl font-black uppercase">The Lowdown</h2>
+                            <Newspaper className="text-primary w-8 h-8" />
+                            <h2 className="text-3xl font-bold tracking-tight">AI News Feed</h2>
                         </div>
-                        <p className="font-mono text-sm text-gray-500 font-bold">The latest AI news from trusted sources, all in one place.</p>
+                        <p className="font-medium text-sm text-muted-foreground">The latest AI news from trusted sources, all in one place.</p>
                     </div>
 
                     {showAllLink && (
-                        <Link to="/feed" className="hidden md:flex items-center gap-2 font-mono font-bold hover:text-blue-600">
+                        <Link to="/feed" className="hidden md:flex items-center gap-2 font-medium text-primary hover:underline">
                             View Full Feed <ArrowRight size={18} />
                         </Link>
                     )}
@@ -326,11 +348,11 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                         ))}
                     </div>
                 ) : (
-                    <Card className="py-20 text-center border-dashed bg-gray-50" noShadow>
-                        <p className="font-mono text-gray-400 font-bold">No intel found matching these filters.</p>
+                    <Card className="py-20 text-center border-dashed bg-muted/50" noShadow>
+                        <p className="font-medium text-muted-foreground">No intel found matching these filters.</p>
                         <Button
-                            variant="ghost"
-                            className="mt-4 underline"
+                            variant="link"
+                            className="mt-4"
                             onClick={() => { setSearchQuery(''); setActiveCategory('All'); setActiveSource('All Sources'); }}
                         >
                             Clear Filters
@@ -341,7 +363,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                 <div className="mt-12 text-center">
                     {showAllLink ? (
                         <Link to="/feed">
-                            <Button size="lg" icon="arrow-right">VIEW FULL INTEL FEED</Button>
+                            <Button size="lg" className="gap-2">View Full Intel Feed <ArrowRight size={16} /></Button>
                         </Link>
                     ) : (
                         <>
@@ -350,14 +372,14 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
                                 <div ref={loadMoreTriggerRef} className="py-8">
                                     {loadingMore && (
                                         <div className="flex items-center justify-center gap-3">
-                                            <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                                            <span className="font-mono font-bold">Loading more...</span>
+                                            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                            <span className="font-medium text-muted-foreground">Loading more...</span>
                                         </div>
                                     )}
                                 </div>
                             )}
                             {!hasMore && visibleArticles.length > 0 && (
-                                <p className="font-mono text-gray-400 font-bold">You've reached the end. {total} articles total.</p>
+                                <p className="font-medium text-muted-foreground">You've reached the end. {total} articles total.</p>
                             )}
                         </>
                     )}
@@ -367,7 +389,7 @@ export const NewsFeed = ({ limit, showAllLink = false }) => {
             {showBackToTop && (
                 <button
                     onClick={scrollToTop}
-                    className="fixed bottom-8 right-8 bg-black text-white p-4 rounded-full shadow-lg hover:bg-gray-800 transition-all z-50 animate-bounce"
+                    className="fixed bottom-8 right-8 bg-primary text-primary-foreground p-4 rounded-full shadow-lg hover:bg-primary/90 transition-all z-50 animate-bounce"
                     aria-label="Back to top"
                 >
                     <ChevronUp size={24} />

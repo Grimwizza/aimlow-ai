@@ -63,59 +63,60 @@ export const NewsCard = ({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => onRead(article.link)}
-            className={`group block h-full transition-all duration-300 ${isRead ? 'opacity-60 grayscale' : 'opacity-100'} ${isSelected ? 'ring-4 ring-blue-500 ring-offset-2' : ''}`}
+            className={`group block h-full select-none outline-none ${isRead ? 'opacity-60 grayscale' : 'opacity-100'}`}
         >
-            <div className="h-full border-2 border-black bg-white flex flex-col hover:-translate-y-1 transition-transform brutal-shadow relative">
+            <div className={`h-full border border-border bg-card rounded-xl overflow-hidden flex flex-col transition-all duration-300 hover:shadow-md hover:-translate-y-1 relative group-focus:ring-2 group-focus:ring-ring group-focus:ring-offset-2 ${isSelected ? 'ring-2 ring-ring ring-offset-2' : ''}`}>
+
                 {/* Source badge */}
-                <div className="absolute top-0 left-0 bg-[#FEC43D] border-b-2 border-r-2 border-black px-3 py-1 font-mono text-xs font-bold z-20 uppercase">
+                <div className="absolute top-3 left-3 bg-background/90 backdrop-blur shadow-sm rounded-md px-2 py-1 text-xs font-semibold z-20 text-foreground border border-border">
                     {article.source}
                 </div>
 
                 {/* Action buttons */}
-                <div className="absolute top-0 right-0 flex z-20">
+                <div className="absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         onClick={handleBookmarkClick}
-                        className={`p-2 border-b-2 border-l-2 border-black transition-colors ${isBookmarked ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'}`}
+                        className={`p-2 rounded-full shadow-sm border border-border backdrop-blur transition-colors ${isBookmarked ? 'bg-primary text-primary-foreground border-primary' : 'bg-background/80 hover:bg-accent text-foreground'}`}
                         title={isBookmarked ? 'Remove bookmark' : 'Bookmark for later'}
                     >
-                        {isBookmarked ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+                        {isBookmarked ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
                     </button>
                     <button
                         onClick={handleShareClick}
-                        className="p-2 bg-white border-b-2 border-l-2 border-black hover:bg-gray-100 transition-colors"
+                        className="p-2 rounded-full shadow-sm border border-border bg-background/80 backdrop-blur hover:bg-accent text-foreground transition-colors"
                         title="Share article"
                     >
-                        <Share2 size={16} />
+                        <Share2 size={14} />
                     </button>
                 </div>
 
-                <div className="h-48 w-full overflow-hidden border-b-2 border-black relative bg-gray-100 flex items-center justify-center">
+                <div className="h-48 w-full overflow-hidden border-b border-border relative bg-muted flex items-center justify-center">
                     <img
                         src={displayImage}
                         alt=""
-                        className={`w-full h-full ${isLogo ? 'object-contain p-10' : 'object-cover'}`}
+                        className={`w-full h-full transition-transform duration-500 group-hover:scale-105 ${isLogo ? 'object-contain p-10 opacity-80 mix-blend-multiply dark:mix-blend-normal' : 'object-cover'}`}
                         onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = sourceFallback;
-                            e.target.className = "w-full h-full object-contain p-8 bg-gray-100";
+                            e.target.className = "w-full h-full object-contain p-8 bg-muted opacity-50";
                         }}
                     />
                 </div>
 
                 <div className="p-5 flex flex-col flex-1">
-                    <h3 className="text-xl font-black leading-tight mb-3 line-clamp-3 group-hover:text-blue-600 transition-colors">
+                    <h3 className="text-lg font-bold leading-tight mb-3 line-clamp-3 group-hover:text-primary transition-colors tracking-tight">
                         {article.title}
                     </h3>
-                    <div className="flex items-center justify-between mt-auto font-mono text-xs text-gray-400 pt-4 border-t-2 border-gray-100">
+                    <div className="flex items-center justify-between mt-auto text-xs text-muted-foreground pt-4 border-t border-border/50">
                         <div className="flex items-center gap-3">
-                            <span className="font-bold text-gray-500">{timeAgo(article.pubDate)} ago</span>
-                            <span className="flex items-center gap-1 text-gray-400">
+                            <span className="font-medium">{timeAgo(article.pubDate)} ago</span>
+                            <span className="flex items-center gap-1 opacity-70">
                                 <Clock size={12} />
                                 {readingTime} min
                             </span>
                         </div>
-                        <span className="flex items-center gap-1 font-bold text-black uppercase group-hover:text-blue-600">
-                            Read <ExternalLink size={14} />
+                        <span className="flex items-center gap-1 font-semibold text-foreground group-hover:text-primary transition-colors">
+                            Read <ExternalLink size={12} />
                         </span>
                     </div>
                 </div>

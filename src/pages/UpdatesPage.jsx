@@ -7,7 +7,7 @@ export const UpdatesPage = () => {
     return (
         <>
             <Helmet>
-                <title>Model Updates | AimLow AI</title>
+                <title>AI Changelog | AimLow AI</title>
                 <meta name="description" content="Live timeline of updates from OpenAI, Anthropic, Google DeepMind, and Meta AI." />
             </Helmet>
             <UpdatesTimeline />

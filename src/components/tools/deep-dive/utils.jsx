@@ -78,31 +78,31 @@ export const cleanReportContent = (content) => {
 };
 
 export const getMarkdownComponents = (runAnalysis, currentBrand) => ({
-    h1: ({ node, ...props }) => <h1 className="text-4xl font-black uppercase mt-8 mb-6 border-b-4 border-black pb-2" {...props} />,
-    h2: ({ node, ...props }) => <h2 className="text-3xl font-black uppercase mt-8 mb-4 border-b-2 border-gray-200 pb-2 flex items-center gap-2" {...props} />,
-    h3: ({ node, ...props }) => <h3 className="text-xl font-bold uppercase mt-6 mb-3 text-gray-800 bg-yellow-50 inline-block px-2 border-l-4 border-black" {...props} />,
-    p: ({ node, ...props }) => <p className="mb-4 leading-relaxed font-serif text-lg text-gray-800" {...props} />,
+    h1: ({ node, ...props }) => <h1 className="text-3xl font-bold tracking-tight mt-8 mb-4 border-b border-border pb-2 text-foreground" {...props} />,
+    h2: ({ node, ...props }) => <h2 className="text-2xl font-bold tracking-tight mt-8 mb-4 border-b border-border/50 pb-2 flex items-center gap-2 text-foreground" {...props} />,
+    h3: ({ node, ...props }) => <h3 className="text-xl font-semibold tracking-tight mt-6 mb-3 text-foreground" {...props} />,
+    p: ({ node, ...props }) => <p className="mb-4 leading-7 text-muted-foreground" {...props} />,
     ul: ({ node, ...props }) => <ul className="grid grid-cols-1 gap-2 list-none pl-0 mb-6" {...props} />,
-    ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-6 font-bold space-y-2" {...props} />,
-    li: ({ node, ...props }) => <li className="bg-gray-50 p-3 border-l-4 border-gray-300 text-sm hover:border-black transition-colors" {...props} />,
-    blockquote: ({ node, ...props }) => <blockquote className="border-l-8 border-[#FEC43D] bg-gray-50 p-4 my-6 italic font-serif text-xl" {...props} />,
-    strong: ({ node, ...props }) => <strong className="font-black text-black bg-yellow-100 px-1" {...props} />,
+    ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-6 font-semibold space-y-2 text-foreground" {...props} />,
+    li: ({ node, ...props }) => <li className="bg-muted/30 p-3 rounded-lg border border-border/50 text-sm hover:border-border transition-colors text-foreground" {...props} />,
+    blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-primary bg-muted/20 p-4 my-6 italic text-muted-foreground rounded-r-lg" {...props} />,
+    strong: ({ node, ...props }) => <strong className="font-bold text-foreground" {...props} />,
     code: ({ node, inline, ...props }) => inline
-        ? <code className="bg-gray-200 px-1 font-mono text-sm text-red-600 font-bold" {...props} />
-        : <pre className="bg-black text-white p-4 overflow-x-auto font-mono text-sm my-4 rounded-none"><code {...props} /></pre>,
+        ? <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-sm text-primary font-semibold" {...props} />
+        : <pre className="bg-muted text-foreground p-4 overflow-x-auto font-mono text-sm my-4 rounded-lg border border-border"><code {...props} /></pre>,
     a: ({ node, href, children, ...props }) => {
         if (href && href.startsWith('analyze:')) {
             const compName = href.replace('analyze:', '');
             return (
                 <button
                     onClick={() => runAnalysis(compName, currentBrand)}
-                    className="text-[#2563EB] hover:bg-blue-100 px-1 rounded font-bold underline decoration-2 cursor-pointer text-left inline-flex items-center gap-1"
+                    className="text-primary hover:bg-primary/10 px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer text-left inline-flex items-center gap-1 border border-transparent hover:border-primary/20"
                     title={`Run Strategy vs ${currentBrand}`}
                 >
                     {children} ↗
                 </button>
             );
         }
-        return <a href={href} className="text-[#2563EB] font-bold hover:underline decoration-2" target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
+        return <a href={href} className="text-primary font-medium hover:underline underline-offset-4" target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
     }
 });

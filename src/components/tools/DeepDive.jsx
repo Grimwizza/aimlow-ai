@@ -5,20 +5,23 @@ import { Icon } from '../ui/Icon';
 import { ChevronDown, Printer, Mail, Download } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { ReportView } from './deep-dive/ReportView';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Card } from '../ui/Card';
 
 const SkeletonLoader = () => (
-    <div className="bg-white border-4 border-black p-0 brutal-shadow-lg h-[600px] flex flex-col animate-pulse">
-        <div className="h-48 bg-gray-200 border-b-4 border-black p-8">
-            <div className="h-12 w-2/3 bg-gray-300 mb-4 rounded"></div>
-            <div className="h-6 w-1/3 bg-gray-300 rounded"></div>
+    <Card className="h-[600px] flex flex-col p-0 overflow-hidden border-border bg-card animate-pulse">
+        <div className="h-48 bg-muted border-b border-border p-8">
+            <div className="h-10 w-2/3 bg-muted-foreground/20 mb-4 rounded-md"></div>
+            <div className="h-5 w-1/3 bg-muted-foreground/20 rounded-md"></div>
         </div>
         <div className="p-8 space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
-            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-            <div className="h-4 bg-gray-200 rounded w-4/6"></div>
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
+            <div className="h-4 bg-muted-foreground/10 rounded w-full"></div>
+            <div className="h-4 bg-muted-foreground/10 rounded w-5/6"></div>
+            <div className="h-4 bg-muted-foreground/10 rounded w-4/6"></div>
+            <div className="h-4 bg-muted-foreground/10 rounded w-full"></div>
         </div>
-    </div>
+    </Card>
 );
 
 export const DeepDive = ({ onBack }) => {
@@ -200,33 +203,32 @@ export const DeepDive = ({ onBack }) => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-12">
+        <div className="max-w-7xl mx-auto px-6 py-12">
             <SEO title="The Deep Dive" description="BETA Pro Brand Analyst. 4P & SWOT Reports." />
             <div className="print:hidden">
                 <div className="flex justify-between items-center mb-8">
-                    <button onClick={onBack} className="flex items-center gap-2 font-mono font-bold hover:text-blue-600"><Icon name="arrow-left" size={20} /> Back to Lab</button>
-
+                    <button onClick={onBack} className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+                        <Icon name="arrow-left" size={18} /> Back to Lab
+                    </button>
                 </div>
 
-                <div className="brutal-card p-8 bg-yellow-300 brutal-shadow mb-12">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                        <div>
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-4xl md:text-5xl font-black uppercase">The Deep Dive</h1>
-                                <span className="bg-black text-white px-2 py-1 font-mono font-bold text-xs uppercase -rotate-2">BETA Pro Analyst</span>
-                            </div>
-                            <p className="font-mono font-bold mt-2">Instant strategic audits. Enter a brand to starting mining.</p>
-                        </div>
+                <div className="mb-12 text-center max-w-2xl mx-auto">
+                    <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase mb-4 border border-primary/20">
+                        <Icon name="sparkles" size={14} /> Pro Brand Analyst
                     </div>
+                    <h1 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight">The Deep Dive</h1>
+                    <p className="text-xl text-muted-foreground">Instant strategic audits. Enter a brand to starting mining.</p>
+                </div>
 
-                    <form onSubmit={handleFormSubmit} className="bg-white border-4 border-black p-2 flex flex-col md:flex-row gap-2 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                <Card className="p-2 mb-12 max-w-4xl mx-auto shadow-lg border-border/60 bg-card/50 backdrop-blur-sm">
+                    <form onSubmit={handleFormSubmit} className="flex flex-col md:flex-row gap-2">
                         {/* COUNTRY DROPDOWN */}
-                        <div className="relative min-w-[160px] border-b-2 md:border-b-0 md:border-r-2 border-gray-200 group bg-gray-50/50">
-                            <label className="absolute top-2 left-4 text-[10px] font-black text-gray-500 font-mono tracking-widest pointer-events-none">TARGET MARKET</label>
+                        <div className="relative min-w-[200px] group">
+                            <label className="absolute top-2 left-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider pointer-events-none z-10">Target Market</label>
                             <select
                                 value={country}
                                 onChange={(e) => setCountry(e.target.value)}
-                                className="w-full h-full appearance-none bg-transparent pl-4 pr-10 pt-6 pb-2 font-bold text-lg focus:outline-none cursor-pointer hover:bg-gray-100 uppercase"
+                                className="w-full h-full appearance-none bg-muted/30 border border-transparent rounded-lg pl-4 pr-10 pt-6 pb-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 hover:bg-muted/50 transition-colors cursor-pointer text-foreground"
                             >
                                 <option value="Global">Global</option>
                                 <option value="United States">USA</option>
@@ -235,47 +237,49 @@ export const DeepDive = ({ onBack }) => {
                                 <option value="Europe">Europe</option>
                                 <option value="Asia">Asia</option>
                             </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-black mt-2">
-                                <ChevronDown size={20} strokeWidth={3} />
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                                <ChevronDown size={16} strokeWidth={2.5} />
                             </div>
                         </div>
 
-                        <input
-                            value={inputBrand}
-                            onChange={(e) => setInputBrand(e.target.value)}
-                            className="flex-grow font-bold text-xl p-3 focus:outline-none placeholder:text-gray-300 uppercase"
-                            placeholder="ENTER BRAND (E.G. NIKE)..."
-                            name="brand"
-                            autoComplete="off"
-                        />
+                        <div className="flex-grow">
+                            <Input
+                                value={inputBrand}
+                                onChange={(e) => setInputBrand(e.target.value)}
+                                className="h-full text-lg font-medium px-4 py-3 bg-muted/30 border-transparent focus:border-primary/30 focus:bg-background transition-all"
+                                placeholder="Enter Brand (e.g. Nike)..."
+                                name="brand"
+                                autoComplete="off"
+                            />
+                        </div>
 
-                        <button type="submit" disabled={isGenerating || !inputBrand} className="bg-black text-white px-8 py-3 font-black text-xl hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-400">
-                            {isGenerating ? <Icon name="loader" className="animate-spin" /> : "ANALYZE"}
-                        </button>
+                        <Button type="submit" disabled={isGenerating || !inputBrand} size="lg" className="px-8 font-bold text-base h-auto py-3 shadow-md">
+                            {isGenerating ? <div className="flex items-center gap-2"><Icon name="loader" className="animate-spin" /> Analyzing...</div> : "Analyze"}
+                        </Button>
                     </form>
-                </div>
+                </Card>
             </div>
 
             {reports.length > 0 && (
-                <div className="flex justify-end gap-4 mb-8 print:hidden flex-wrap">
-                    <button disabled={isPDFGenerating} onClick={handleDownloadPDF} className="flex items-center gap-2 font-mono font-bold bg-white border-2 border-black px-4 py-2 hover:bg-gray-100 brutal-shadow transition-colors disabled:opacity-50">
-                        {isPDFGenerating ? <Icon name="loader" className="animate-spin" size={18} /> : <Download size={18} />} DOWNLOAD PDF
-                    </button>
-                    <button onClick={handleEmailReport} className="flex items-center gap-2 font-mono font-bold bg-white border-2 border-black px-4 py-2 hover:bg-yellow-300 brutal-shadow transition-colors">
-                        <Mail size={18} /> EMAIL REPORT
-                    </button>
-                    <button onClick={handlePrint} className="flex items-center gap-2 font-mono font-bold bg-white border-2 border-black px-4 py-2 hover:bg-gray-100 brutal-shadow transition-colors">
-                        <Printer size={18} /> PRINT REPORT
-                    </button>
+                <div className="flex justify-end gap-3 mb-8 print:hidden flex-wrap">
+                    <Button disabled={isPDFGenerating} onClick={handleDownloadPDF} variant="outline" className="gap-2">
+                        {isPDFGenerating ? <Icon name="loader" className="animate-spin" size={16} /> : <Download size={16} />} Download PDF
+                    </Button>
+                    <Button onClick={handleEmailReport} variant="outline" className="gap-2">
+                        <Mail size={16} /> Email Report
+                    </Button>
+                    <Button onClick={handlePrint} variant="outline" className="gap-2">
+                        <Printer size={16} /> Print Report
+                    </Button>
                 </div>
             )}
 
             {error && (
-                <div className="bg-red-100 border-4 border-red-600 p-6 mb-12 flex items-start gap-4">
-                    <Icon name="alert-triangle" className="text-red-600 flex-shrink-0" size={32} />
+                <div className="bg-destructive/10 border border-destructive/20 p-6 mb-12 flex items-start gap-4 rounded-lg">
+                    <Icon name="alert-triangle" className="text-destructive flex-shrink-0" size={24} />
                     <div>
-                        <h3 className="font-black text-xl uppercase text-red-700">Analysis Failed</h3>
-                        <p className="font-bold font-mono text-red-800 mt-1">{error}</p>
+                        <h3 className="font-bold text-lg text-destructive mb-1">Analysis Failed</h3>
+                        <p className="text-muted-foreground">{error}</p>
                     </div>
                 </div>
             )}
@@ -300,10 +304,12 @@ export const DeepDive = ({ onBack }) => {
 
             {/* Overlay for PDF Generation State */}
             {isPDFGenerating && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex flex-col items-center justify-center text-white print:hidden">
-                    <Icon name="loader" size={48} className="animate-spin mb-4" />
-                    <h2 className="text-2xl font-black uppercase">Generating PDF...</h2>
-                    <p className="font-mono mt-2">Please wait while we capture the report.</p>
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-foreground print:hidden">
+                    <div className="bg-card p-8 rounded-xl shadow-lg border border-border flex flex-col items-center">
+                        <Icon name="loader" size={40} className="animate-spin mb-4 text-primary" />
+                        <h2 className="text-xl font-bold mb-2">Generating PDF...</h2>
+                        <p className="text-muted-foreground text-sm">Please wait while we capture the report.</p>
+                    </div>
                 </div>
             )}
 

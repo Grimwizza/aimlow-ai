@@ -1,12 +1,10 @@
 import React from 'react';
 
-export const Card = ({ children, className = "", color = "bg-white", noShadow = false, ...props }) => {
+export const Card = ({ children, className = "", noShadow = false, ...props }) => {
     return (
         <div
             className={`
-                border-2 border-black p-6 
-                ${color} 
-                ${!noShadow ? 'brutal-shadow' : ''} 
+                rounded-xl border border-border bg-card text-card-foreground shadow-sm
                 ${className}
             `}
             {...props}

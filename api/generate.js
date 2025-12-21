@@ -139,6 +139,10 @@ export default async function handler(req) {
     return new Response(JSON.stringify({ error: 'Invalid tool type' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
   } catch (error) {
+    console.error("GENERATE API ERROR DETAILED:", error);
+    if (error.response) {
+      console.error(error.response.status, error.response.data);
+    }
     return new Response(JSON.stringify({ error: error.message || 'AI generation failed' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
