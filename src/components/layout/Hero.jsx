@@ -21,7 +21,7 @@ export const Hero = () => (
                 AimLow<span className="text-primary">.ai</span>
             </h1>
 
-            <h2 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent pb-2">
+            <h2 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent pb-2">
                 Do More <br /> With Less.
             </h2>
 
