@@ -12,14 +12,14 @@ export const HomePage = ({ posts }) => (
         <Hero />
 
         {/* News Feed Section - distinct grey background */}
-        <div className="bg-slate-50 border-y border-border">
+        <div className="bg-slate-50 dark:bg-zinc-900/50 border-y border-border">
             <NewsFeed limit={4} showAllLink={true} />
         </div>
 
         {/* Apps Section - Subtle Light Gray for separation without being dark */}
-        <section className="relative py-24 px-4 overflow-hidden bg-slate-100 border-y border-border">
+        <section className="relative py-24 px-4 overflow-hidden bg-slate-100 dark:bg-zinc-900 border-y border-border">
             {/* Background Gradient - subtle light mode mix */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-slate-100 to-slate-100 -z-10" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-slate-100 dark:via-zinc-900 to-slate-100 dark:to-zinc-900 -z-10" />
 
             <div className="max-w-7xl mx-auto">
                 <div className="flex flex-col items-center mb-16 text-center">
