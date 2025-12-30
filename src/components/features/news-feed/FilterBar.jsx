@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Filter, Keyboard } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
@@ -15,8 +15,40 @@ export const FilterBar = ({
     sources,
     categoryCounts = {}
 }) => {
+    const [isVisible, setIsVisible] = useState(true);
+    const lastScrollY = useRef(0);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+
+            // Always show at the very top
+            if (currentScrollY < 100) {
+                setIsVisible(true);
+            } else {
+                // Show when scrolling up, hide when scrolling down
+                if (currentScrollY < lastScrollY.current) {
+                    setIsVisible(true);
+                } else if (currentScrollY > lastScrollY.current && Math.abs(currentScrollY - lastScrollY.current) > 10) {
+                    // Added a small threshold for scroll down to avoid jitter
+                    setIsVisible(false);
+                }
+            }
+            lastScrollY.current = currentScrollY;
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
     return (
-        <div className="mb-8 space-y-4 sticky top-[72px] z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 -mx-6 px-6 border-b border-border transition-all">
+        <div
+            className={`
+                mb-8 space-y-4 sticky top-[72px] z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 -mx-6 px-6 border-b border-border 
+                transition-transform duration-300 ease-in-out
+                ${isVisible ? 'translate-y-0' : '-translate-y-[150%] md:translate-y-0'}
+            `}
+        >
             <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
                     <Input
