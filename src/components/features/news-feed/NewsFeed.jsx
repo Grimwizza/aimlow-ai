@@ -50,6 +50,12 @@ export const NewsFeed = ({ limit, showAllLink = false, internalPosts = [] }) => 
     const [bookmarkedArticles, setBookmarkedArticles] = useState(new Set());
     const [showBackToTop, setShowBackToTop] = useState(false);
     const [selectedIndex, setSelectedIndex] = useState(-1); // For keyboard nav
+    const [viewMode, setViewMode] = useState(() => localStorage.getItem('aimlow_view_mode') || 'grid');
+
+    const handleViewModeChange = (mode) => {
+        setViewMode(mode);
+        localStorage.setItem('aimlow_view_mode', mode);
+    };
 
     // Process Internal Posts
     const formattedInternalPosts = useMemo(() => {
@@ -243,6 +249,9 @@ export const NewsFeed = ({ limit, showAllLink = false, internalPosts = [] }) => 
                 content.includes('training') || content.includes('datacenter') || content.includes('amd') ||
                 content.includes('apple') || content.includes('hardware');
         }
+        else if (cat === 'saved') {
+            return bookmarkedArticles.has(article.link);
+        }
         return false;
     };
 
@@ -270,7 +279,7 @@ export const NewsFeed = ({ limit, showAllLink = false, internalPosts = [] }) => 
             return matchesSearch && matchesSource;
         });
 
-        ["All", "Models", "Image & Video", "Agents", "Research", "Companies", "Policy", "Hardware"].forEach(cat => {
+        ["All", "Saved", "Models", "Image & Video", "Agents", "Research", "Companies", "Policy", "Hardware"].forEach(cat => {
             if (cat === 'All') {
                 categoryCounts[cat] = baseArticles.length;
             } else {
@@ -324,6 +333,8 @@ export const NewsFeed = ({ limit, showAllLink = false, internalPosts = [] }) => 
                         setActiveSource={setActiveSource}
                         sources={Object.keys(SOURCE_LOGOS)}
                         categoryCounts={categoryCounts}
+                        viewMode={viewMode}
+                        setViewMode={handleViewModeChange}
                     />
                 )}
 
@@ -332,7 +343,7 @@ export const NewsFeed = ({ limit, showAllLink = false, internalPosts = [] }) => 
                         {[...Array(8)].map((_, i) => <NewsSkeleton key={i} />)}
                     </div>
                 ) : visibleArticles.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr">
+                    <div className={viewMode === 'list' ? "flex flex-col gap-4 max-w-4xl mx-auto" : "columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6 block"}>
                         {visibleArticles.map((article, idx) => (
                             <NewsCard
                                 key={`${article.link}-${idx}`}
@@ -344,6 +355,7 @@ export const NewsFeed = ({ limit, showAllLink = false, internalPosts = [] }) => 
                                 onShare={shareArticle}
                                 readingTime={getReadingTime(article.summary)}
                                 isSelected={idx === selectedIndex}
+                                layout={viewMode}
                             />
                         ))}
                     </div>
