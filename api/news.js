@@ -64,9 +64,9 @@ export default async function handler(req, res) {
     const page = parseInt(url.searchParams.get('page')) || 1;
     const limit = parseInt(url.searchParams.get('limit')) || 24;
 
-    // --- DIVERSITY ALGORITHM (increased to 10 per source) ---
+    // --- DIVERSITY ALGORITHM (increased to 40 per source for deeper history) ---
     const diverseArticles = results.map(sourceArticles => {
-      return sourceArticles.slice(0, 10);
+      return sourceArticles.slice(0, 40);
     }).flat();
 
     // Deduplication

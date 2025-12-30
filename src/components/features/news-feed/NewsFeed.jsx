@@ -157,7 +157,7 @@ export const NewsFeed = ({ limit, showAllLink = false, internalPosts = [] }) => 
             if (entries[0].isIntersecting && hasMore && !loadingMore) {
                 loadMore();
             }
-        }, { threshold: 0.1, rootMargin: '100px' });
+        }, { threshold: 0.1, rootMargin: '800px' });
 
         if (node) observerRef.current.observe(node);
     }, [loadingMore, hasMore, loadMore]);
