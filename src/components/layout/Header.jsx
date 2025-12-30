@@ -7,7 +7,7 @@ import { ThemeToggle } from '../theme/ThemeToggle';
 export const Logo = () => {
     const [error, setError] = useState(false);
     if (error) return <div className="w-10 h-10 bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl rounded-lg">AL</div>;
-    return <img src="/logo.png" alt="AimLow Logo" className="h-10 w-auto object-contain dark:invert" onError={() => setError(true)} />;
+    return <img src="/logo.png" alt="AimLow Logo" className="h-10 w-auto object-contain dark:drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]" onError={() => setError(true)} />;
 };
 
 export const Header = () => {
@@ -17,7 +17,7 @@ export const Header = () => {
             <div className="max-w-[1400px] mx-auto px-6 py-4 flex justify-between items-center">
                 <Link to="/" className="flex items-center gap-3 cursor-pointer group">
                     <Logo />
-                    <h1 className="text-xl font-bold tracking-tight uppercase">AimLow<span className="text-primary">.ai</span></h1>
+                    <h1 className="text-xl font-bold tracking-tight uppercase dark:drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">AimLow<span className="text-primary">.ai</span></h1>
                 </Link>
                 <div className="flex items-center gap-6">
                     <nav className="hidden md:flex gap-8 font-medium text-sm text-muted-foreground">
