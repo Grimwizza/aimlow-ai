@@ -21,11 +21,10 @@ import { HeadlineGenerator } from './components/tools/HeadlineGenerator';
 import { AltTextFixer } from './components/tools/AltTextFixer';
 import { ContentSimplifier } from './components/tools/ContentSimplifier';
 import { AIMarketingAnalyst } from './components/tools/AIMarketingAnalyst';
+import { DataCenterMap } from './components/tools/DataCenterMap';
 
 // 4. IMPORT DATA
 import { LAB_ITEMS } from './data';
-
-// --- PAGE COMPONENTS (Views) ---
 
 // --- PAGE COMPONENTS (Views) ---
 import { HomePage } from './pages/HomePage';
@@ -87,6 +86,7 @@ function App() {
                     <Route path="/apps/alt-text" element={<AltTextFixer onBack={() => window.history.back()} />} />
                     <Route path="/apps/content-simplifier" element={<ContentSimplifier onBack={() => window.history.back()} />} />
                     <Route path="/apps/ai-marketing-analyst" element={<AIMarketingAnalyst onBack={() => window.history.back()} />} />
+                    <Route path="/apps/ai-hyperscale-map" element={<DataCenterMap onBack={() => window.history.back()} />} />
 
                     {/* Dynamic Post Route */}
                     <Route path="/post/:slug" element={<BlogPost />} />

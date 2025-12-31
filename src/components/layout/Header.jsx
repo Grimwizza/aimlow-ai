@@ -25,6 +25,7 @@ export const Header = () => {
                         <Link to="/tools" className="hover:text-foreground transition-colors">Trending AI Tools</Link>
                         <Link to="/feed" className="hover:text-foreground transition-colors">AI News Feed</Link>
                         <Link to="/updates" className="hover:text-foreground transition-colors">AI Changelog</Link>
+                        <Link to="/apps/ai-hyperscale-map" className="hover:text-foreground transition-colors">AI Hyperscale Map</Link>
                         <Link to="/apps" className="hover:text-foreground transition-colors">AimLow Apps</Link>
                     </nav>
                     <div className="hidden md:block w-px h-6 bg-border"></div>
@@ -41,6 +42,7 @@ export const Header = () => {
                         <Link to="/tools" onClick={() => setIsMenuOpen(false)} className="hover:text-primary">Trending AI Tools</Link>
                         <Link to="/feed" onClick={() => setIsMenuOpen(false)} className="hover:text-primary">AI News Feed</Link>
                         <Link to="/updates" onClick={() => setIsMenuOpen(false)} className="hover:text-primary">AI Changelog</Link>
+                        <Link to="/apps/ai-hyperscale-map" onClick={() => setIsMenuOpen(false)} className="hover:text-primary">AI Hyperscale Map</Link>
                         <Link to="/apps" onClick={() => setIsMenuOpen(false)} className="hover:text-primary">AimLow Apps</Link>
                     </nav>
                 </div>
