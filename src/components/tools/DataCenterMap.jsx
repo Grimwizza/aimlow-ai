@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { useSearchParams } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
-import { ArrowLeft, Server, MapPin, BarChart3, Globe, Network, Filter, X, Loader2, Activity, Building2, Search, Maximize2, Minimize2, Copy, Check, Users } from 'lucide-react';
+import { ArrowLeft, Server, MapPin, BarChart3, Globe, Network, Filter, X, Loader2, Activity, Building2, Search, Maximize2, Minimize2, Copy, Check, Users, ChevronDown } from 'lucide-react';
 import { Button } from '../ui/Button';
 import L from 'leaflet';
 import { REAL_DATA_CENTERS, DATA_CENTER_METADATA } from '../../data/realDataCenters';
@@ -261,6 +261,7 @@ export const DataCenterMap = ({ onBack }) => {
     const mapContainerRef = useRef(null);
     const [searchParams, setSearchParams] = useSearchParams();
     const [monthlyUsersData, setMonthlyUsersData] = useState(null);
+    const [expandedFilter, setExpandedFilter] = useState('origin'); // 'origin', 'provider', 'models', or null
 
     // Toggle comparison selection (max 3)
     const toggleCompare = (dc) => {
@@ -608,9 +609,9 @@ export const DataCenterMap = ({ onBack }) => {
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col lg:flex-row relative">
+            <div className="flex-1 flex flex-col-reverse lg:flex-row relative">
                 {/* Left Panel: Filters & Stats */}
-                <div className="lg:w-96 w-full bg-card border-r border-border flex flex-col z-10 shadow-lg lg:shadow-none h-[calc(100vh-80px)]">
+                <div className="lg:w-96 w-full bg-card border-r border-border flex flex-col z-10 shadow-lg lg:shadow-none h-[40vh] lg:h-[calc(100vh-80px)] overflow-y-auto">
 
                     {/* Search Bar */}
                     <div className="p-4 border-b border-border flex-none">
@@ -657,114 +658,168 @@ export const DataCenterMap = ({ onBack }) => {
                         )}
                     </div>
 
-                    {/* Country of Origin Filter - Primary Filter */}
-                    <div className="p-6 border-b border-border flex-none">
-                        <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-4 flex items-center justify-between">
-                            <span className="flex items-center gap-2"><Globe size={16} /> Country of Origin</span>
-                            {selectedOrigin && (
-                                <button onClick={() => setSelectedOrigin(null)} className="text-xs text-primary hover:underline flex items-center gap-1">
-                                    <X size={12} /> Clear
-                                </button>
-                            )}
-                        </h2>
-                        {isLoading ? (
-                            <div className="flex gap-2">
-                                {[1, 2, 3].map(i => <div key={i} className="h-8 w-20 bg-muted/50 rounded-lg animate-pulse" />)}
+                    {/* Country of Origin Filter - Collapsible Accordion */}
+                    <div className="border-b border-border flex-none">
+                        <button
+                            onClick={() => setExpandedFilter(expandedFilter === 'origin' ? null : 'origin')}
+                            className="w-full p-4 lg:p-6 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                        >
+                            <span className="text-sm uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-2">
+                                <Globe size={16} /> Country of Origin
+                                {selectedOrigin && <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full normal-case">{selectedOrigin}</span>}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                {selectedOrigin && (
+                                    <span
+                                        onClick={(e) => { e.stopPropagation(); setSelectedOrigin(null); }}
+                                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                                    >
+                                        <X size={12} /> Clear
+                                    </span>
+                                )}
+                                <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${expandedFilter === 'origin' ? 'rotate-180' : ''}`} />
                             </div>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {allOrigins.map((origin) => {
-                                    const count = dataPoints.filter(dc => getProviderCountry(dc.provider) === origin).length;
-                                    return (
-                                        <button
-                                            key={origin}
-                                            onClick={() => handleOriginClick(origin)}
-                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${selectedOrigin === origin
-                                                ? 'bg-primary/10 border-primary text-primary'
-                                                : 'bg-secondary/50 border-transparent hover:border-primary/50'
-                                                }`}
-                                        >
-                                            <span className="text-lg">{getCountryFlag(origin)}</span>
-                                            <span className="text-xs font-medium">{origin}</span>
-                                            <span className="text-[10px] bg-background/50 px-1.5 py-0.5 rounded-full">{count}</span>
-                                        </button>
-                                    );
-                                })}
+                        </button>
+                        <div className={`grid transition-all duration-200 ${expandedFilter === 'origin' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                            <div className="overflow-hidden">
+                                <div className="px-4 lg:px-6 pb-4 lg:pb-6">
+                                    {isLoading ? (
+                                        <div className="flex gap-2">
+                                            {[1, 2, 3].map(i => <div key={i} className="h-8 w-20 bg-muted/50 rounded-lg animate-pulse" />)}
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2">
+                                            {allOrigins.map((origin) => {
+                                                const count = dataPoints.filter(dc => getProviderCountry(dc.provider) === origin).length;
+                                                return (
+                                                    <button
+                                                        key={origin}
+                                                        onClick={() => handleOriginClick(origin)}
+                                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${selectedOrigin === origin
+                                                            ? 'bg-primary/10 border-primary text-primary'
+                                                            : 'bg-secondary/50 border-transparent hover:border-primary/50'
+                                                            }`}
+                                                    >
+                                                        <span className="text-lg">{getCountryFlag(origin)}</span>
+                                                        <span className="text-xs font-medium">{origin}</span>
+                                                        <span className="text-[10px] bg-background/50 px-1.5 py-0.5 rounded-full">{count}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        )}
+                        </div>
                     </div>
 
-                    {/* Provider Filter Section */}
-                    <div className="p-6 border-b border-border flex-none">
-                        <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-4 flex items-center justify-between">
-                            <span className="flex items-center gap-2"><Building2 size={16} /> Provider</span>
-                            {selectedProvider && (
-                                <button onClick={() => setSelectedProvider(null)} className="text-xs text-primary hover:underline flex items-center gap-1">
-                                    <X size={12} /> Clear
-                                </button>
-                            )}
-                        </h2>
-                        {isLoading ? (
-                            <div className="py-2 flex justify-center text-muted-foreground animate-pulse">
-                                <span className="text-xs">Loading providers...</span>
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {allProviders.map(provider => (
-                                    <button
-                                        key={provider}
-                                        onClick={() => handleProviderClick(provider)}
-                                        className={`text-xs px-2.5 py-1.5 rounded-full border transition-all ${selectedProvider === provider
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-secondary/50 text-secondary-foreground border-transparent hover:border-primary/50'
-                                            }`}
+                    {/* Provider Filter Section - Collapsible Accordion */}
+                    <div className="border-b border-border flex-none">
+                        <button
+                            onClick={() => setExpandedFilter(expandedFilter === 'provider' ? null : 'provider')}
+                            className="w-full p-4 lg:p-6 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                        >
+                            <span className="text-sm uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-2">
+                                <Building2 size={16} /> Provider
+                                {selectedProvider && <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full normal-case">{selectedProvider}</span>}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                {selectedProvider && (
+                                    <span
+                                        onClick={(e) => { e.stopPropagation(); setSelectedProvider(null); }}
+                                        className="text-xs text-primary hover:underline flex items-center gap-1"
                                     >
-                                        {provider}
-                                    </button>
-                                ))}
+                                        <X size={12} /> Clear
+                                    </span>
+                                )}
+                                <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${expandedFilter === 'provider' ? 'rotate-180' : ''}`} />
                             </div>
-                        )}
+                        </button>
+                        <div className={`grid transition-all duration-200 ${expandedFilter === 'provider' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                            <div className="overflow-hidden">
+                                <div className="px-4 lg:px-6 pb-4 lg:pb-6">
+                                    {isLoading ? (
+                                        <div className="py-2 flex justify-center text-muted-foreground animate-pulse">
+                                            <span className="text-xs">Loading providers...</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2">
+                                            {allProviders.map(provider => (
+                                                <button
+                                                    key={provider}
+                                                    onClick={() => handleProviderClick(provider)}
+                                                    className={`text-xs px-2.5 py-1.5 rounded-full border transition-all ${selectedProvider === provider
+                                                        ? 'bg-primary text-primary-foreground border-primary'
+                                                        : 'bg-secondary/50 text-secondary-foreground border-transparent hover:border-primary/50'
+                                                        }`}
+                                                >
+                                                    {provider}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Model Filter Section */}
-                    <div className="p-6 border-b border-border flex-1 overflow-y-auto">
-                        <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-4 flex items-center justify-between">
-                            <span className="flex items-center gap-2"><Network size={16} /> AI Models</span>
-                            {selectedModel && (
-                                <button onClick={() => setSelectedModel(null)} className="text-xs text-primary hover:underline flex items-center gap-1">
-                                    <X size={12} /> Clear
-                                </button>
-                            )}
-                        </h2>
-                        {isLoading ? (
-                            <div className="py-6 flex justify-center text-muted-foreground animate-pulse">
-                                <span className="text-xs">Updating model registry...</span>
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {allModels.map(model => (
-                                    <button
-                                        key={model}
-                                        onClick={() => handleModelClick(model)}
-                                        className={`text-xs px-2.5 py-1.5 rounded-full border transition-all ${selectedModel === model
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-secondary/50 text-secondary-foreground border-transparent hover:border-primary/50'
-                                            }`}
+                    {/* Model Filter Section - Collapsible Accordion */}
+                    <div className="border-b border-border flex-1 min-h-0">
+                        <button
+                            onClick={() => setExpandedFilter(expandedFilter === 'models' ? null : 'models')}
+                            className="w-full p-4 lg:p-6 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                        >
+                            <span className="text-sm uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-2">
+                                <Network size={16} /> AI Models
+                                {selectedModel && <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full normal-case">{selectedModel}</span>}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                {selectedModel && (
+                                    <span
+                                        onClick={(e) => { e.stopPropagation(); setSelectedModel(null); }}
+                                        className="text-xs text-primary hover:underline flex items-center gap-1"
                                     >
-                                        {model}
-                                    </button>
-                                ))}
+                                        <X size={12} /> Clear
+                                    </span>
+                                )}
+                                <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${expandedFilter === 'models' ? 'rotate-180' : ''}`} />
                             </div>
-                        )}
+                        </button>
+                        <div className={`grid transition-all duration-200 ${expandedFilter === 'models' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                            <div className="overflow-hidden">
+                                <div className="px-4 lg:px-6 pb-4 lg:pb-6">
+                                    {isLoading ? (
+                                        <div className="py-6 flex justify-center text-muted-foreground animate-pulse">
+                                            <span className="text-xs">Updating model registry...</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2">
+                                            {allModels.map(model => (
+                                                <button
+                                                    key={model}
+                                                    onClick={() => handleModelClick(model)}
+                                                    className={`text-xs px-2.5 py-1.5 rounded-full border transition-all ${selectedModel === model
+                                                        ? 'bg-primary text-primary-foreground border-primary'
+                                                        : 'bg-secondary/50 text-secondary-foreground border-transparent hover:border-primary/50'
+                                                        }`}
+                                                >
+                                                    {model}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* Right Panel: Map */}
-                <div className="flex-1 bg-muted/50 relative min-h-[500px]">
+                <div className="flex-1 bg-muted/50 relative h-[60vh] lg:h-auto lg:min-h-[500px]">
                     <MapContainer
                         center={mapView.center}
                         zoom={mapView.zoom}
-                        className="w-full h-full z-0"
+                        className="w-full z-0 !h-[60vh] lg:!h-full"
                         style={{ background: '#1c1c1c' }}
                     >
                         <TileLayer
