@@ -938,16 +938,32 @@ export const DataCenterMap = ({ onBack }) => {
                                 <div className="w-px h-10 bg-border/50"></div>
 
                                 {/* Power */}
-                                <div className="flex items-center gap-2.5">
-                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                <div className="flex items-center gap-2.5 group relative cursor-help">
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 transition-colors group-hover:bg-amber-500/20 group-hover:border-amber-500/30">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600 dark:text-amber-400"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-[9px] uppercase text-muted-foreground font-semibold tracking-widest leading-none mb-0.5">Power</span>
-                                        <span className="text-base font-bold font-mono text-foreground leading-none">
+                                        <span className="text-[9px] uppercase text-muted-foreground font-semibold tracking-widest leading-none mb-0.5 group-hover:text-foreground transition-colors">Power</span>
+                                        <span className="text-base font-bold font-mono text-foreground leading-none group-hover:text-amber-500 transition-colors">
                                             {isLoading ? '—' : `${stats.power} GW`}
                                         </span>
                                     </div>
+
+                                    {/* Context Tooltip */}
+                                    {!isLoading && stats.power > 0 && (
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-48 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 z-[500] scale-95 group-hover:scale-100">
+                                            <div className="bg-popover/90 backdrop-blur-md text-popover-foreground text-xs rounded-lg border border-border/50 shadow-xl p-3 text-center">
+                                                <div className="font-semibold mb-1 text-amber-500">Power Equivalency</div>
+                                                <div className="text-muted-foreground leading-relaxed">
+                                                    Enough calculated energy to power <span className="text-foreground font-bold">
+                                                        {(stats.power * 0.3).toFixed(1)}M</span> to <span className="text-foreground font-bold">{(stats.power * 1.0).toFixed(1)}M
+                                                    </span> average homes.
+                                                </div>
+                                                {/* Tooltip Arrow */}
+                                                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-popover/90 border-t border-l border-border/50 rotate-45"></div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="w-px h-10 bg-border/50"></div>
