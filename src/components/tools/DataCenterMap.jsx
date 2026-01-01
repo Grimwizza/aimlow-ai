@@ -814,32 +814,69 @@ export const DataCenterMap = ({ onBack }) => {
                         ))}
                     </MapContainer>
 
-                    {/* Stats Dashboard Overlay */}
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-3 z-[400] w-max max-w-full px-4">
-                        <div className="bg-background/90 backdrop-blur-md border border-border shadow-lg rounded-xl flex overflow-hidden">
-                            <div className="px-4 py-2 border-r border-border/50">
-                                <span className="block text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Total Investment</span>
-                                <span className="block text-sm font-mono font-bold text-foreground">
-                                    {isLoading ? '...' : `$${stats.cost}B`}
-                                </span>
-                            </div>
-                            <div className="px-4 py-2 border-r border-border/50">
-                                <span className="block text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Est. Power</span>
-                                <span className="block text-sm font-mono font-bold text-foreground">
-                                    {isLoading ? '...' : `${stats.power} GW`}
-                                </span>
-                            </div>
-                            <div className="px-4 py-2">
-                                <span className="block text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Active Nodes</span>
-                                <div className="flex items-center gap-2">
+                    {/* Unified Top Bar */}
+                    <div className="absolute top-4 left-4 right-4 z-[400] hidden md:block">
+                        <div className="bg-background/90 backdrop-blur-md border border-border shadow-lg rounded-xl px-4 py-2 flex items-center justify-between gap-4 flex-wrap">
+                            {/* Left: Stats */}
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Investment</span>
+                                    <span className="text-sm font-mono font-bold text-foreground">
+                                        {isLoading ? '...' : `$${stats.cost}B`}
+                                    </span>
+                                </div>
+                                <div className="w-px h-4 bg-border/50"></div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Power</span>
+                                    <span className="text-sm font-mono font-bold text-foreground">
+                                        {isLoading ? '...' : `${stats.power} GW`}
+                                    </span>
+                                </div>
+                                <div className="w-px h-4 bg-border/50"></div>
+                                <div className="flex items-center gap-1.5">
                                     <span className="relative flex h-2 w-2">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                                     </span>
-                                    <span className="block text-sm font-mono font-bold text-foreground">
+                                    <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Nodes</span>
+                                    <span className="text-sm font-mono font-bold text-foreground">
                                         {isLoading ? '...' : stats.count}
                                     </span>
                                 </div>
+                            </div>
+
+                            {/* Center: Map Info */}
+                            <div className="flex items-center gap-2 text-xs font-mono flex-shrink-0">
+                                <Activity size={12} className={isLoading ? 'text-muted-foreground' : 'text-green-500 animate-pulse'} />
+                                <span>
+                                    {isLoading ? 'PINGING...' : (
+                                        <>
+                                            <span className="hidden xl:inline">LIVE MAP V{DATA_CENTER_METADATA.version}</span>
+                                            <span className="hidden lg:inline">
+                                                {selectedModel ? ` • ${selectedModel.toUpperCase()}` : ''}
+                                                {selectedProvider ? ` • ${selectedProvider.toUpperCase()}` : ''}
+                                            </span>
+                                        </>
+                                    )}
+                                </span>
+                            </div>
+
+                            {/* Right: Action Buttons */}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                    onClick={copyShareLink}
+                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                    title={copied ? 'Link copied!' : 'Copy share link'}
+                                >
+                                    {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                                </button>
+                                <button
+                                    onClick={toggleFullscreen}
+                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                    title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                                >
+                                    {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -861,33 +898,6 @@ export const DataCenterMap = ({ onBack }) => {
                             </div>
                         </div>
                     )}
-
-                    {/* Overlay Title for Map */}
-                    <div className="absolute top-4 right-4 bg-background/90 backdrop-blur px-4 py-2 rounded-lg border border-border shadow-sm z-[400] text-xs font-mono hidden md:flex items-center gap-3">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <Activity size={12} className={isLoading ? 'text-muted-foreground' : 'text-green-500 animate-pulse'} />
-                                {isLoading ? 'PINGING...' : `LIVE MAP V${DATA_CENTER_METADATA.version} • ${filteredCenters.length} NODES ${selectedModel ? `• HOSTING ${selectedModel.toUpperCase()}` : ''} ${selectedProvider ? `• ${selectedProvider.toUpperCase()} NETWORK` : ''}`}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground mt-1">
-                                Data updated: {DATA_CENTER_METADATA.lastUpdated}
-                            </div>
-                        </div>
-                        <button
-                            onClick={copyShareLink}
-                            className="p-2 hover:bg-muted rounded-lg transition-colors"
-                            title={copied ? 'Link copied!' : 'Copy share link'}
-                        >
-                            {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
-                        </button>
-                        <button
-                            onClick={toggleFullscreen}
-                            className="p-2 hover:bg-muted rounded-lg transition-colors"
-                            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                        >
-                            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                        </button>
-                    </div>
 
                     {/* Asterisk Footnote */}
                     <div className="absolute bottom-4 left-4 z-[400]">
