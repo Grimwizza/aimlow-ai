@@ -262,6 +262,15 @@ export const DataCenterMap = ({ onBack }) => {
     const [searchParams, setSearchParams] = useSearchParams();
     const [monthlyUsersData, setMonthlyUsersData] = useState(null);
     const [expandedFilter, setExpandedFilter] = useState('origin'); // 'origin', 'provider', 'models', or null
+    const [activeMobileStat, setActiveMobileStat] = useState(null); // 'cost', 'power', 'nodes', 'users', or null
+
+    // Auto-dismiss mobile stats tooltip after 3 seconds
+    useEffect(() => {
+        if (activeMobileStat) {
+            const timer = setTimeout(() => setActiveMobileStat(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [activeMobileStat]);
 
     // Toggle comparison selection (max 3)
     const toggleCompare = (dc) => {
@@ -602,7 +611,7 @@ export const DataCenterMap = ({ onBack }) => {
                                 AI Hyperscale Map
                             </h1>
                             <p className="text-sm text-muted-foreground">
-                                A fully dynamic & interactive map of global AI data centers.
+                                A dynamic map that tracks Global AI infrastructure.
                             </p>
                         </div>
                     </div>
@@ -972,7 +981,7 @@ export const DataCenterMap = ({ onBack }) => {
                     </MapContainer>
 
 
-                    {/* Unified Top Stats Bar */}
+                    {/* Unified Top Stats Bar - Desktop Only */}
                     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] hidden md:block max-w-fit" >
                         <div className="bg-card/95 backdrop-blur-xl border border-border/60 shadow-xl rounded-2xl px-6 py-3.5 flex items-center justify-between gap-6">
                             {/* Left: Key Metrics */}
@@ -1056,8 +1065,8 @@ export const DataCenterMap = ({ onBack }) => {
                                 </div>
                             </div>
 
-                            {/* Center: Status Badge */}
-                            <div className="flex items-center gap-2.5 px-4 py-2 bg-primary/5 border border-primary/20 rounded-xl flex-shrink-0 min-w-0 max-w-[200px]">
+                            {/* Center: Status Badge - Hidden on mobile */}
+                            <div className="hidden md:flex items-center gap-2.5 px-4 py-2 bg-primary/5 border border-primary/20 rounded-xl flex-shrink-0 min-w-0 max-w-[200px]">
                                 <Activity size={18} className={`flex-shrink-0 ${isLoading ? 'text-muted-foreground' : 'text-primary animate-pulse'}`} />
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-[10px] font-bold font-mono text-foreground tracking-wider leading-none truncate">
@@ -1073,8 +1082,8 @@ export const DataCenterMap = ({ onBack }) => {
                                 </div>
                             </div>
 
-                            {/* Right: Action Buttons */}
-                            <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* Right: Action Buttons - Hidden on mobile */}
+                            <div className="hidden md:flex items-center gap-2 flex-shrink-0">
                                 <button
                                     onClick={copyShareLink}
                                     className="p-2.5 hover:bg-muted/80 rounded-lg transition-all hover:scale-105 active:scale-95"
@@ -1092,6 +1101,89 @@ export const DataCenterMap = ({ onBack }) => {
                             </div>
                         </div>
                     </div >
+
+                    {/* Mobile Stats Bar - Bottom Position */}
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[400] md:hidden w-[95vw]">
+                        <div className="bg-card/95 backdrop-blur-xl border border-border/60 shadow-lg rounded-xl px-2 py-1.5 flex items-center justify-around gap-1 relative">
+
+                            {/* Investment */}
+                            <button
+                                onClick={() => setActiveMobileStat(activeMobileStat === 'cost' ? null : 'cost')}
+                                className="flex items-center gap-1 relative"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+                                <span className="text-[10px] font-bold font-mono text-foreground">
+                                    {isLoading ? '—' : `$${stats.cost}B`}
+                                </span>
+                                {activeMobileStat === 'cost' && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-[10px] rounded shadow-lg whitespace-nowrap border border-border animate-in fade-in zoom-in duration-200">
+                                        Total Investment
+                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-popover border-b border-r border-border rotate-45"></div>
+                                    </div>
+                                )}
+                            </button>
+
+                            <div className="w-px h-4 bg-border/50"></div>
+
+                            {/* Power */}
+                            <button
+                                onClick={() => setActiveMobileStat(activeMobileStat === 'power' ? null : 'power')}
+                                className="flex items-center gap-1 relative"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                <span className="text-[10px] font-bold font-mono text-foreground">
+                                    {isLoading ? '—' : `${stats.power}GW`}
+                                </span>
+                                {activeMobileStat === 'power' && !isLoading && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-popover/95 backdrop-blur-md text-popover-foreground text-[10px] rounded-lg border border-border/50 shadow-xl p-2 text-center animate-in fade-in zoom-in duration-200 z-[500]">
+                                        <div className="font-semibold mb-1 text-amber-500">Power Equivalency</div>
+                                        <div className="text-muted-foreground leading-snug">
+                                            Powers <span className="text-foreground font-bold">{(stats.power * 0.3).toFixed(1)}M</span> to <span className="text-foreground font-bold">{(stats.power * 1.0).toFixed(1)}M</span> homes
+                                        </div>
+                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-popover/95 border-b border-r border-border/50 rotate-45"></div>
+                                    </div>
+                                )}
+                            </button>
+
+                            <div className="w-px h-4 bg-border/50"></div>
+
+                            {/* Nodes */}
+                            <button
+                                onClick={() => setActiveMobileStat(activeMobileStat === 'nodes' ? null : 'nodes')}
+                                className="flex items-center gap-1 relative"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect></svg>
+                                <span className="text-[10px] font-bold font-mono text-foreground">
+                                    {isLoading ? '—' : stats.count}
+                                </span>
+                                {activeMobileStat === 'nodes' && (
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-[10px] rounded shadow-lg whitespace-nowrap border border-border animate-in fade-in zoom-in duration-200">
+                                        Active Data Centers
+                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-popover border-b border-r border-border rotate-45"></div>
+                                    </div>
+                                )}
+                            </button>
+
+                            <div className="w-px h-4 bg-border/50"></div>
+
+                            {/* Users */}
+                            <button
+                                onClick={() => setActiveMobileStat(activeMobileStat === 'users' ? null : 'users')}
+                                className="flex items-center gap-1 relative"
+                            >
+                                <Users size={10} className="text-purple-500" />
+                                <span className="text-[10px] font-bold font-mono text-foreground">
+                                    {isLoading || !monthlyUsersData ? '—' : stats.monthlyUsers}
+                                </span>
+                                {activeMobileStat === 'users' && (
+                                    <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-popover text-popover-foreground text-[10px] rounded shadow-lg whitespace-nowrap border border-border animate-in fade-in zoom-in duration-200">
+                                        Monthly Active Users
+                                        <div className="absolute -bottom-1 right-2 w-2 h-2 bg-popover border-b border-r border-border rotate-45"></div>
+                                    </div>
+                                )}
+                            </button>
+                        </div>
+                    </div>
 
                     {/* Loading Overlay */}
                     {
@@ -1113,8 +1205,8 @@ export const DataCenterMap = ({ onBack }) => {
                         )
                     }
 
-                    {/* Asterisk Footnote */}
-                    <div className="absolute bottom-4 left-4 z-[400]">
+                    {/* Asterisk Footnote - Hidden on mobile to avoid overlap with stats bar */}
+                    <div className="absolute bottom-4 left-4 z-[400] hidden md:block">
                         <button
                             onClick={() => setShowMethodology(true)}
                             className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
