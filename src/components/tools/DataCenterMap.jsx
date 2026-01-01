@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import { useSearchParams } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
-import { ArrowLeft, Server, MapPin, BarChart3, Globe, Network, Filter, X, Loader2, Activity, Building2, Search, Maximize2, Minimize2, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Server, MapPin, BarChart3, Globe, Network, Filter, X, Loader2, Activity, Building2, Search, Maximize2, Minimize2, Copy, Check, Users } from 'lucide-react';
 import { Button } from '../ui/Button';
 import L from 'leaflet';
 import { REAL_DATA_CENTERS, DATA_CENTER_METADATA } from '../../data/realDataCenters';
@@ -126,7 +126,7 @@ const createProviderIcon = (provider) => {
         </div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 32],
-        popupAnchor: [0, -28]
+        popupAnchor: [0, -36]
     });
 };
 
@@ -260,6 +260,7 @@ export const DataCenterMap = ({ onBack }) => {
     const [showComparison, setShowComparison] = useState(false);
     const mapContainerRef = useRef(null);
     const [searchParams, setSearchParams] = useSearchParams();
+    const [monthlyUsersData, setMonthlyUsersData] = useState(null);
 
     // Toggle comparison selection (max 3)
     const toggleCompare = (dc) => {
@@ -279,6 +280,61 @@ export const DataCenterMap = ({ onBack }) => {
             setIsLoading(false);
         }, 1200);
         return () => clearTimeout(timer);
+    }, []);
+
+    // Fetch monthly users data from API
+    useEffect(() => {
+        // Baseline data for immediate display (also serves as fallback)
+        const baselineData = {
+            lastUpdated: new Date().toISOString(),
+            models: {
+                'GPT-4': { monthlyUsers: 400000000, confidence: 'high' },
+                'GPT-3.5': { monthlyUsers: 500000000, confidence: 'high' },
+                'Gemini': { monthlyUsers: 350000000, confidence: 'medium' },
+                'Gemini Pro': { monthlyUsers: 275000000, confidence: 'medium' },
+                'Claude': { monthlyUsers: 25000000, confidence: 'medium' },
+                'Claude 3': { monthlyUsers: 25000000, confidence: 'medium' },
+                'Llama 2': { monthlyUsers: null, confidence: 'low' },
+                'Llama 3': { monthlyUsers: null, confidence: 'low' },
+                'Mistral': { monthlyUsers: 15000000, confidence: 'low' },
+                'Copilot': { monthlyUsers: 218000000, confidence: 'medium' },
+                'Grok': { monthlyUsers: 10000000, confidence: 'low' },
+                'DeepSeek': { monthlyUsers: 5000000, confidence: 'low' }
+            },
+            providers: {
+                'OpenAI': { monthlyUsers: 900000000, confidence: 'high' },
+                'Google Cloud': { monthlyUsers: 350000000, confidence: 'medium' },
+                'Microsoft Azure': { monthlyUsers: 218000000, confidence: 'medium' },
+                'Anthropic': { monthlyUsers: 25000000, confidence: 'medium' },
+                'Meta': { monthlyUsers: null, confidence: 'low' },
+                'xAI': { monthlyUsers: 10000000, confidence: 'low' },
+                'Alibaba Cloud': { monthlyUsers: 50000000, confidence: 'low' },
+                'AWS': { monthlyUsers: 100000000, confidence: 'low' },
+                'Oracle Cloud': { monthlyUsers: 20000000, confidence: 'low' },
+                'CoreWeave': { monthlyUsers: null, confidence: 'low' },
+                'Tesla': { monthlyUsers: null, confidence: 'low' },
+                'SoftBank': { monthlyUsers: null, confidence: 'low' },
+                'Yotta': { monthlyUsers: null, confidence: 'low' }
+            }
+        };
+
+        // Set baseline data immediately
+        setMonthlyUsersData(baselineData);
+
+        // Try to fetch updated data from API (works in production/Vercel)
+        const fetchMonthlyUsers = async () => {
+            try {
+                const response = await fetch('/api/ai-usage-stats');
+                if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+                    const data = await response.json();
+                    setMonthlyUsersData(data);
+                }
+            } catch (error) {
+                console.log('Using baseline monthly users data (API endpoint not available in local dev)');
+                // Keep using baseline data
+            }
+        };
+        fetchMonthlyUsers();
     }, []);
 
     // Parse URL params on initial load
@@ -329,9 +385,20 @@ export const DataCenterMap = ({ onBack }) => {
         return Array.from(models).sort();
     }, [dataPoints]);
 
-    // Extract unique providers
+    // Map AI service providers to their infrastructure providers
+    const AI_SERVICE_TO_INFRA = {
+        'OpenAI': ['Microsoft Azure', 'Oracle Cloud'], // GPT models run on Azure + Oracle
+        'Anthropic': ['AWS'], // Claude models run on AWS
+        'Google AI': ['Google Cloud'], // Gemini models
+        'Meta AI': ['Meta'] // Llama models
+    };
+
+    // Extract unique providers (include both infrastructure and AI service providers)
     const allProviders = useMemo(() => {
-        return Array.from(new Set(dataPoints.map(dc => dc.provider))).sort();
+        const infraProviders = Array.from(new Set(dataPoints.map(dc => dc.provider)));
+        const aiServiceProviders = Object.keys(AI_SERVICE_TO_INFRA);
+        // Combine and sort, putting AI service providers first
+        return [...aiServiceProviders, ...infraProviders].filter((v, i, a) => a.indexOf(v) === i).sort();
     }, [dataPoints]);
 
     // Extract unique provider origin countries
@@ -344,7 +411,19 @@ export const DataCenterMap = ({ onBack }) => {
     const filteredCenters = useMemo(() => {
         return dataPoints.filter(dc => {
             const matchModel = selectedModel ? dc.models.includes(selectedModel) : true;
-            const matchProvider = selectedProvider ? dc.provider === selectedProvider : true;
+
+            // Handle AI service provider mapping (e.g., OpenAI → Azure + Oracle)
+            let matchProvider = true;
+            if (selectedProvider) {
+                if (AI_SERVICE_TO_INFRA[selectedProvider]) {
+                    // AI service provider: match if data center provider is in the infrastructure list
+                    matchProvider = AI_SERVICE_TO_INFRA[selectedProvider].includes(dc.provider);
+                } else {
+                    // Infrastructure provider: exact match
+                    matchProvider = dc.provider === selectedProvider;
+                }
+            }
+
             const matchOrigin = selectedOrigin ? getProviderCountry(dc.provider) === selectedOrigin : true;
             return matchModel && matchProvider && matchOrigin;
         });
@@ -354,19 +433,68 @@ export const DataCenterMap = ({ onBack }) => {
     const stats = useMemo(() => {
         let totalCost = 0;
         let totalPower = 0;
+        let totalMonthlyUsers = 0;
 
         filteredCenters.forEach(dc => {
             const displayValues = getDisplayValues(dc);
             totalCost += displayValues.cost;
             totalPower += displayValues.power;
+
+            // Aggregate monthly users based on models
+            if (monthlyUsersData?.models) {
+                dc.models.forEach(model => {
+                    const userData = monthlyUsersData.models[model];
+                    if (userData?.monthlyUsers) {
+                        totalMonthlyUsers += userData.monthlyUsers;
+                    }
+                });
+            }
         });
+
+        // Format monthly users (avoid double counting for multi-model centers)
+        const uniqueModels = new Set();
+        const uniqueProviders = new Set();
+        filteredCenters.forEach(dc => {
+            dc.models.forEach(m => uniqueModels.add(m));
+            uniqueProviders.add(dc.provider);
+        });
+
+        // Recalculate to avoid double counting
+        let monthlyUsers = 0;
+        if (monthlyUsersData?.models && selectedModel) {
+            // Single model selected
+            const userData = monthlyUsersData.models[selectedModel];
+            monthlyUsers = userData?.monthlyUsers || 0;
+        } else if (monthlyUsersData?.providers && selectedProvider) {
+            // Single provider selected
+            const userData = monthlyUsersData.providers[selectedProvider];
+            monthlyUsers = userData?.monthlyUsers || 0;
+        } else if (monthlyUsersData?.models) {
+            // All or filtered: sum unique models
+            uniqueModels.forEach(model => {
+                const userData = monthlyUsersData.models[model];
+                if (userData?.monthlyUsers) {
+                    monthlyUsers += userData.monthlyUsers;
+                }
+            });
+        }
+
+        // Format for display
+        const formatUsers = (count) => {
+            if (count === 0 || !count) return '—';
+            if (count >= 1000000000) return `${(count / 1000000000).toFixed(1)}B`;
+            if (count >= 1000000) return `${Math.round(count / 1000000)}M`;
+            return count.toLocaleString();
+        };
 
         return {
             cost: totalCost.toFixed(1),
             power: (totalPower / 1000).toFixed(2), // Convert MW to GW
-            count: filteredCenters.length
+            count: filteredCenters.length,
+            monthlyUsers: formatUsers(monthlyUsers),
+            monthlyUsersRaw: monthlyUsers
         };
-    }, [filteredCenters]);
+    }, [filteredCenters, monthlyUsersData, selectedModel, selectedProvider]);
 
     // Calculate Statistics for Sidebar
     const countryStats = useMemo(() => {
@@ -655,157 +783,131 @@ export const DataCenterMap = ({ onBack }) => {
 
                         {filteredCenters.map(dc => (
                             <Marker key={dc.id} position={[dc.lat, dc.lng]} icon={createProviderIcon(dc.provider)}>
-                                <Popup className="custom-popup min-w-[320px]">
-                                    <div className="p-3 space-y-4">
-                                        {/* Header */}
-                                        <div className="flex items-start gap-3 border-b border-border/50 pb-3">
+                                <Popup
+                                    className="custom-popup min-w-[300px]"
+                                    offset={[0, 8]}
+                                    autoPan={true}
+                                    autoPanPadding={[60, 80]}
+                                >
+                                    <div className="p-2 space-y-2">
+                                        {/* Compact Header */}
+                                        <div className="flex items-center gap-2 pb-2 border-b border-border/50">
                                             <div className="relative">
                                                 <img
                                                     src={dc.logo}
                                                     alt={dc.provider}
-                                                    className="w-12 h-12 rounded-lg bg-white p-1 object-contain border shadow-sm"
+                                                    className="w-10 h-10 rounded-lg bg-white p-1 object-contain border shadow-sm"
                                                     onError={(e) => {
                                                         e.target.onerror = null;
                                                         e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2MzY2ZjEiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNNiAyMlYxMkg0YTIgMiAwIDAgMS0yLTJWNGEyIDIgMCAwIDEgMi0yaDE2YTIgMiAwIDAgMSAyIDJ2OGEyIDIgMCAwIDEtMiAyaC0ydjEwIj48L3BhdGg+PHBhdGggZD0iTTYgMTJoMTIiPjwvcGF0aD48cGF0aCBkPSJNMTAgMTJ2MTAiPjwvcGF0aD48cGF0aCBkPSJNMTQgMTJ2MTAiPjwvcGF0aD48cGF0aCBkPSJNNCA4aDJ2MCI+PC9wYXRoPjxwYXRoIGQ9Ik04IDhoMnYwIj48L3BhdGg+PHBhdGggZD0iTTEyIDhoMnYwIj48L3BhdGg+PHBhdGggZD0iTTE2IDhoMnYwIj48L3BhdGg+PC9zdmc+';
                                                     }}
                                                 />
-                                                <span className="absolute -bottom-1 -right-1 flex h-3 w-3">
+                                                <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5">
                                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-white"></span>
+                                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 border border-white"></span>
                                                 </span>
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <h3 className="font-bold text-sm leading-tight text-foreground">{dc.name}</h3>
-                                                    <div className="flex items-center gap-2">
-                                                        {dc.activation_date && (
-                                                            <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded text-muted-foreground font-mono">
-                                                                Active {dc.activation_date}
-                                                            </span>
-                                                        )}
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                toggleCompare(dc);
-                                                            }}
-                                                            className={`p-1.5 rounded border transition-colors ${compareSelection.find(d => d.id === dc.id)
-                                                                ? 'bg-primary border-primary text-primary-foreground'
-                                                                : 'border-border hover:border-primary hover:bg-muted'
-                                                                }`}
-                                                            title={compareSelection.find(d => d.id === dc.id) ? 'Remove from comparison' : 'Add to comparison'}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={!!compareSelection.find(d => d.id === dc.id)}
-                                                                onChange={() => { }}
-                                                                className="pointer-events-none"
-                                                            />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                {/* Dual Flag Display */}
-                                                <div className="flex items-center gap-3 mt-2 text-xs">
-                                                    <div className="flex items-center gap-1" title="Data Center Location">
-                                                        <span className="text-[10px] uppercase text-muted-foreground font-semibold">📍</span>
-                                                        <span className="text-base">{getCountryFlag(dc.country)}</span>
-                                                        <span className="text-muted-foreground">{dc.location_text?.split(',').pop()?.trim() || dc.country}</span>
-                                                    </div>
-                                                    <span className="text-muted-foreground/50">|</span>
-                                                    <div className="flex items-center gap-1" title="Provider Origin">
-                                                        <span className="text-[10px] uppercase text-muted-foreground font-semibold">🏢</span>
-                                                        <span className="text-base">{getCountryFlag(getProviderCountry(dc.provider))}</span>
-                                                        <span className="text-muted-foreground">{getProviderCountry(dc.provider)}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2 mt-2">
-                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-200 font-semibold">
-                                                        {dc.type}
-                                                    </span>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-bold text-xs leading-tight text-foreground truncate">{dc.name}</h3>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className="text-lg leading-none">{getCountryFlag(dc.country)}</span>
+                                                    <span className="text-[10px] text-muted-foreground truncate">{dc.location_text}</span>
                                                 </div>
                                             </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleCompare(dc);
+                                                }}
+                                                className={`p-1 rounded border transition-colors flex-shrink-0 ${compareSelection.find(d => d.id === dc.id)
+                                                    ? 'bg-primary border-primary text-primary-foreground'
+                                                    : 'border-border hover:border-primary hover:bg-muted'
+                                                    }`}
+                                                title={compareSelection.find(d => d.id === dc.id) ? 'Remove from comparison' : 'Add to comparison'}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!compareSelection.find(d => d.id === dc.id)}
+                                                    onChange={() => { }}
+                                                    className="pointer-events-none w-3 h-3"
+                                                />
+                                            </button>
                                         </div>
 
-                                        {/* Key Metrics Grid */}
+                                        {/* Compact Metrics - Single Row */}
                                         {(() => {
                                             const displayValues = getDisplayValues(dc);
                                             return (
-                                                <div className="grid grid-cols-2 gap-3 bg-muted/30 p-2 rounded-lg border border-border/50">
-                                                    <div className="space-y-0.5">
-                                                        <span className="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
-                                                            <Activity size={10} /> Power
-                                                            {displayValues.powerEstimated && (
-                                                                <span className="text-[8px] px-1 py-0.5 bg-amber-500/20 text-amber-600 rounded" title="Estimated based on facility type and location">Est.</span>
-                                                            )}
-                                                        </span>
-                                                        <p className={`text-xs font-mono font-medium ${displayValues.powerEstimated ? 'text-muted-foreground italic' : 'text-foreground'}`}>
+                                                <div className="grid grid-cols-4 gap-1.5 text-center">
+                                                    <div className="bg-muted/30 rounded p-1 border border-border/30">
+                                                        <div className="text-[8px] uppercase text-muted-foreground font-semibold mb-0.5">Power</div>
+                                                        <div className={`text-[10px] font-mono font-bold ${displayValues.powerEstimated ? 'text-muted-foreground' : 'text-foreground'}`}>
                                                             {displayValues.powerStr}
-                                                        </p>
+                                                        </div>
                                                     </div>
-                                                    <div className="space-y-0.5">
-                                                        <span className="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
-                                                            $ Cost
-                                                            {displayValues.costEstimated && (
-                                                                <span className="text-[8px] px-1 py-0.5 bg-amber-500/20 text-amber-600 rounded" title="Estimated at ~$15-25M per MW based on facility type">Est.</span>
-                                                            )}
-                                                        </span>
-                                                        <p className={`text-xs font-mono font-medium truncate ${displayValues.costEstimated ? 'text-muted-foreground italic' : 'text-foreground'}`} title={displayValues.costStr}>
+                                                    <div className="bg-muted/30 rounded p-1 border border-border/30">
+                                                        <div className="text-[8px] uppercase text-muted-foreground font-semibold mb-0.5">Cost</div>
+                                                        <div className={`text-[10px] font-mono font-bold truncate ${displayValues.costEstimated ? 'text-muted-foreground' : 'text-foreground'}`} title={displayValues.costStr}>
                                                             {displayValues.costStr}
-                                                        </p>
+                                                        </div>
                                                     </div>
-                                                    <div className="space-y-0.5">
-                                                        <span className="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
-                                                            Employees
-                                                        </span>
-                                                        <p className="text-xs font-mono font-medium text-foreground">
-                                                            {dc.employee_count || 'N/A'}
-                                                        </p>
+                                                    <div className="bg-muted/30 rounded p-1 border border-border/30">
+                                                        <div className="text-[8px] uppercase text-muted-foreground font-semibold mb-0.5">Year</div>
+                                                        <div className="text-[10px] font-mono font-bold text-foreground">
+                                                            {dc.activation_date || 'N/A'}
+                                                        </div>
                                                     </div>
-                                                    <div className="space-y-0.5">
-                                                        <span className="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
-                                                            AI Compute
-                                                        </span>
-                                                        <p className="text-xs font-mono font-medium text-foreground truncate" title={dc.ai_hardware}>
-                                                            {dc.ai_hardware || 'Unknown'}
-                                                        </p>
+                                                    <div className="bg-muted/30 rounded p-1 border border-border/30">
+                                                        <div className="text-[8px] uppercase text-muted-foreground font-semibold mb-0.5">Type</div>
+                                                        <div className="text-[8px] font-bold text-blue-600 truncate" title={dc.type}>
+                                                            {dc.type.replace(' Hub', '').replace(' Node', '')}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
                                         })()}
 
-                                        {/* Models */}
-                                        <div className="space-y-1.5">
-                                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                                                <span>Hosted Models</span>
-                                                <span className="bg-muted px-1.5 rounded-full text-[9px]">{dc.models.length} Active</span>
-                                            </p>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {dc.models.map((m, i) => (
-                                                    <span key={i} className={`text-[10px] px-2 py-0.5 rounded-md border shadow-sm transition-all ${selectedModel === m
-                                                        ? 'bg-primary text-primary-foreground border-primary font-bold shadow-md ring-1 ring-primary/20'
-                                                        : 'bg-background text-secondary-foreground border-border hover:border-primary/30'
+                                        {/* Insight - Condensed */}
+                                        {dc.insight && (
+                                            <div className="bg-blue-500/5 border border-blue-200/50 rounded p-1.5">
+                                                <p className="text-[10px] text-foreground/90 leading-snug line-clamp-2">{dc.insight}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Models - Compact */}
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[9px] font-semibold text-muted-foreground uppercase">Models</span>
+                                                <span className="text-[8px] bg-muted px-1 rounded-full">{dc.models.length}</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1">
+                                                {dc.models.slice(0, 6).map((m, i) => (
+                                                    <span key={i} className={`text-[9px] px-1.5 py-0.5 rounded border ${selectedModel === m
+                                                        ? 'bg-primary text-primary-foreground border-primary font-bold'
+                                                        : 'bg-background text-secondary-foreground border-border/50'
                                                         }`}>
                                                         {m}
                                                     </span>
                                                 ))}
+                                                {dc.models.length > 6 && (
+                                                    <span className="text-[9px] px-1.5 py-0.5 text-muted-foreground">+{dc.models.length - 6}</span>
+                                                )}
                                             </div>
                                         </div>
 
-                                        {/* Actions */}
-                                        <div className="pt-2 border-t border-border/50 flex items-center justify-between gap-2">
-                                            <div className="flex flex-col">
-                                                <span className="text-[9px] text-muted-foreground uppercase font-semibold">Coordinates</span>
-                                                <code className="text-[10px] text-foreground font-mono">
-                                                    {dc.lat.toFixed(4)}, {dc.lng.toFixed(4)}
-                                                </code>
-                                            </div>
+                                        {/* Footer Actions - Compact */}
+                                        <div className="pt-1.5 border-t border-border/50 flex items-center justify-between gap-2">
+                                            <code className="text-[9px] text-muted-foreground font-mono">
+                                                {dc.lat.toFixed(3)}, {dc.lng.toFixed(3)}
+                                            </code>
                                             <a
                                                 href={dc.satellite_url || `https://www.google.com/maps/search/?api=1&query=${dc.lat},${dc.lng}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="bg-blue-600 hover:bg-blue-700 !text-white px-3 py-1.5 rounded-md text-[10px] font-semibold inline-flex items-center gap-1.5 shadow-sm transition-colors"
+                                                className="bg-blue-600 hover:bg-blue-700 !text-white px-2 py-1 rounded text-[9px] font-semibold inline-flex items-center gap-1 shadow-sm transition-colors"
                                                 style={{ color: '#ffffff' }}
                                             >
-                                                <Globe size={11} className="text-white" /> <span className="text-white">Satellite View</span>
+                                                <Globe size={10} className="text-white" /> <span className="text-white">Satellite</span>
                                             </a>
                                         </div>
                                     </div>
@@ -814,90 +916,131 @@ export const DataCenterMap = ({ onBack }) => {
                         ))}
                     </MapContainer>
 
-                    {/* Unified Top Bar */}
-                    <div className="absolute top-4 left-4 right-4 z-[400] hidden md:block">
-                        <div className="bg-background/90 backdrop-blur-md border border-border shadow-lg rounded-xl px-4 py-2 flex items-center justify-between gap-4 flex-wrap">
-                            {/* Left: Stats */}
-                            <div className="flex items-center gap-3 flex-wrap">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Investment</span>
-                                    <span className="text-sm font-mono font-bold text-foreground">
-                                        {isLoading ? '...' : `$${stats.cost}B`}
-                                    </span>
+
+                    {/* Unified Top Stats Bar */}
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] hidden md:block max-w-fit" >
+                        <div className="bg-card/95 backdrop-blur-xl border border-border/60 shadow-xl rounded-2xl px-6 py-3.5 flex items-center justify-between gap-6">
+                            {/* Left: Key Metrics */}
+                            <div className="flex items-center gap-5">
+                                {/* Investment */}
+                                <div className="flex items-center gap-2.5">
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] uppercase text-muted-foreground font-semibold tracking-widest leading-none mb-0.5">Investment</span>
+                                        <span className="text-base font-bold font-mono text-foreground leading-none">
+                                            {isLoading ? '—' : `$${stats.cost}B`}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="w-px h-4 bg-border/50"></div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Power</span>
-                                    <span className="text-sm font-mono font-bold text-foreground">
-                                        {isLoading ? '...' : `${stats.power} GW`}
-                                    </span>
+
+                                <div className="w-px h-10 bg-border/50"></div>
+
+                                {/* Power */}
+                                <div className="flex items-center gap-2.5">
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600 dark:text-amber-400"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] uppercase text-muted-foreground font-semibold tracking-widest leading-none mb-0.5">Power</span>
+                                        <span className="text-base font-bold font-mono text-foreground leading-none">
+                                            {isLoading ? '—' : `${stats.power} GW`}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="w-px h-4 bg-border/50"></div>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                                    </span>
-                                    <span className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider">Nodes</span>
-                                    <span className="text-sm font-mono font-bold text-foreground">
-                                        {isLoading ? '...' : stats.count}
-                                    </span>
+
+                                <div className="w-px h-10 bg-border/50"></div>
+
+                                {/* Nodes */}
+                                <div className="flex items-center gap-2.5">
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 relative">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 dark:text-blue-400"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                                        <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] uppercase text-muted-foreground font-semibold tracking-widest leading-none mb-0.5">Live Nodes</span>
+                                        <span className="text-base font-bold font-mono text-foreground leading-none">
+                                            {isLoading ? '—' : stats.count}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="w-px h-10 bg-border/50"></div>
+
+                                {/* Monthly Users */}
+                                <div className="flex items-center gap-2.5">
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                                        <Users size={16} className="text-purple-600 dark:text-purple-400" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] uppercase text-muted-foreground font-semibold tracking-widest leading-none mb-0.5">Monthly Users</span>
+                                        <span className="text-base font-bold font-mono text-foreground leading-none">
+                                            {isLoading || !monthlyUsersData ? '—' : stats.monthlyUsers}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Center: Map Info */}
-                            <div className="flex items-center gap-2 text-xs font-mono flex-shrink-0">
-                                <Activity size={12} className={isLoading ? 'text-muted-foreground' : 'text-green-500 animate-pulse'} />
-                                <span>
-                                    {isLoading ? 'PINGING...' : (
-                                        <>
-                                            <span className="hidden xl:inline">LIVE MAP V{DATA_CENTER_METADATA.version}</span>
-                                            <span className="hidden lg:inline">
-                                                {selectedModel ? ` • ${selectedModel.toUpperCase()}` : ''}
-                                                {selectedProvider ? ` • ${selectedProvider.toUpperCase()}` : ''}
-                                            </span>
-                                        </>
+                            {/* Center: Status Badge */}
+                            <div className="flex items-center gap-2.5 px-4 py-2 bg-primary/5 border border-primary/20 rounded-xl flex-shrink-0 min-w-0 max-w-[200px]">
+                                <Activity size={18} className={`flex-shrink-0 ${isLoading ? 'text-muted-foreground' : 'text-primary animate-pulse'}`} />
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-[10px] font-bold font-mono text-foreground tracking-wider leading-none truncate">
+                                        {isLoading ? 'CONNECTING...' : `LIVE MAP V${DATA_CENTER_METADATA.version}`}
+                                    </span>
+                                    {!isLoading && (selectedModel || selectedProvider) && (
+                                        <div className="flex items-center gap-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wide leading-tight truncate mt-0.5">
+                                            {selectedModel && <span>{selectedModel}</span>}
+                                            {selectedModel && selectedProvider && <span>•</span>}
+                                            {selectedProvider && <span className="truncate">{selectedProvider}</span>}
+                                        </div>
                                     )}
-                                </span>
+                                </div>
                             </div>
 
                             {/* Right: Action Buttons */}
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-2 flex-shrink-0">
                                 <button
                                     onClick={copyShareLink}
-                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                    className="p-2.5 hover:bg-muted/80 rounded-lg transition-all hover:scale-105 active:scale-95"
                                     title={copied ? 'Link copied!' : 'Copy share link'}
                                 >
-                                    {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                                    {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="text-muted-foreground hover:text-foreground" />}
                                 </button>
                                 <button
                                     onClick={toggleFullscreen}
-                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                    className="p-2.5 hover:bg-muted/80 rounded-lg transition-all hover:scale-105 active:scale-95"
                                     title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
                                 >
-                                    {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                                    {isFullscreen ? <Minimize2 size={16} className="text-muted-foreground hover:text-foreground" /> : <Maximize2 size={16} className="text-muted-foreground hover:text-foreground" />}
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div >
 
                     {/* Loading Overlay */}
-                    {isLoading && (
-                        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-[500] flex items-center justify-center">
-                            <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
-                                <div className="relative">
-                                    <Globe className="text-primary animate-pulse" size={64} />
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <Loader2 className="animate-spin text-foreground" size={24} />
+                    {
+                        isLoading && (
+                            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-[500] flex items-center justify-center">
+                                <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
+                                    <div className="relative">
+                                        <Globe className="text-primary animate-pulse" size={64} />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <Loader2 className="animate-spin text-foreground" size={24} />
+                                        </div>
+                                    </div>
+                                    <div className="text-center space-y-1">
+                                        <h3 className="text-lg font-bold">Establishing Satellite Connection...</h3>
+                                        <p className="text-sm text-muted-foreground">Synchronizing global infrastructure data</p>
                                     </div>
                                 </div>
-                                <div className="text-center space-y-1">
-                                    <h3 className="text-lg font-bold">Establishing Satellite Connection...</h3>
-                                    <p className="text-sm text-muted-foreground">Synchronizing global infrastructure data</p>
-                                </div>
                             </div>
-                        </div>
-                    )}
+                        )
+                    }
 
                     {/* Asterisk Footnote */}
                     <div className="absolute bottom-4 left-4 z-[400]">
@@ -910,217 +1053,223 @@ export const DataCenterMap = ({ onBack }) => {
                     </div>
 
                     {/* Floating Comparison Bar */}
-                    {compareSelection.length >= 2 && (
-                        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[1000] bg-card border border-border rounded-xl shadow-2xl px-6 py-4 flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <BarChart3 size={20} className="text-primary" />
-                                <span className="font-semibold">{compareSelection.length} selected</span>
+                    {
+                        compareSelection.length >= 2 && (
+                            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[1000] bg-card border border-border rounded-xl shadow-2xl px-6 py-4 flex items-center gap-4">
+                                <div className="flex items-center gap-2">
+                                    <BarChart3 size={20} className="text-primary" />
+                                    <span className="font-semibold">{compareSelection.length} selected</span>
+                                </div>
+                                <button
+                                    onClick={() => setShowComparison(true)}
+                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                                >
+                                    Compare
+                                </button>
+                                <button
+                                    onClick={() => setCompareSelection([])}
+                                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                                    title="Clear selection"
+                                >
+                                    <X size={18} />
+                                </button>
                             </div>
-                            <button
-                                onClick={() => setShowComparison(true)}
-                                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
-                            >
-                                Compare
-                            </button>
-                            <button
-                                onClick={() => setCompareSelection([])}
-                                className="p-2 hover:bg-muted rounded-lg transition-colors"
-                                title="Clear selection"
-                            >
-                                <X size={18} />
-                            </button>
-                        </div>
-                    )}
+                        )
+                    }
 
                     {/* Comparison Modal */}
-                    {showComparison && compareSelection.length >= 2 && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center p-4" onClick={() => setShowComparison(false)}>
-                            <div className="bg-card border border-border rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                                <div className="p-6 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
-                                    <div className="flex items-center gap-2">
-                                        <BarChart3 size={24} className="text-primary" />
-                                        <h3 className="font-bold text-xl">Data Center Comparison</h3>
+                    {
+                        showComparison && compareSelection.length >= 2 && (
+                            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center p-4" onClick={() => setShowComparison(false)}>
+                                <div className="bg-card border border-border rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                    <div className="p-6 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
+                                        <div className="flex items-center gap-2">
+                                            <BarChart3 size={24} className="text-primary" />
+                                            <h3 className="font-bold text-xl">Data Center Comparison</h3>
+                                        </div>
+                                        <button onClick={() => setShowComparison(false)} className="p-2 hover:bg-muted rounded-lg">
+                                            <X size={20} />
+                                        </button>
                                     </div>
-                                    <button onClick={() => setShowComparison(false)} className="p-2 hover:bg-muted rounded-lg">
-                                        <X size={20} />
-                                    </button>
-                                </div>
-                                <div className="p-6">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead>
-                                                <tr className="border-b border-border">
-                                                    <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Metric</th>
-                                                    {compareSelection.map(dc => (
-                                                        <th key={dc.id} className="text-left py-3 px-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <img src={dc.logo} alt={dc.provider} className="w-8 h-8 rounded object-contain bg-white p-1" />
-                                                                <div>
-                                                                    <div className="font-bold text-sm">{dc.name}</div>
-                                                                    <div className="text-xs text-muted-foreground">{dc.provider}</div>
+                                    <div className="p-6">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead>
+                                                    <tr className="border-b border-border">
+                                                        <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Metric</th>
+                                                        {compareSelection.map(dc => (
+                                                            <th key={dc.id} className="text-left py-3 px-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <img src={dc.logo} alt={dc.provider} className="w-8 h-8 rounded object-contain bg-white p-1" />
+                                                                    <div>
+                                                                        <div className="font-bold text-sm">{dc.name}</div>
+                                                                        <div className="text-xs text-muted-foreground">{dc.provider}</div>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        </th>
-                                                    ))}
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {/* Location */}
-                                                <tr className="border-b border-border/50">
-                                                    <td className="py-3 px-4 font-medium">Location</td>
-                                                    {compareSelection.map(dc => (
-                                                        <td key={dc.id} className="py-3 px-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <span>{getCountryFlag(dc.country)}</span>
-                                                                <span>{dc.location_text}</span>
-                                                            </div>
-                                                        </td>
-                                                    ))}
-                                                </tr>
-                                                {/* Type */}
-                                                <tr className="border-b border-border/50">
-                                                    <td className="py-3 px-4 font-medium">Type</td>
-                                                    {compareSelection.map(dc => (
-                                                        <td key={dc.id} className="py-3 px-4">{dc.type}</td>
-                                                    ))}
-                                                </tr>
-                                                {/* Power */}
-                                                <tr className="border-b border-border/50">
-                                                    <td className="py-3 px-4 font-medium">Power</td>
-                                                    {compareSelection.map(dc => {
-                                                        const values = getDisplayValues(dc);
-                                                        return (
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {/* Location */}
+                                                    <tr className="border-b border-border/50">
+                                                        <td className="py-3 px-4 font-medium">Location</td>
+                                                        {compareSelection.map(dc => (
                                                             <td key={dc.id} className="py-3 px-4">
-                                                                <span className={values.powerEstimated ? 'italic text-amber-600' : ''}>
-                                                                    {values.powerStr}
-                                                                </span>
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                                {/* Cost */}
-                                                <tr className="border-b border-border/50">
-                                                    <td className="py-3 px-4 font-medium">Investment</td>
-                                                    {compareSelection.map(dc => {
-                                                        const values = getDisplayValues(dc);
-                                                        return (
-                                                            <td key={dc.id} className="py-3 px-4">
-                                                                <span className={values.costEstimated ? 'italic text-amber-600' : ''}>
-                                                                    {values.costStr}
-                                                                </span>
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                                {/* Employees */}
-                                                <tr className="border-b border-border/50">
-                                                    <td className="py-3 px-4 font-medium">Employees</td>
-                                                    {compareSelection.map(dc => (
-                                                        <td key={dc.id} className="py-3 px-4">{dc.employees || 'N/A'}</td>
-                                                    ))}
-                                                </tr>
-                                                {/* AI Models */}
-                                                <tr className="border-b border-border/50">
-                                                    <td className="py-3 px-4 font-medium">AI Models</td>
-                                                    {compareSelection.map(dc => (
-                                                        <td key={dc.id} className="py-3 px-4">
-                                                            {dc.models && dc.models.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {dc.models.map((model, idx) => (
-                                                                        <span key={idx} className="text-xs bg-secondary px-2 py-0.5 rounded">
-                                                                            {model}
-                                                                        </span>
-                                                                    ))}
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>{getCountryFlag(dc.country)}</span>
+                                                                    <span>{dc.location_text}</span>
                                                                 </div>
-                                                            ) : 'N/A'}
-                                                        </td>
-                                                    ))}
-                                                </tr>
-                                                {/* Activation Date */}
-                                                <tr>
-                                                    <td className="py-3 px-4 font-medium">Activated</td>
-                                                    {compareSelection.map(dc => (
-                                                        <td key={dc.id} className="py-3 px-4">{dc.activation_date || 'N/A'}</td>
-                                                    ))}
-                                                </tr>
-                                            </tbody>
-                                        </table>
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                    {/* Type */}
+                                                    <tr className="border-b border-border/50">
+                                                        <td className="py-3 px-4 font-medium">Type</td>
+                                                        {compareSelection.map(dc => (
+                                                            <td key={dc.id} className="py-3 px-4">{dc.type}</td>
+                                                        ))}
+                                                    </tr>
+                                                    {/* Power */}
+                                                    <tr className="border-b border-border/50">
+                                                        <td className="py-3 px-4 font-medium">Power</td>
+                                                        {compareSelection.map(dc => {
+                                                            const values = getDisplayValues(dc);
+                                                            return (
+                                                                <td key={dc.id} className="py-3 px-4">
+                                                                    <span className={values.powerEstimated ? 'italic text-amber-600' : ''}>
+                                                                        {values.powerStr}
+                                                                    </span>
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                    {/* Cost */}
+                                                    <tr className="border-b border-border/50">
+                                                        <td className="py-3 px-4 font-medium">Investment</td>
+                                                        {compareSelection.map(dc => {
+                                                            const values = getDisplayValues(dc);
+                                                            return (
+                                                                <td key={dc.id} className="py-3 px-4">
+                                                                    <span className={values.costEstimated ? 'italic text-amber-600' : ''}>
+                                                                        {values.costStr}
+                                                                    </span>
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                    {/* Employees */}
+                                                    <tr className="border-b border-border/50">
+                                                        <td className="py-3 px-4 font-medium">Employees</td>
+                                                        {compareSelection.map(dc => (
+                                                            <td key={dc.id} className="py-3 px-4">{dc.employees || 'N/A'}</td>
+                                                        ))}
+                                                    </tr>
+                                                    {/* AI Models */}
+                                                    <tr className="border-b border-border/50">
+                                                        <td className="py-3 px-4 font-medium">AI Models</td>
+                                                        {compareSelection.map(dc => (
+                                                            <td key={dc.id} className="py-3 px-4">
+                                                                {dc.models && dc.models.length > 0 ? (
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {dc.models.map((model, idx) => (
+                                                                            <span key={idx} className="text-xs bg-secondary px-2 py-0.5 rounded">
+                                                                                {model}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : 'N/A'}
+                                                            </td>
+                                                        ))}
+                                                    </tr>
+                                                    {/* Activation Date */}
+                                                    <tr>
+                                                        <td className="py-3 px-4 font-medium">Activated</td>
+                                                        {compareSelection.map(dc => (
+                                                            <td key={dc.id} className="py-3 px-4">{dc.activation_date || 'N/A'}</td>
+                                                        ))}
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )
+                    }
 
                     {/* Methodology Modal */}
-                    {showMethodology && (
-                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center p-4" onClick={() => setShowMethodology(false)}>
-                            <div className="bg-card border border-border rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                                <div className="p-6 border-b border-border flex items-center justify-between">
-                                    <h3 className="font-bold text-lg">Estimation Methodology</h3>
-                                    <button onClick={() => setShowMethodology(false)} className="p-1 hover:bg-muted rounded">
-                                        <X size={20} />
-                                    </button>
-                                </div>
-                                <div className="p-6 space-y-6 text-sm">
-                                    <p className="text-muted-foreground">
-                                        When official data is unavailable, we estimate Power and Cost based on industry benchmarks.
-                                        Estimated values are marked with an amber <span className="text-amber-500 font-semibold">Est.</span> badge.
-                                    </p>
+                    {
+                        showMethodology && (
+                            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center p-4" onClick={() => setShowMethodology(false)}>
+                                <div className="bg-card border border-border rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                    <div className="p-6 border-b border-border flex items-center justify-between">
+                                        <h3 className="font-bold text-lg">Estimation Methodology</h3>
+                                        <button onClick={() => setShowMethodology(false)} className="p-1 hover:bg-muted rounded">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    <div className="p-6 space-y-6 text-sm">
+                                        <p className="text-muted-foreground">
+                                            When official data is unavailable, we estimate Power and Cost based on industry benchmarks.
+                                            Estimated values are marked with an amber <span className="text-amber-500 font-semibold">Est.</span> badge.
+                                        </p>
 
-                                    <div>
-                                        <h4 className="font-semibold mb-2 flex items-center gap-2">⚡ Power Estimation</h4>
-                                        <p className="text-muted-foreground mb-2">Base power by facility type, adjusted for location:</p>
-                                        <table className="w-full text-xs">
-                                            <thead>
-                                                <tr className="border-b border-border">
-                                                    <th className="text-left py-1 font-medium">Facility Type</th>
-                                                    <th className="text-right py-1 font-medium">Base Power</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="text-muted-foreground">
-                                                <tr><td className="py-1">Training Hub</td><td className="text-right">150 MW</td></tr>
-                                                <tr><td className="py-1">AI Campus</td><td className="text-right">120 MW</td></tr>
-                                                <tr><td className="py-1">Supercomputer</td><td className="text-right">100 MW</td></tr>
-                                                <tr><td className="py-1">AI Factory</td><td className="text-right">80 MW</td></tr>
-                                                <tr><td className="py-1">HPC Center</td><td className="text-right">60 MW</td></tr>
-                                                <tr><td className="py-1">Inference Node</td><td className="text-right">40 MW</td></tr>
-                                            </tbody>
-                                        </table>
-                                        <p className="text-[10px] text-muted-foreground mt-2">
-                                            <em>Location multipliers: Tropical +15-20%, Cool climates -10-15%</em>
+                                        <div>
+                                            <h4 className="font-semibold mb-2 flex items-center gap-2">⚡ Power Estimation</h4>
+                                            <p className="text-muted-foreground mb-2">Base power by facility type, adjusted for location:</p>
+                                            <table className="w-full text-xs">
+                                                <thead>
+                                                    <tr className="border-b border-border">
+                                                        <th className="text-left py-1 font-medium">Facility Type</th>
+                                                        <th className="text-right py-1 font-medium">Base Power</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-muted-foreground">
+                                                    <tr><td className="py-1">Training Hub</td><td className="text-right">150 MW</td></tr>
+                                                    <tr><td className="py-1">AI Campus</td><td className="text-right">120 MW</td></tr>
+                                                    <tr><td className="py-1">Supercomputer</td><td className="text-right">100 MW</td></tr>
+                                                    <tr><td className="py-1">AI Factory</td><td className="text-right">80 MW</td></tr>
+                                                    <tr><td className="py-1">HPC Center</td><td className="text-right">60 MW</td></tr>
+                                                    <tr><td className="py-1">Inference Node</td><td className="text-right">40 MW</td></tr>
+                                                </tbody>
+                                            </table>
+                                            <p className="text-[10px] text-muted-foreground mt-2">
+                                                <em>Location multipliers: Tropical +15-20%, Cool climates -10-15%</em>
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <h4 className="font-semibold mb-2 flex items-center gap-2">💰 Cost Estimation</h4>
+                                            <p className="text-muted-foreground mb-2">Cost calculated at ~$15-25M per MW:</p>
+                                            <table className="w-full text-xs">
+                                                <thead>
+                                                    <tr className="border-b border-border">
+                                                        <th className="text-left py-1 font-medium">Facility Type</th>
+                                                        <th className="text-right py-1 font-medium">Cost/MW</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-muted-foreground">
+                                                    <tr><td className="py-1">Training Hub</td><td className="text-right">$25M</td></tr>
+                                                    <tr><td className="py-1">Supercomputer</td><td className="text-right">$22M</td></tr>
+                                                    <tr><td className="py-1">AI Factory / Campus</td><td className="text-right">$20M</td></tr>
+                                                    <tr><td className="py-1">HPC Center</td><td className="text-right">$18M</td></tr>
+                                                    <tr><td className="py-1">Inference Node</td><td className="text-right">$15M</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <p className="text-[10px] text-muted-foreground border-t border-border pt-4">
+                                            Sources: Industry reports, public filings, and infrastructure benchmarks.
+                                            Actual values may vary. Data updated {DATA_CENTER_METADATA.lastUpdated}.
                                         </p>
                                     </div>
-
-                                    <div>
-                                        <h4 className="font-semibold mb-2 flex items-center gap-2">💰 Cost Estimation</h4>
-                                        <p className="text-muted-foreground mb-2">Cost calculated at ~$15-25M per MW:</p>
-                                        <table className="w-full text-xs">
-                                            <thead>
-                                                <tr className="border-b border-border">
-                                                    <th className="text-left py-1 font-medium">Facility Type</th>
-                                                    <th className="text-right py-1 font-medium">Cost/MW</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="text-muted-foreground">
-                                                <tr><td className="py-1">Training Hub</td><td className="text-right">$25M</td></tr>
-                                                <tr><td className="py-1">Supercomputer</td><td className="text-right">$22M</td></tr>
-                                                <tr><td className="py-1">AI Factory / Campus</td><td className="text-right">$20M</td></tr>
-                                                <tr><td className="py-1">HPC Center</td><td className="text-right">$18M</td></tr>
-                                                <tr><td className="py-1">Inference Node</td><td className="text-right">$15M</td></tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    <p className="text-[10px] text-muted-foreground border-t border-border pt-4">
-                                        Sources: Industry reports, public filings, and infrastructure benchmarks.
-                                        Actual values may vary. Data updated {DATA_CENTER_METADATA.lastUpdated}.
-                                    </p>
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </section>
+                        )
+                    }
+                </div >
+            </div >
+        </section >
     );
 };
