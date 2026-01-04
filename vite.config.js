@@ -9,5 +9,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), apiMiddleware()],
+    server: {
+      watch: {
+        usePolling: true,
+      },
+    },
   }
 })

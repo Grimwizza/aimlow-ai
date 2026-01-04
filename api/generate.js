@@ -136,6 +136,10 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ result: JSON.parse(completion.choices[0].message.content) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
+
+
+
+
     return new Response(JSON.stringify({ error: 'Invalid tool type' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
   } catch (error) {

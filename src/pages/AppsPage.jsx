@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { SEO } from '../seo-tools/SEOTags';
 import { Icon } from '../components/ui/Icon';
@@ -56,10 +56,7 @@ const FeatureCard = () => (
 );
 
 export const AppsPage = () => {
-    const [activeTab, setActiveTab] = useState('work');
-
-    const workTools = LAB_ITEMS.filter(item => item.mode === 'work' && item.slug !== 'ai-marketing-analyst');
-    const lifeTools = LAB_ITEMS.filter(item => item.mode === 'life');
+    const allTools = LAB_ITEMS.filter(item => item.slug !== 'ai-marketing-analyst');
 
     return (
         <div className="max-w-6xl mx-auto px-6 py-16 min-h-screen">
@@ -74,39 +71,10 @@ export const AppsPage = () => {
 
             <FeatureCard />
 
-            {/* Filter Tabs */}
-            <div className="flex justify-center mb-16">
-                <div className="inline-flex bg-muted p-1 rounded-full gap-1">
-                    <button
-                        onClick={() => setActiveTab('work')}
-                        className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${activeTab === 'work' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        <Icon name="briefcase" size={16} /> Work
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('life')}
-                        className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-2 ${activeTab === 'life' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        <Icon name="coffee" size={16} /> Life
-                    </button>
-                </div>
-            </div>
-
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {activeTab === 'work' ? (
-                    workTools.map(item => <LabToolCard key={item.id} item={item} />)
-                ) : (
-                    lifeTools.map(item => <LabToolCard key={item.id} item={item} />)
-                )}
+                {allTools.map(item => <LabToolCard key={item.id} item={item} />)}
             </div>
-
-            {/* Empty State for Life if needed */}
-            {activeTab === 'life' && lifeTools.length === 0 && (
-                <div className="text-center py-24 bg-muted/20 rounded-xl border border-dashed border-border">
-                    <p className="text-muted-foreground font-medium">More life tools coming soon.</p>
-                </div>
-            )}
         </div>
     );
 };

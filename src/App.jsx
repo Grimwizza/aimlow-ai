@@ -34,6 +34,7 @@ import { AppsPage } from './pages/AppsPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 import { ToolsPage } from './pages/ToolsPage';
 
+
 // --- MAIN APP (Router) ---
 function App() {
     const [posts, setPosts] = useState([]);
@@ -87,6 +88,7 @@ function App() {
                     <Route path="/apps/content-simplifier" element={<ContentSimplifier onBack={() => window.history.back()} />} />
                     <Route path="/apps/ai-marketing-analyst" element={<AIMarketingAnalyst onBack={() => window.history.back()} />} />
                     <Route path="/apps/ai-hyperscale-map" element={<DataCenterMap onBack={() => window.history.back()} />} />
+
 
                     {/* Dynamic Post Route */}
                     <Route path="/post/:slug" element={<BlogPost />} />

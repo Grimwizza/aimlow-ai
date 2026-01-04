@@ -35,11 +35,33 @@ const mockResponse = (resolve, res) => {
     return mock;
 };
 
+import fs from 'fs';
+import path from 'path';
+
+// ... imports ...
+
 export const apiMiddleware = () => ({
     name: 'api-middleware',
     configureServer(server) {
         server.middlewares.use('/api', async (req, res, next) => {
-            const url = req.url.split('?')[0]; // Remove query params if any
+            const url = req.url.split('?')[0];
+
+            // FORCE LOAD ENV
+            try {
+                const envPath = path.resolve(process.cwd(), '.env');
+                if (fs.existsSync(envPath)) {
+                    const envConfig = fs.readFileSync(envPath, 'utf8');
+                    const keyMatch = envConfig.match(/^OPENAI_API_KEY=(.*)$/m);
+                    if (keyMatch && keyMatch[1]) {
+                        process.env.OPENAI_API_KEY = keyMatch[1].trim();
+                        console.log('[API Proxy] Reloaded API Key from .env');
+                    }
+                }
+            } catch (e) {
+                console.error('[API Proxy] Failed to reload .env', e);
+            }
+
+            // ... route handling ...
 
             // --- ROUTE: /api/generate (Edge Runtime / Web Standard) ---
             if (url === '/generate' && req.method === 'POST') {

@@ -34,5 +34,6 @@ export const LAB_ITEMS = [
         status: "Free",
         color: "bg-red-300",
         mode: "life"
-    }
+    },
+
 ];
