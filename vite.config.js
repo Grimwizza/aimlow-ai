@@ -14,5 +14,19 @@ export default defineConfig(({ mode }) => {
         usePolling: true,
       },
     },
+    build: {
+      chunkSizeWarningLimit: 1000, // Increase from default 500kb to 1000kb
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Split vendor code into separate chunks for better caching
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'ui-vendor': ['framer-motion', 'lucide-react'],
+            'map-vendor': ['leaflet', 'react-leaflet', 'react-leaflet-cluster'],
+            'chart-vendor': ['recharts'],
+          },
+        },
+      },
+    },
   }
 })
