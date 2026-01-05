@@ -51,10 +51,19 @@ export const apiMiddleware = () => ({
                 const envPath = path.resolve(process.cwd(), '.env');
                 if (fs.existsSync(envPath)) {
                     const envConfig = fs.readFileSync(envPath, 'utf8');
-                    const keyMatch = envConfig.match(/^OPENAI_API_KEY=(.*)$/m);
-                    if (keyMatch && keyMatch[1]) {
-                        process.env.OPENAI_API_KEY = keyMatch[1].trim();
-                        console.log('[API Proxy] Reloaded API Key from .env');
+
+                    // Load OpenAI API Key
+                    const openaiKeyMatch = envConfig.match(/^OPENAI_API_KEY=(.*)$/m);
+                    if (openaiKeyMatch && openaiKeyMatch[1]) {
+                        process.env.OPENAI_API_KEY = openaiKeyMatch[1].trim();
+                        console.log('[API Proxy] Reloaded OPENAI_API_KEY from .env');
+                    }
+
+                    // Load Brave Search API Key
+                    const braveKeyMatch = envConfig.match(/^BRAVE_SEARCH_API_KEY=(.*)$/m);
+                    if (braveKeyMatch && braveKeyMatch[1]) {
+                        process.env.BRAVE_SEARCH_API_KEY = braveKeyMatch[1].trim();
+                        console.log('[API Proxy] Reloaded BRAVE_SEARCH_API_KEY from .env');
                     }
                 }
             } catch (e) {

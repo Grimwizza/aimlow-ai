@@ -33,6 +33,7 @@ import { FeedPage } from './pages/FeedPage';
 import { AppsPage } from './pages/AppsPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 import { ToolsPage } from './pages/ToolsPage';
+import { FindMe } from './pages/FindMe';
 
 
 // --- MAIN APP (Router) ---
@@ -88,6 +89,7 @@ function App() {
                     <Route path="/apps/content-simplifier" element={<ContentSimplifier onBack={() => window.history.back()} />} />
                     <Route path="/apps/ai-marketing-analyst" element={<AIMarketingAnalyst onBack={() => window.history.back()} />} />
                     <Route path="/apps/ai-hyperscale-map" element={<DataCenterMap onBack={() => window.history.back()} />} />
+                    <Route path="/apps/find-me" element={<FindMe />} />
 
 
                     {/* Dynamic Post Route */}

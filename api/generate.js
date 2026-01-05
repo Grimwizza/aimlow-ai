@@ -140,6 +140,211 @@ export default async function handler(req) {
 
 
 
+    // TOOL 5: FIND ME - Digital Footprint Analysis (Real Search)
+    if (type === 'find-me') {
+      const { name, location, profession, ageRange } = payload;
+
+      // Perform multiple targeted web searches
+      const searches = [];
+
+      // General web search
+      const generalQuery = `"${name}"${location ? ` ${location}` : ''}`;
+      searches.push({ type: 'general', query: generalQuery });
+
+      // News search
+      const newsQuery = `"${name}"${location ? ` ${location}` : ''} news OR article`;
+      searches.push({ type: 'news', query: newsQuery });
+
+      // Social media search
+      const socialQuery = `"${name}" (LinkedIn OR Twitter OR Facebook OR Instagram)${location ? ` ${location}` : ''}`;
+      searches.push({ type: 'social', query: socialQuery });
+
+      // Professional search
+      if (profession) {
+        const professionalQuery = `"${name}" ${profession} (profile OR portfolio OR GitHub)`;
+        searches.push({ type: 'professional', query: professionalQuery });
+      }
+
+      // Execute searches using Brave Search API (free tier available)
+      // Note: You'll need to add BRAVE_SEARCH_API_KEY to your .env file
+      const searchResults = [];
+      const braveApiKey = process.env.BRAVE_SEARCH_API_KEY;
+
+      console.log('[Find Me] Brave API Key available:', !!braveApiKey);
+      console.log('[Find Me] Brave API Key prefix:', braveApiKey ? braveApiKey.substring(0, 10) + '...' : 'MISSING');
+
+      // Helper function to add delay between requests (rate limiting)
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+      for (let i = 0; i < searches.length; i++) {
+        const search = searches[i];
+
+        // Add delay between requests (Brave Free tier: 1 query/second)
+        if (i > 0) {
+          console.log(`[Find Me] Rate limiting: waiting 1.1s before next request...`);
+          await sleep(1100); // 1.1 seconds to be safe
+        }
+
+        try {
+          console.log(`[Find Me] Executing ${search.type} search:`, search.query);
+          const response = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(search.query)}&count=5`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-Subscription-Token': braveApiKey || ''
+            }
+          });
+
+          console.log(`[Find Me] ${search.type} response status:`, response.status);
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`[Find Me] ${search.type} results count:`, data.web?.results?.length || 0);
+            searchResults.push({
+              type: search.type,
+              query: search.query,
+              results: data.web?.results || []
+            });
+          } else {
+            const errorText = await response.text();
+            console.error(`[Find Me] ${search.type} API error (${response.status}):`, errorText);
+          }
+        } catch (error) {
+          console.error(`[Find Me] Search failed for ${search.type}:`, error);
+          // Continue with other searches even if one fails
+        }
+      }
+
+      console.log(`[Find Me] Total search results collected:`, searchResults.length);
+      console.log(`[Find Me] Results summary:`, searchResults.map(sr => `${sr.type}: ${sr.results.length} results`));
+
+      // Format search results for AI analysis
+      const searchContext = `
+Person Information:
+- Name: ${name}
+${location ? `- Location: ${location}` : ''}
+${profession ? `- Profession: ${profession}` : ''}
+${ageRange ? `- Age Range: ${ageRange}` : ''}
+
+Search Results:
+
+${searchResults.map(sr => `
+${sr.type.toUpperCase()} SEARCH (Query: "${sr.query}"):
+${sr.results.length > 0 ? sr.results.map((r, i) => `
+${i + 1}. ${r.title}
+   URL: ${r.url}
+   Description: ${r.description || 'No description'}
+`).join('\n') : 'No results found'}
+`).join('\n')}
+      `.trim();
+
+      const systemPrompt = `You are a privacy and digital security expert. Analyze the REAL search results provided and generate a comprehensive digital footprint report.
+
+CRITICAL INSTRUCTIONS:
+1. Base your analysis ONLY on the actual search results provided
+2. Include REAL URLs from the search results in your findings
+3. Extract social media handles/usernames from URLs and titles (e.g., linkedin.com/in/johndoe → handle: "johndoe", twitter.com/jsmith → handle: "@jsmith")
+4. For social media, check all major platforms: LinkedIn, Twitter/X, Facebook, Instagram, Threads, YouTube, TikTok, GitHub
+5. If search results are limited or empty, acknowledge this honestly
+6. Provide specific, actionable privacy recommendations based on what was actually found
+7. Do NOT make up information that isn't in the search results
+
+Return a SINGLE valid JSON object (no markdown formatting):
+
+{
+  "person_name": "String",
+  "search_parameters": {
+    "location": "String or null",
+    "profession": "String or null",
+    "age_range": "String or null"
+  },
+  "executive_summary": [
+    "Key finding 1 based on actual search results",
+    "Key finding 2 about what was/wasn't found",
+    "Key finding 3 about privacy implications"
+  ],
+  "web_presence": {
+    "overall_visibility": "High/Medium/Low (based on number and type of results)",
+    "description": "Summary based on actual findings",
+    "key_findings": ["Actual finding 1 with specifics", "Actual finding 2", "Actual finding 3"],
+    "sources": [{"title": "Source title", "url": "actual URL from results"}]
+  },
+  "news_media": {
+    "mentions_found": "Actual number or 'None'",
+    "description": "Summary of actual news results",
+    "notable_mentions": [
+      {"source": "Actual publication name", "context": "Actual context from result", "url": "actual URL"}
+    ]
+  },
+  "social_media": {
+    "platforms_detected": ["Only platforms actually found in results"],
+    "description": "Summary of actual social media findings",
+    "profiles": [
+      {
+        "platform": "Platform name (LinkedIn, Twitter/X, Facebook, Instagram, Threads, YouTube, TikTok, etc.)",
+        "handle": "Username/handle (e.g., @username)",
+        "username": "Display name or account name",
+        "visibility": "Public/Limited based on result",
+        "details": "Actual details from search",
+        "url": "actual URL to profile"
+      }
+    ]
+  },
+  "professional_listings": {
+    "found": true/false (based on actual results),
+    "description": "Summary of actual professional presence",
+    "listings": [
+      {"source": "Actual source name", "details": "Actual details from result", "url": "actual URL"}
+    ]
+  },
+  "privacy_assessment": {
+    "risk_level": "High/Medium/Low (based on actual exposure)",
+    "risk_score": 1-10 (based on amount and sensitivity of actual findings),
+    "vulnerabilities": [
+      "Specific vulnerability based on actual findings",
+      "Another actual concern"
+    ],
+    "positive_factors": [
+      "Actual positive privacy practice observed",
+      "Another positive factor"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "High/Medium/Low",
+      "action": "Specific action based on actual findings",
+      "reason": "Why this matters based on what was found",
+      "how_to": "Step-by-step guidance"
+    }
+  ],
+  "data_removal_resources": [
+    {
+      "service": "DeleteMe OR Privacy Bee OR similar",
+      "purpose": "Remove personal info from data brokers",
+      "url": "joindeleteme.com"
+    },
+    {
+      "service": "Google Removal Request",
+      "purpose": "Request removal of personal info from Google",
+      "url": "support.google.com/websearch/answer/9673730"
+    }
+  ]
+}
+
+IMPORTANT: If search results are minimal or empty, be honest about limited findings and focus recommendations on general privacy best practices.`;
+
+      const completion = await getOpenAI().chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: searchContext }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3, // Lower temperature for more factual analysis
+      });
+
+      return new Response(JSON.stringify({ result: JSON.parse(completion.choices[0].message.content) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
     return new Response(JSON.stringify({ error: 'Invalid tool type' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
   } catch (error) {

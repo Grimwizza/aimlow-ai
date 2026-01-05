@@ -35,5 +35,14 @@ export const LAB_ITEMS = [
         color: "bg-red-300",
         mode: "life"
     },
+    {
+        id: 6,
+        slug: "find-me",
+        title: "Find Me: Digital Footprint",
+        desc: "Discover what's publicly available about you online. Privacy awareness tool.",
+        status: "Beta",
+        color: "bg-indigo-300",
+        mode: "life"
+    }
 
 ];
