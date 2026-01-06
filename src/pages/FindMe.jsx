@@ -266,8 +266,18 @@ export const FindMe = () => {
         }, 500);
     };
 
-    // Helper for page breaks in PDF
+    // Helper for page breaks in PDF and theme enforcement
     const PageBreak = () => isPDFGenerating ? <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '1px' }} /> : null;
+
+    useEffect(() => {
+        if (isPDFGenerating) {
+            // Force light mode styles during PDF generation
+            document.body.classList.add('pdf-mode');
+        } else {
+            document.body.classList.remove('pdf-mode');
+        }
+        return () => document.body.classList.remove('pdf-mode');
+    }, [isPDFGenerating]);
 
     // Helper to get consolidated mitigation steps based on ALL breaches
     const getConsolidatedMitigation = (breaches) => {
@@ -570,64 +580,76 @@ export const FindMe = () => {
             {/* Report View */}
             {step === steps.REPORT && report && (
                 <div className="space-y-6" id="find-me-report">
-                    {/* PDF-specific styles */}
+                    {/* PDF-specific styles - Enforce Light Mode & Print Layout */}
                     {isPDFGenerating && (
                         <style>{`
                             .page-break { page-break-before: always; }
                             .avoid-break { page-break-inside: avoid; }
                             .breach-card { page-break-inside: avoid; border: 1px solid #e2e8f0; }
+                            
+                            /* Enforce Light Mode */
+                            .pdf-mode, .pdf-mode #find-me-report {
+                                background-color: #ffffff !important;
+                                color: #0f172a !important;
+                            }
+                            .pdf-mode .bg-muted, .pdf-mode .bg-muted\/50, .pdf-mode .bg-muted\/30 {
+                                background-color: #f1f5f9 !important;
+                                color: #0f172a !important;
+                            }
+                            .pdf-mode .text-muted-foreground {
+                                color: #64748b !important;
+                            }
+                            .pdf-mode .border, .pdf-mode .border-border {
+                                border-color: #e2e8f0 !important;
+                            }
+                            .pdf-mode .dark\:bg-blue-900\/10 {
+                                background-color: #eff6ff !important; /* blue-50 */
+                            }
+                            .pdf-mode .dark\:text-blue-400 {
+                                color: #2563eb !important; /* blue-600 */
+                            }
+                            .pdf-mode .dark\:border-blue-800 {
+                                border-color: #dbeafe !important; /* blue-100 */
+                            }
                         `}</style>
                     )}
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-2xl font-bold">{report.person_name}</h2>
-                            <div className="flex items-center gap-3 mt-1">
-                                <p className="text-sm text-muted-foreground">
-                                    {[report.search_parameters?.location, report.search_parameters?.profession]
-                                        .filter(Boolean)
-                                        .join(' • ') || 'Digital Footprint Analysis'}
-                                </p>
-                                {report.match_quality && (
-                                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${report.match_quality === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
-                                        report.match_quality === 'Medium' ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20' :
-                                            'bg-orange-500/10 text-orange-600 border border-orange-500/20'
-                                        }`}>
-                                        {report.match_quality} Confidence
-                                    </span>
-                                )}
+
+                    {/* Standard Header - Hidden during PDF */}
+                    {!isPDFGenerating && (
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-2xl font-bold">{report.person_name}</h2>
+                                <div className="flex items-center gap-3 mt-1">
+                                    <p className="text-sm text-muted-foreground">Digital Footprint Analysis</p>
+                                    {report.match_quality && (
+                                        <span className={`text-xs px-2 py-1 rounded-full font-bold ${report.match_quality === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
+                                            report.match_quality === 'Medium' ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20' :
+                                                'bg-orange-500/10 text-orange-600 border border-orange-500/20'
+                                            }`}>
+                                            {report.match_quality} Confidence
+                                        </span>
+                                    )}
+                                </div>
                             </div>
+                            <Button variant="ghost" size="sm" onClick={resetForm}>
+                                <Icon name="arrow-left" size={16} className="mr-2" />
+                                New Search
+                            </Button>
                         </div>
-                        <Button onClick={resetForm} variant="outline">
-                            <Icon name="arrow-left" size={16} className="mr-2" /> New Search
-                        </Button>
-                    </div>
+                    )}
 
+                    {/* PDF-Only Header */}
+                    {isPDFGenerating && (
+                        <div className="mb-6 border-b pb-4">
+                            <h1 className="text-3xl font-bold text-gray-900">Data Breach Report</h1>
+                            <p className="text-xl text-gray-600">Prepared for: {report.person_name}</p>
+                            <p className="text-sm text-gray-500 mt-1">Generated by AimLow Find Me</p>
+                        </div>
+                    )}
                     {/* Tabs */}
-                    <div className="border-b border-border">
-                        <div className="grid grid-cols-8 gap-0">
-                            {tabs.map((tab) => {
-                                const IconComponent = tab.icon;
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`px-2 py-3 font-medium text-xs md:text-sm flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 border-b-2 transition-colors ${activeTab === tab.id
-                                            ? 'border-primary text-primary'
-                                            : 'border-transparent text-muted-foreground hover:text-foreground'
-                                            }`}
-                                        title={tab.label}
-                                    >
-                                        <IconComponent size={16} className="flex-shrink-0" />
-                                        <span className="hidden md:inline">{tab.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
                     {/* Tab Content */}
-                    <Card className="p-6 shadow-lg">
-                        {(activeTab === 'summary' || isPDFGenerating) && (
+                    <Card className={`p-6 shadow-lg ${isPDFGenerating ? 'shadow-none border-0 p-0' : ''}`}>
+                        {activeTab === 'summary' && (
                             <div className="space-y-6">
                                 <div>
                                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
@@ -645,9 +667,8 @@ export const FindMe = () => {
                             </div>
                         )}
 
-                        {(activeTab === 'web' || isPDFGenerating) && (
+                        {activeTab === 'web' && (
                             <div className="space-y-4">
-                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Globe size={20} /> Web Presence
                                 </h3>
@@ -694,9 +715,8 @@ export const FindMe = () => {
                         )}
 
 
-                        {(activeTab === 'news' || isPDFGenerating) && (
+                        {activeTab === 'news' && (
                             <div className="space-y-4">
-                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Newspaper size={20} /> News & Media Mentions
                                 </h3>
@@ -731,9 +751,8 @@ export const FindMe = () => {
                             </div>
                         )}
 
-                        {(activeTab === 'social' || isPDFGenerating) && (
+                        {activeTab === 'social' && (
                             <div className="space-y-4">
-                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Users size={20} /> Social Media Footprint
                                 </h3>
@@ -806,9 +825,8 @@ export const FindMe = () => {
                             </div>
                         )}
 
-                        {(activeTab === 'professional' || isPDFGenerating) && (
+                        {activeTab === 'professional' && (
                             <div className="space-y-4">
-                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Briefcase size={20} /> Professional Listings
                                 </h3>
@@ -852,7 +870,7 @@ export const FindMe = () => {
 
                         {(activeTab === 'breaches' || isPDFGenerating) && (
                             <div className="space-y-6">
-                                <PageBreak />
+                                {/* Page Break not needed if only one section in PDF */}
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Lock size={20} /> Data Breach Check
                                 </h3>
@@ -1017,9 +1035,8 @@ export const FindMe = () => {
                             </div>
                         )}
 
-                        {(activeTab === 'privacy' || isPDFGenerating) && (
+                        {activeTab === 'privacy' && (
                             <div className="space-y-6">
-                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Shield size={20} /> Privacy Assessment
                                 </h3>
@@ -1170,7 +1187,8 @@ export const FindMe = () => {
                         </div>
                     </div>
                 </div >
-            )}
+            )
+            }
 
             {/* PDF Generation Overlay */}
             {
