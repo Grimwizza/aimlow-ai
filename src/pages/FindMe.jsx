@@ -584,7 +584,7 @@ export const FindMe = () => {
 
                     {/* Tab Content */}
                     <Card className="p-6 shadow-lg">
-                        {activeTab === 'summary' && (
+                        {(activeTab === 'summary' || isPDFGenerating) && (
                             <div className="space-y-6">
                                 <div>
                                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
@@ -602,7 +602,7 @@ export const FindMe = () => {
                             </div>
                         )}
 
-                        {activeTab === 'web' && (
+                        {(activeTab === 'web' || isPDFGenerating) && (
                             <div className="space-y-4">
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Globe size={20} /> Web Presence
@@ -650,7 +650,7 @@ export const FindMe = () => {
                         )}
 
 
-                        {activeTab === 'news' && (
+                        {(activeTab === 'news' || isPDFGenerating) && (
                             <div className="space-y-4">
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Newspaper size={20} /> News & Media Mentions
@@ -686,7 +686,7 @@ export const FindMe = () => {
                             </div>
                         )}
 
-                        {activeTab === 'social' && (
+                        {(activeTab === 'social' || isPDFGenerating) && (
                             <div className="space-y-4">
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Users size={20} /> Social Media Footprint
@@ -760,7 +760,7 @@ export const FindMe = () => {
                             </div>
                         )}
 
-                        {activeTab === 'professional' && (
+                        {(activeTab === 'professional' || isPDFGenerating) && (
                             <div className="space-y-4">
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Briefcase size={20} /> Professional Listings
@@ -803,7 +803,7 @@ export const FindMe = () => {
                             </div>
                         )}
 
-                        {activeTab === 'breaches' && (
+                        {(activeTab === 'breaches' || isPDFGenerating) && (
                             <div className="space-y-6">
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Lock size={20} /> Data Breach Check
@@ -945,7 +945,7 @@ export const FindMe = () => {
                             </div>
                         )}
 
-                        {activeTab === 'privacy' && (
+                        {(activeTab === 'privacy' || isPDFGenerating) && (
                             <div className="space-y-6">
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Shield size={20} /> Privacy Assessment
