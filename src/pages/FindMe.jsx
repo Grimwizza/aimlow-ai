@@ -982,7 +982,7 @@ export const FindMe = () => {
                                                             </div>
                                                         )}
 
-                                                        )}
+
                                                     </div>
                                                 ))}
                                                 {!isPDFGenerating && report.data_breaches.breaches.length > 10 && (
