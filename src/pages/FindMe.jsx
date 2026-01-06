@@ -587,12 +587,18 @@ export const FindMe = () => {
                             .avoid-break { page-break-inside: avoid; }
                             .breach-card { page-break-inside: avoid; border: 1px solid #e2e8f0; }
                             
-                            /* Enforce Light Mode */
-                            .pdf-mode, .pdf-mode #find-me-report {
+                            /* Enforce Light Mode - Stronger Selectors */
+                            body.pdf-mode, 
+                            body.pdf-mode #root, 
+                            body.pdf-mode #find-me-report,
+                            .pdf-mode .card,
+                            .pdf-mode .bg-card {
                                 background-color: #ffffff !important;
                                 color: #0f172a !important;
                             }
-                            .pdf-mode .bg-muted, .pdf-mode .bg-muted\/50, .pdf-mode .bg-muted\/30 {
+                            .pdf-mode .bg-muted, 
+                            .pdf-mode .bg-muted\/50, 
+                            .pdf-mode .bg-muted\/30 {
                                 background-color: #f1f5f9 !important;
                                 color: #0f172a !important;
                             }
@@ -929,7 +935,11 @@ export const FindMe = () => {
 
                                         {report.data_breaches.breaches?.length > 0 && (
                                             <div className="space-y-4">
-                                                <h4 className="font-semibold">Top 10 Most Severe Breaches (Ranked by Risk)</h4>
+                                                <h4 className="font-semibold">
+                                                    {isPDFGenerating
+                                                        ? `All Data Breaches (Ranked by Risk)`
+                                                        : `Top 10 Most Severe Breaches (Ranked by Risk)`}
+                                                </h4>
                                                 {report.data_breaches.breaches.slice(0, isPDFGenerating ? undefined : 10).map((breach, idx) => (
                                                     <div key={idx} className={`border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors ${isPDFGenerating ? 'breach-card' : ''}`}>
                                                         <div className="flex justify-between items-start mb-3">
