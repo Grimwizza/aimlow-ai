@@ -140,77 +140,368 @@ export default async function handler(req) {
 
 
 
-    // TOOL 5: FIND ME - Digital Footprint Analysis (Real Search)
+    // TOOL 5A: FIND ME - DISAMBIGUATION (Quick Profile Search)
+    if (type === 'find-me-disambiguate') {
+      const { name, location, profession } = payload;
+
+      // Get API keys
+      const braveApiKey = process.env.BRAVE_SEARCH_API_KEY;
+      const googleApiKey = process.env.GOOGLE_SEARCH_API_KEY;
+      const googleCseId = process.env.GOOGLE_CSE_ID;
+
+      if (!braveApiKey && !googleApiKey) {
+        return new Response(JSON.stringify({ error: 'No search API configured' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Helper function for Brave Search
+      const searchBrave = async (query) => {
+        if (!braveApiKey) return [];
+        console.log('[Disambiguation] Brave search:', query);
+        try {
+          const response = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=15`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-Subscription-Token': braveApiKey
+            }
+          });
+          if (!response.ok) {
+            console.error('[Disambiguation] Brave error:', await response.text());
+            return [];
+          }
+          const data = await response.json();
+          return (data.web?.results || []).map(r => ({ ...r, source: 'brave' }));
+        } catch (error) {
+          console.error('[Disambiguation] Brave error:', error.message);
+          return [];
+        }
+      };
+
+      // Helper function for Google Custom Search
+      const searchGoogle = async (query) => {
+        if (!googleApiKey || !googleCseId) return [];
+        console.log('[Disambiguation] Google search:', query);
+        try {
+          const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCseId}&q=${encodeURIComponent(query)}&num=10`;
+          const response = await fetch(url);
+          if (!response.ok) {
+            console.error('[Disambiguation] Google error:', await response.text());
+            return [];
+          }
+          const data = await response.json();
+          // Transform Google results to match Brave format
+          return (data.items || []).map(item => ({
+            title: item.title,
+            url: item.link,
+            description: item.snippet,
+            source: 'google'
+          }));
+        } catch (error) {
+          console.error('[Disambiguation] Google error:', error.message);
+          return [];
+        }
+      };
+
+      // Rate limit helper
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+      try {
+        let allResults = [];
+
+        // Strategy 1: LinkedIn search - Use GOOGLE first (better LinkedIn indexing), fallback to Brave
+        const linkedinQuery = `"${name}" site:linkedin.com`;
+        console.log('[Disambiguation] Strategy 1 - LinkedIn search');
+
+        // Try Google first for LinkedIn (better indexing)
+        const googleLinkedinResults = await searchGoogle(linkedinQuery);
+        allResults = [...allResults, ...googleLinkedinResults];
+
+        // Also try Brave for LinkedIn
+        if (googleLinkedinResults.length < 3) {
+          await sleep(1200);
+          const braveLinkedinResults = await searchBrave(linkedinQuery);
+          allResults = [...allResults, ...braveLinkedinResults];
+        }
+
+        // Strategy 2: Social media search (Brave is good for this)
+        console.log('[Disambiguation] Strategy 2 - Social media search');
+        await sleep(1200);
+        const socialQuery = `"${name}" (site:facebook.com OR site:twitter.com OR site:youtube.com OR site:instagram.com)`;
+        const socialResults = await searchBrave(socialQuery);
+        allResults = [...allResults, ...socialResults];
+
+        // Strategy 3: General professional search with Google
+        console.log('[Disambiguation] Strategy 3 - General professional search');
+        let professionalQuery = `"${name}"`;
+        if (profession) professionalQuery += ` ${profession}`;
+        if (location) professionalQuery += ` ${location.split(',')[0]}`;
+        const googleProfessionalResults = await searchGoogle(professionalQuery);
+        allResults = [...allResults, ...googleProfessionalResults];
+
+        console.log('[Disambiguation] Total results collected:', allResults.length);
+
+        // Deduplicate by URL
+        const uniqueResults = [];
+        const seenUrls = new Set();
+        for (const r of allResults) {
+          const normalizedUrl = r.url?.toLowerCase().replace(/\/$/, '');
+          if (normalizedUrl && !seenUrls.has(normalizedUrl)) {
+            seenUrls.add(normalizedUrl);
+            uniqueResults.push(r);
+          }
+        }
+        let results = uniqueResults.slice(0, 20); // Cap at 20
+
+        console.log('[Disambiguation] Unique results:', results.length);
+
+        if (results.length === 0) {
+          console.log('[Disambiguation] No results found at all');
+          return new Response(JSON.stringify({ result: { candidates: [] } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Ask AI to extract candidate profiles from search results
+        const systemPrompt = `You are a data extraction expert. Analyze the search results and extract distinct candidate profiles.
+
+CRITICAL INSTRUCTIONS:
+1. Extract ONLY distinct individuals (avoid duplicates)
+2. Prioritize LinkedIn and professional profiles
+3. Extract key identifying information EXACTLY as it appears in the search results
+4. Return 3-8 most relevant candidates
+5. **NEVER FABRICATE OR MAKE UP DATA** - If a field cannot be determined from the actual search results, use null
+6. **DO NOT USE PLACEHOLDER DATA** - No "XYZ Corporation", "ABC Company", generic titles, or similar fake data
+7. Only extract information that is explicitly stated in the search result titles, URLs, or descriptions
+8. If you cannot find enough real information to create a useful candidate profile, DO NOT include that candidate
+
+VALIDATION RULES:
+- Company names must be real companies extracted from the search results
+- Job titles must be actual titles mentioned in the results
+- Locations must be specific cities/states mentioned in the results
+- If a LinkedIn URL is present, extract the username from the URL path
+- Profile URLs must be actual URLs from the search results
+
+Return a SINGLE valid JSON object (no markdown):
+
+{
+  "candidates": [
+    {
+      "name": "Full name EXACTLY as shown in result",
+      "title": "Actual job title from result or null",
+      "company": "Real company name from result or null",
+      "location": "Actual location from result or null",
+      "profile_url": "Actual URL from search result or null",
+      "source": "Platform name (LinkedIn, etc.) or null",
+      "snippet": "Brief relevant context QUOTED from search result or null"
+    }
+  ]
+}
+
+EXAMPLE OF CORRECT EXTRACTION:
+Search Result: "Ben Luebbert - Software Engineer at Google | LinkedIn"
+URL: linkedin.com/in/benluebbert
+Description: "Ben Luebbert is a Software Engineer at Google based in Mountain View, California..."
+
+Correct Output:
+{
+  "name": "Ben Luebbert",
+  "title": "Software Engineer",
+  "company": "Google",
+  "location": "Mountain View, California",
+  "profile_url": "linkedin.com/in/benluebbert",
+  "source": "LinkedIn",
+  "snippet": "Software Engineer at Google based in Mountain View, California"
+}
+
+EXAMPLE OF INCORRECT (FABRICATED) OUTPUT - DO NOT DO THIS:
+{
+  "name": "Ben Luebbert",
+  "title": "Marketing Manager",  // ❌ NOT in search results
+  "company": "XYZ Corporation",  // ❌ Placeholder/fake company
+  "location": "Minneapolis, Minnesota",  // ❌ NOT in search results
+  ...
+}`;
+
+        const searchContext = `
+Search Query: "${name}"
+
+Search Results:
+${results.slice(0, 10).map((r, i) => `
+${i + 1}. ${r.title}
+   URL: ${r.url}
+   Description: ${r.description || 'No description'}
+`).join('\n')}
+        `.trim();
+
+        console.log('[Disambiguation] Search context being sent to AI:');
+        console.log(searchContext);
+        console.log('[Disambiguation] Number of results:', results.length);
+
+        const completion = await getOpenAI().chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: searchContext }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.3,
+        });
+
+        const candidatesData = JSON.parse(completion.choices[0].message.content);
+
+        return new Response(JSON.stringify({ result: candidatesData }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+      } catch (error) {
+        console.error('[Disambiguation] Error:', error);
+        return new Response(JSON.stringify({ error: 'Disambiguation failed' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // TOOL 5B: FIND ME - Digital Footprint Analysis (Real Search)
     if (type === 'find-me') {
-      const { name, location, profession, ageRange } = payload;
+      const { name, location, profession, ageRange, selectedProfile } = payload;
+
+      // Use selected profile info if available, otherwise use form data
+      const searchName = selectedProfile?.name || name;
+      const searchLocation = selectedProfile?.location || location;
+      const searchCompany = selectedProfile?.company;
+      const searchTitle = selectedProfile?.title;
 
       // Perform multiple targeted web searches
       const searches = [];
 
-      // General web search
-      const generalQuery = `"${name}"${location ? ` ${location}` : ''}`;
+      // General web search - more specific, exclude social aggregators
+      let generalQuery = `"${searchName}"`;
+      if (searchLocation) generalQuery += ` "${searchLocation}"`;
+      if (profession || searchTitle) generalQuery += ` "${searchTitle || profession}"`;
+      generalQuery += ` -site:facebook.com -site:twitter.com`; // Exclude social on general search
       searches.push({ type: 'general', query: generalQuery });
 
+      // LinkedIn-specific search (most reliable for professional info)
+      let linkedinQuery = `site:linkedin.com/in "${searchName}"`;
+      if (searchLocation) linkedinQuery += ` "${searchLocation}"`;
+      if (searchCompany) linkedinQuery += ` "${searchCompany}"`;
+      searches.push({ type: 'linkedin', query: linkedinQuery });
+
       // News search
-      const newsQuery = `"${name}"${location ? ` ${location}` : ''} news OR article`;
+      let newsQuery = `"${searchName}"`;
+      if (searchLocation) newsQuery += ` "${searchLocation}"`;
+      newsQuery += ` (news OR article OR press)`;
       searches.push({ type: 'news', query: newsQuery });
 
-      // Social media search
-      const socialQuery = `"${name}" (LinkedIn OR Twitter OR Facebook OR Instagram)${location ? ` ${location}` : ''}`;
+      // Social media search - targeted platforms
+      let socialQuery = `"${searchName}" (site:twitter.com OR site:instagram.com OR site:facebook.com)`;
+      if (searchLocation) socialQuery += ` "${searchLocation}"`;
       searches.push({ type: 'social', query: socialQuery });
 
       // Professional search
-      if (profession) {
-        const professionalQuery = `"${name}" ${profession} (profile OR portfolio OR GitHub)`;
+      if (profession || searchTitle) {
+        let professionalQuery = `"${searchName}" "${searchTitle || profession}" (portfolio OR GitHub OR profile)`;
+        if (searchCompany) professionalQuery += ` "${searchCompany}"`;
         searches.push({ type: 'professional', query: professionalQuery });
       }
 
-      // Execute searches using Brave Search API (free tier available)
-      // Note: You'll need to add BRAVE_SEARCH_API_KEY to your .env file
+      // Execute searches using both Brave and Google APIs
       const searchResults = [];
       const braveApiKey = process.env.BRAVE_SEARCH_API_KEY;
+      const googleApiKey = process.env.GOOGLE_SEARCH_API_KEY;
+      const googleCseId = process.env.GOOGLE_CSE_ID;
 
       console.log('[Find Me] Brave API Key available:', !!braveApiKey);
-      console.log('[Find Me] Brave API Key prefix:', braveApiKey ? braveApiKey.substring(0, 10) + '...' : 'MISSING');
+      console.log('[Find Me] Google API Key available:', !!googleApiKey);
 
       // Helper function to add delay between requests (rate limiting)
       const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+      // Helper for Brave search
+      const searchWithBrave = async (query, count = 5) => {
+        if (!braveApiKey) return [];
+        try {
+          const response = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-Subscription-Token': braveApiKey
+            }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            return (data.web?.results || []).map(r => ({ ...r, searchSource: 'brave' }));
+          }
+          console.error('[Find Me] Brave error:', await response.text());
+          return [];
+        } catch (error) {
+          console.error('[Find Me] Brave error:', error.message);
+          return [];
+        }
+      };
+
+      // Helper for Google search
+      const searchWithGoogle = async (query, count = 5) => {
+        if (!googleApiKey || !googleCseId) return [];
+        try {
+          const url = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${googleCseId}&q=${encodeURIComponent(query)}&num=${count}`;
+          const response = await fetch(url);
+          if (response.ok) {
+            const data = await response.json();
+            return (data.items || []).map(item => ({
+              title: item.title,
+              url: item.link,
+              description: item.snippet,
+              searchSource: 'google'
+            }));
+          }
+          console.error('[Find Me] Google error:', await response.text());
+          return [];
+        } catch (error) {
+          console.error('[Find Me] Google error:', error.message);
+          return [];
+        }
+      };
+
       for (let i = 0; i < searches.length; i++) {
         const search = searches[i];
 
-        // Add delay between requests (Brave Free tier: 1 query/second)
+        // Add delay between requests
         if (i > 0) {
           console.log(`[Find Me] Rate limiting: waiting 1.1s before next request...`);
-          await sleep(1100); // 1.1 seconds to be safe
+          await sleep(1100);
         }
 
-        try {
-          console.log(`[Find Me] Executing ${search.type} search:`, search.query);
-          const response = await fetch(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(search.query)}&count=5`, {
-            headers: {
-              'Accept': 'application/json',
-              'X-Subscription-Token': braveApiKey || ''
-            }
-          });
+        console.log(`[Find Me] Executing ${search.type} search:`, search.query);
 
-          console.log(`[Find Me] ${search.type} response status:`, response.status);
+        let results = [];
 
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`[Find Me] ${search.type} results count:`, data.web?.results?.length || 0);
-            searchResults.push({
-              type: search.type,
-              query: search.query,
-              results: data.web?.results || []
-            });
-          } else {
-            const errorText = await response.text();
-            console.error(`[Find Me] ${search.type} API error (${response.status}):`, errorText);
+        // Use Google for LinkedIn searches (better indexing)
+        if (search.type === 'linkedin' || search.type === 'professional') {
+          results = await searchWithGoogle(search.query, 5);
+          // Also add Brave results for coverage
+          if (results.length < 3) {
+            await sleep(1100);
+            const braveResults = await searchWithBrave(search.query, 5);
+            results = [...results, ...braveResults];
           }
-        } catch (error) {
-          console.error(`[Find Me] Search failed for ${search.type}:`, error);
-          // Continue with other searches even if one fails
+        } else {
+          // Use Brave for general, news, social searches
+          results = await searchWithBrave(search.query, 5);
+        }
+
+        console.log(`[Find Me] ${search.type} results count:`, results.length);
+
+        if (results.length > 0) {
+          searchResults.push({
+            type: search.type,
+            query: search.query,
+            results: results
+          });
         }
       }
 
@@ -247,6 +538,15 @@ CRITICAL INSTRUCTIONS:
 5. If search results are limited or empty, acknowledge this honestly
 6. Provide specific, actionable privacy recommendations based on what was actually found
 7. Do NOT make up information that isn't in the search results
+8. FILTER OUT false positives: exclude results that clearly don't match (wrong location, different profession, obituaries of different people, historical figures)
+9. PRIORITIZE high-confidence matches: results from LinkedIn, professional profiles, or sources that include multiple matching details
+10. If multiple people with the same name appear, focus on the one that best matches the provided details
+
+CONFIDENCE SCORING:
+- High confidence: Multiple matching details (name + location + profession/company)
+- Medium confidence: Name + one other matching detail
+- Low confidence: Name only, or conflicting details
+- Only include results with medium or high confidence
 
 Return a SINGLE valid JSON object (no markdown formatting):
 
@@ -257,6 +557,7 @@ Return a SINGLE valid JSON object (no markdown formatting):
     "profession": "String or null",
     "age_range": "String or null"
   },
+  "match_quality": "High/Medium/Low - overall confidence that results match the intended person",
   "executive_summary": [
     "Key finding 1 based on actual search results",
     "Key finding 2 about what was/wasn't found",

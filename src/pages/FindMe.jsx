@@ -8,6 +8,7 @@ import { AlertTriangle, Shield, Eye, Globe, Newspaper, Users, Briefcase, CheckCi
 
 const steps = {
     INPUT: 'input',
+    DISAMBIGUATION: 'disambiguation',
     LOADING: 'loading',
     REPORT: 'report'
 };
@@ -51,6 +52,8 @@ export const FindMe = () => {
         ageRange: ''
     });
     const [agreedToTerms, setAgreedToTerms] = useState(false);
+    const [candidates, setCandidates] = useState([]);
+    const [selectedProfile, setSelectedProfile] = useState(null);
     const [report, setReport] = useState(null);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('summary');
@@ -67,6 +70,52 @@ export const FindMe = () => {
         setError(null);
 
         try {
+            // Step 1: Get disambiguation candidates
+            const disambiguationResponse = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'find-me-disambiguate',
+                    payload: {
+                        name: formData.name,
+                        location: formData.location || null,
+                        profession: formData.profession || null
+                    }
+                })
+            });
+
+            const disambiguationData = await disambiguationResponse.json();
+
+            if (!disambiguationResponse.ok || disambiguationData.error) {
+                throw new Error(disambiguationData.error || 'Search failed');
+            }
+
+            const candidatesList = disambiguationData.result?.candidates || [];
+
+            // If we have multiple candidates, show disambiguation
+            if (candidatesList.length > 1) {
+                setCandidates(candidatesList);
+                setStep(steps.DISAMBIGUATION);
+            } else if (candidatesList.length === 1) {
+                // Only one match, proceed directly
+                setSelectedProfile(candidatesList[0]);
+                await runFullAnalysis(candidatesList[0]);
+            } else {
+                // No candidates found, run analysis with original data
+                await runFullAnalysis(null);
+            }
+        } catch (err) {
+            console.error(err);
+            setError(err.message || 'Something went wrong. Please try again.');
+            setStep(steps.INPUT);
+        }
+    };
+
+    const runFullAnalysis = async (profile) => {
+        setStep(steps.LOADING);
+        setError(null);
+
+        try {
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -76,7 +125,8 @@ export const FindMe = () => {
                         name: formData.name,
                         location: formData.location || null,
                         profession: formData.profession || null,
-                        ageRange: formData.ageRange || null
+                        ageRange: formData.ageRange || null,
+                        selectedProfile: profile
                     }
                 })
             });
@@ -96,10 +146,21 @@ export const FindMe = () => {
         }
     };
 
+    const handleCandidateSelect = (candidate) => {
+        setSelectedProfile(candidate);
+        runFullAnalysis(candidate);
+    };
+
+    const skipDisambiguation = () => {
+        runFullAnalysis(null);
+    };
+
     const resetForm = () => {
         setStep(steps.INPUT);
         setFormData({ name: '', location: '', profession: '', ageRange: '' });
         setAgreedToTerms(false);
+        setCandidates([]);
+        setSelectedProfile(null);
         setReport(null);
         setError(null);
         setActiveTab('summary');
@@ -169,6 +230,12 @@ export const FindMe = () => {
                             </div>
                         </div>
 
+                        <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
+                            <p className="text-sm text-blue-600 dark:text-blue-400">
+                                <strong>💡 Tip:</strong> Adding location and profession helps narrow results and improves accuracy, especially for common names.
+                            </p>
+                        </div>
+
                         <div>
                             <label className="block text-sm font-semibold mb-2">Age Range (Optional)</label>
                             <select
@@ -222,6 +289,77 @@ export const FindMe = () => {
                 </Card>
             )}
 
+            {/* Disambiguation Step */}
+            {step === steps.DISAMBIGUATION && (
+                <div className="max-w-4xl mx-auto space-y-6">
+                    <Card className="p-6 shadow-lg">
+                        <div className="text-center mb-6">
+                            <h2 className="text-2xl font-bold mb-2">Multiple Matches Found</h2>
+                            <p className="text-muted-foreground">
+                                We found several people matching "{formData.name}". Please select the correct person to analyze:
+                            </p>
+                        </div>
+
+                        <div className="space-y-3">
+                            {candidates.map((candidate, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleCandidateSelect(candidate)}
+                                    className="w-full text-left border border-border rounded-lg p-4 hover:bg-muted/50 hover:border-primary transition-all group"
+                                >
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
+                                                {candidate.name}
+                                            </h3>
+                                            <div className="mt-2 space-y-1">
+                                                {candidate.title && candidate.title !== 'null' && (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        <strong>Title:</strong> {candidate.title}
+                                                    </p>
+                                                )}
+                                                {candidate.company && candidate.company !== 'null' && (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        <strong>Company:</strong> {candidate.company}
+                                                    </p>
+                                                )}
+                                                {candidate.location && candidate.location !== 'null' && (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        <strong>Location:</strong> {candidate.location}
+                                                    </p>
+                                                )}
+                                                {candidate.snippet && candidate.snippet !== 'null' && (
+                                                    <p className="text-xs text-muted-foreground mt-2 italic">
+                                                        "{candidate.snippet}"
+                                                    </p>
+                                                )}
+                                                {candidate.source && candidate.source !== 'null' && (
+                                                    <p className="text-xs text-muted-foreground mt-2">
+                                                        Source: {candidate.source}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <Icon name="chevron-right" size={20} className="text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 ml-4" />
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 pt-6 border-t border-border">
+                            <div className="flex gap-3">
+                                <Button onClick={resetForm} variant="outline" className="flex-1">
+                                    <Icon name="arrow-left" size={16} className="mr-2" /> Start Over
+                                </Button>
+                                <Button onClick={skipDisambiguation} variant="outline" className="flex-1">
+                                    None of these match - Continue anyway
+                                </Button>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
             {/* Loading State */}
             {step === steps.LOADING && (
                 <Card className="max-w-2xl mx-auto p-12 text-center shadow-lg">
@@ -237,11 +375,21 @@ export const FindMe = () => {
                     <div className="flex justify-between items-center">
                         <div>
                             <h2 className="text-2xl font-bold">{report.person_name}</h2>
-                            <p className="text-sm text-muted-foreground">
-                                {[report.search_parameters?.location, report.search_parameters?.profession]
-                                    .filter(Boolean)
-                                    .join(' • ') || 'Digital Footprint Analysis'}
-                            </p>
+                            <div className="flex items-center gap-3 mt-1">
+                                <p className="text-sm text-muted-foreground">
+                                    {[report.search_parameters?.location, report.search_parameters?.profession]
+                                        .filter(Boolean)
+                                        .join(' • ') || 'Digital Footprint Analysis'}
+                                </p>
+                                {report.match_quality && (
+                                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${report.match_quality === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
+                                        report.match_quality === 'Medium' ? 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20' :
+                                            'bg-orange-500/10 text-orange-600 border border-orange-500/20'
+                                        }`}>
+                                        {report.match_quality} Confidence
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         <Button onClick={resetForm} variant="outline">
                             <Icon name="arrow-left" size={16} className="mr-2" /> New Search
@@ -258,8 +406,8 @@ export const FindMe = () => {
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`px-2 py-3 font-medium text-xs md:text-sm flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 border-b-2 transition-colors ${activeTab === tab.id
-                                                ? 'border-primary text-primary'
-                                                : 'border-transparent text-muted-foreground hover:text-foreground'
+                                            ? 'border-primary text-primary'
+                                            : 'border-transparent text-muted-foreground hover:text-foreground'
                                             }`}
                                         title={tab.label}
                                     >
