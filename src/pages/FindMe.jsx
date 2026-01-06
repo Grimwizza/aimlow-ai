@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import html2pdf from 'html2pdf.js';
 import { SEO } from '../seo-tools/SEOTags';
 import { Icon } from '../components/ui/Icon';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
-import { AlertTriangle, Shield, Eye, Globe, Newspaper, Users, Briefcase, CheckCircle2, XCircle } from 'lucide-react';
+import { AlertTriangle, Shield, Eye, Globe, Newspaper, Users, Briefcase, CheckCircle2, XCircle, Lock, Download, Unlock, Loader2 } from 'lucide-react';
 
 const steps = {
     INPUT: 'input',
@@ -47,6 +48,7 @@ export const FindMe = () => {
     const [step, setStep] = useState(steps.INPUT);
     const [formData, setFormData] = useState({
         name: '',
+        email: '',
         location: '',
         profession: '',
         ageRange: ''
@@ -57,6 +59,31 @@ export const FindMe = () => {
     const [report, setReport] = useState(null);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('summary');
+    const [loadingStage, setLoadingStage] = useState('');
+
+    // Beta Program access state
+    const [hasBetaAccess, setHasBetaAccess] = useState(false);
+    const [betaEmail, setBetaEmail] = useState('');
+    const [betaSignupStatus, setBetaSignupStatus] = useState('idle');
+    const [isPDFGenerating, setIsPDFGenerating] = useState(false);
+
+    // Check beta access on mount
+    useEffect(() => {
+        const access = localStorage.getItem('aimlow_beta_access');
+        const storedEmail = localStorage.getItem('aimlow_beta_email');
+        if (access === 'granted') setHasBetaAccess(true);
+        if (storedEmail) setBetaEmail(storedEmail);
+    }, []);
+
+    // Progress stages for visual feedback
+    const progressStages = [
+        { id: 'disambiguate', label: 'Finding Profiles', icon: '🔍' },
+        { id: 'linkedin', label: 'Searching LinkedIn', icon: '💼' },
+        { id: 'social', label: 'Searching Social Media', icon: '📱' },
+        { id: 'news', label: 'Searching News', icon: '📰' },
+        { id: 'breach', label: 'Checking Data Breaches', icon: '🔒' },
+        { id: 'analyze', label: 'Analyzing Results', icon: '🧠' }
+    ];
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -67,6 +94,7 @@ export const FindMe = () => {
         if (!formData.name.trim() || !agreedToTerms) return;
 
         setStep(steps.LOADING);
+        setLoadingStage('disambiguate');
         setError(null);
 
         try {
@@ -96,6 +124,7 @@ export const FindMe = () => {
             if (candidatesList.length > 1) {
                 setCandidates(candidatesList);
                 setStep(steps.DISAMBIGUATION);
+                setLoadingStage('');
             } else if (candidatesList.length === 1) {
                 // Only one match, proceed directly
                 setSelectedProfile(candidatesList[0]);
@@ -108,12 +137,25 @@ export const FindMe = () => {
             console.error(err);
             setError(err.message || 'Something went wrong. Please try again.');
             setStep(steps.INPUT);
+            setLoadingStage('');
         }
     };
 
     const runFullAnalysis = async (profile) => {
         setStep(steps.LOADING);
+        setLoadingStage('linkedin');
         setError(null);
+
+        // Simulate progress through stages (the backend does these sequentially)
+        const stageTimer = setInterval(() => {
+            setLoadingStage(current => {
+                if (current === 'linkedin') return 'social';
+                if (current === 'social') return 'news';
+                if (current === 'news') return 'breach';
+                if (current === 'breach') return 'analyze';
+                return current;
+            });
+        }, 2500); // Update stage every 2.5 seconds
 
         try {
             const response = await fetch('/api/generate', {
@@ -123,6 +165,7 @@ export const FindMe = () => {
                     type: 'find-me',
                     payload: {
                         name: formData.name,
+                        email: formData.email || null,
                         location: formData.location || null,
                         profession: formData.profession || null,
                         ageRange: formData.ageRange || null,
@@ -132,6 +175,7 @@ export const FindMe = () => {
             });
 
             const data = await response.json();
+            clearInterval(stageTimer);
 
             if (!response.ok || data.error) {
                 throw new Error(data.error || 'Analysis failed');
@@ -139,10 +183,13 @@ export const FindMe = () => {
 
             setReport(data.result);
             setStep(steps.REPORT);
+            setLoadingStage('');
         } catch (err) {
+            clearInterval(stageTimer);
             console.error(err);
             setError(err.message || 'Something went wrong. Please try again.');
             setStep(steps.INPUT);
+            setLoadingStage('');
         }
     };
 
@@ -157,13 +204,66 @@ export const FindMe = () => {
 
     const resetForm = () => {
         setStep(steps.INPUT);
-        setFormData({ name: '', location: '', profession: '', ageRange: '' });
+        setFormData({ name: '', email: '', location: '', profession: '', ageRange: '' });
         setAgreedToTerms(false);
         setCandidates([]);
         setSelectedProfile(null);
         setReport(null);
         setError(null);
         setActiveTab('summary');
+        setLoadingStage('');
+    };
+
+    // Beta Program signup handler
+    const handleBetaSignup = async (e) => {
+        e.preventDefault();
+        setBetaSignupStatus('loading');
+        try {
+            await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: betaEmail }),
+            });
+            localStorage.setItem('aimlow_beta_access', 'granted');
+            localStorage.setItem('aimlow_beta_email', betaEmail);
+            setHasBetaAccess(true);
+            setBetaSignupStatus('success');
+        } catch (error) {
+            setBetaSignupStatus('error');
+            setTimeout(() => setBetaSignupStatus('idle'), 3000);
+        }
+    };
+
+    // PDF Download handler
+    const handleDownloadPDF = () => {
+        setIsPDFGenerating(true);
+        setTimeout(() => {
+            const element = document.getElementById('find-me-report');
+            if (!element) {
+                setIsPDFGenerating(false);
+                return;
+            }
+
+            // Generate a safe filename
+            const baseName = formData.name ? formData.name.replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_') : 'Digital_Footprint_Report';
+            const filename = `${baseName}_Digital_Footprint_Report.pdf`;
+
+            const opt = {
+                margin: 0.5,
+                filename: filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+            };
+
+            html2pdf().from(element).set(opt).save(filename).then(() => {
+                setIsPDFGenerating(false);
+            }).catch(err => {
+                console.error('PDF Generation failed:', err);
+                setIsPDFGenerating(false);
+            });
+        }, 500);
     };
 
     const tabs = [
@@ -172,6 +272,7 @@ export const FindMe = () => {
         { id: 'news', label: 'News & Media', icon: Newspaper },
         { id: 'social', label: 'Social Media', icon: Users },
         { id: 'professional', label: 'Professional', icon: Briefcase },
+        { id: 'breaches', label: 'Data Breaches', icon: Lock },
         { id: 'privacy', label: 'Privacy Assessment', icon: Shield },
         { id: 'recommendations', label: 'Action Items', icon: CheckCircle2 }
     ];
@@ -228,6 +329,24 @@ export const FindMe = () => {
                                     placeholder="e.g. Software Engineer"
                                 />
                             </div>
+                        </div>
+
+                        {/* Email for breach check */}
+                        <div>
+                            <label className="block text-sm font-semibold mb-2">
+                                Email Address (Optional)
+                                <span className="font-normal text-muted-foreground ml-2">— for data breach check</span>
+                            </label>
+                            <Input
+                                name="email"
+                                type="email"
+                                value={formData.email}
+                                onChange={handleInputChange}
+                                placeholder="e.g. john.smith@email.com"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                                🔒 We'll check if this email appears in known data breaches. Your email is not stored.
+                            </p>
                         </div>
 
                         <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
@@ -360,18 +479,62 @@ export const FindMe = () => {
                 </div>
             )}
 
-            {/* Loading State */}
+            {/* Loading State with Progress Indicator */}
             {step === steps.LOADING && (
-                <Card className="max-w-2xl mx-auto p-12 text-center shadow-lg">
-                    <Icon name="loader" className="animate-spin mx-auto mb-4 text-primary" size={48} />
-                    <h2 className="text-2xl font-bold mb-2">Analyzing Your Digital Footprint</h2>
-                    <p className="text-muted-foreground">Searching across web, news, social media, and professional listings...</p>
+                <Card className="max-w-2xl mx-auto p-8 shadow-lg">
+                    <div className="text-center mb-8">
+                        <Icon name="loader" className="animate-spin mx-auto mb-4 text-primary" size={48} />
+                        <h2 className="text-2xl font-bold mb-2">Analyzing Your Digital Footprint</h2>
+                        <p className="text-muted-foreground">
+                            {progressStages.find(s => s.id === loadingStage)?.label || 'Initializing search...'}
+                        </p>
+                    </div>
+
+                    {/* Progress Steps */}
+                    <div className="space-y-3">
+                        {progressStages.map((stage, idx) => {
+                            const currentIdx = progressStages.findIndex(s => s.id === loadingStage);
+                            const isComplete = idx < currentIdx;
+                            const isCurrent = stage.id === loadingStage;
+                            const isPending = idx > currentIdx;
+
+                            return (
+                                <div
+                                    key={stage.id}
+                                    className={`flex items-center gap-4 p-3 rounded-lg transition-all duration-300 ${isCurrent ? 'bg-primary/10 border border-primary/30' :
+                                        isComplete ? 'bg-green-500/10' : 'bg-muted/30'
+                                        }`}
+                                >
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${isCurrent ? 'bg-primary text-white animate-pulse' :
+                                        isComplete ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'
+                                        }`}>
+                                        {isComplete ? '✓' : stage.icon}
+                                    </div>
+                                    <span className={`font-medium ${isCurrent ? 'text-primary' :
+                                        isComplete ? 'text-green-600' : 'text-muted-foreground'
+                                        }`}>
+                                        {stage.label}
+                                    </span>
+                                    {isCurrent && (
+                                        <Icon name="loader" className="ml-auto animate-spin text-primary" size={16} />
+                                    )}
+                                    {isComplete && (
+                                        <CheckCircle2 className="ml-auto text-green-500" size={16} />
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <p className="text-xs text-muted-foreground text-center mt-6">
+                        This may take 15-30 seconds due to rate limiting between searches.
+                    </p>
                 </Card>
             )}
 
             {/* Report View */}
             {step === steps.REPORT && report && (
-                <div className="space-y-6">
+                <div className="space-y-6" id="find-me-report">
                     <div className="flex justify-between items-center">
                         <div>
                             <h2 className="text-2xl font-bold">{report.person_name}</h2>
@@ -398,7 +561,7 @@ export const FindMe = () => {
 
                     {/* Tabs */}
                     <div className="border-b border-border">
-                        <div className="grid grid-cols-7 gap-0">
+                        <div className="grid grid-cols-8 gap-0">
                             {tabs.map((tab) => {
                                 const IconComponent = tab.icon;
                                 return (
@@ -640,6 +803,148 @@ export const FindMe = () => {
                             </div>
                         )}
 
+                        {activeTab === 'breaches' && (
+                            <div className="space-y-6">
+                                <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                                    <Lock size={20} /> Data Breach Check
+                                </h3>
+
+                                {report.data_breaches?.checked ? (
+                                    <>
+                                        <div className={`p-6 rounded-lg ${report.data_breaches.breach_count > 0
+                                            ? 'bg-red-500/10 border border-red-500/20'
+                                            : 'bg-green-500/10 border border-green-500/20'
+                                            }`}>
+                                            <div className="flex items-center gap-3 mb-3">
+                                                {report.data_breaches.breach_count > 0 ? (
+                                                    <AlertTriangle className="text-red-600" size={24} />
+                                                ) : (
+                                                    <CheckCircle2 className="text-green-600" size={24} />
+                                                )}
+                                                <div>
+                                                    <p className="font-bold text-lg">
+                                                        {report.data_breaches.breach_count > 0
+                                                            ? `Found in ${report.data_breaches.breach_count} Data Breach${report.data_breaches.breach_count > 1 ? 'es' : ''}`
+                                                            : 'No Data Breaches Found'}
+                                                    </p>
+                                                    {report.data_breaches.email_checked && (
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Email checked: {report.data_breaches.email_checked}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {report.data_breaches.summary && (
+                                                <p className="text-sm mt-3">{report.data_breaches.summary}</p>
+                                            )}
+                                        </div>
+
+                                        {report.data_breaches.breaches?.length > 0 && (
+                                            <div className="space-y-4">
+                                                <h4 className="font-semibold">Top 10 Most Severe Breaches (Ranked by Risk)</h4>
+                                                {report.data_breaches.breaches.slice(0, isPDFGenerating ? undefined : 10).map((breach, idx) => (
+                                                    <div key={idx} className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <div className="flex items-center gap-3">
+                                                                {breach.logo && (
+                                                                    <img src={breach.logo} alt="" className="w-8 h-8 rounded object-contain" onError={(e) => e.target.style.display = 'none'} />
+                                                                )}
+                                                                <div>
+                                                                    <span className="font-bold text-lg">{breach.name}</span>
+                                                                    {breach.domain && (
+                                                                        <p className="text-xs text-muted-foreground">{breach.domain}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-2 flex-wrap justify-end">
+                                                                {breach.password_risk && breach.password_risk !== 'unknown' && (
+                                                                    <span className={`text-xs px-2 py-1 rounded-full font-bold ${breach.password_risk === 'plaintext' ? 'bg-red-600 text-white' :
+                                                                        breach.password_risk === 'easytocrack' ? 'bg-red-500/20 text-red-600' :
+                                                                            breach.password_risk === 'hardtocrack' ? 'bg-yellow-500/20 text-yellow-600' :
+                                                                                'bg-blue-500/10 text-blue-600'
+                                                                        }`}>
+                                                                        {breach.password_risk === 'plaintext' ? '⚠️ PLAINTEXT' :
+                                                                            breach.password_risk === 'easytocrack' ? '⚠️ Easy to Crack' :
+                                                                                breach.password_risk === 'hardtocrack' ? '🔒 Hard to Crack' :
+                                                                                    breach.password_risk}
+                                                                    </span>
+                                                                )}
+                                                                {breach.industry && (
+                                                                    <span className="text-xs px-2 py-1 bg-muted rounded-full">
+                                                                        {breach.industry}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                                                            <div>
+                                                                <span className="text-muted-foreground">Date: </span>
+                                                                <span>{breach.date || 'Unknown'}</span>
+                                                            </div>
+                                                            {breach.records_affected > 0 && (
+                                                                <div>
+                                                                    <span className="text-muted-foreground">Records: </span>
+                                                                    <span className="font-semibold text-red-600">{Number(breach.records_affected).toLocaleString()}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {breach.description && (
+                                                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                                                                {breach.description}
+                                                            </p>
+                                                        )}
+
+                                                        {breach.data_exposed?.length > 0 && (
+                                                            <div>
+                                                                <span className="text-xs text-muted-foreground mb-1 block">Data Exposed:</span>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {breach.data_exposed.map((data, i) => (
+                                                                        <span key={i} className={`text-xs px-2 py-0.5 rounded-full ${data.toLowerCase().includes('password') ? 'bg-red-500/20 text-red-600 font-semibold' :
+                                                                            data.toLowerCase().includes('email') ? 'bg-orange-500/20 text-orange-600' :
+                                                                                'bg-muted'
+                                                                            }`}>
+                                                                            {data}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                {!isPDFGenerating && report.data_breaches.breaches.length > 10 && (
+                                                    <div className="bg-muted/30 p-4 rounded-lg text-center">
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Showing top 10 most severe breaches. <strong>{report.data_breaches.breaches.length - 10} additional breaches</strong> will be included in the full export.
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="bg-muted/50 p-6 rounded-lg text-center">
+                                        <Lock className="mx-auto mb-4 text-muted-foreground" size={40} />
+                                        <p className="font-semibold mb-2">No Email Provided</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            To check for data breaches, enter your email address in the search form.
+                                            We use XposedOrNot to check if your email appears in known data breaches.
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg">
+                                    <p className="text-sm text-blue-600 dark:text-blue-400">
+                                        <strong>🔒 Privacy Note:</strong> Breach checks are powered by{' '}
+                                        <a href="https://xposedornot.com" target="_blank" rel="noopener noreferrer" className="underline">
+                                            XposedOrNot
+                                        </a>. Your email is only used for this check and is not stored.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'privacy' && (
                             <div className="space-y-6">
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
@@ -738,6 +1043,70 @@ export const FindMe = () => {
                             </div>
                         )}
                     </Card>
+
+                    {/* PDF Export Section */}
+                    <div className="mt-8 border-t border-border pt-8" data-html2canvas-ignore="true">
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div>
+                                <h3 className="text-xl font-bold mb-2">Export Full Report</h3>
+                                <p className="text-muted-foreground max-w-xl">
+                                    Download a professional PDF report containing all 40+ checks, including the full list of data breaches, detailed privacy assessment, and step-by-step removal guides.
+                                </p>
+                            </div>
+
+                            {hasBetaAccess ? (
+                                <Button
+                                    onClick={handleDownloadPDF}
+                                    disabled={isPDFGenerating}
+                                    size="lg"
+                                    className="gap-2 min-w-[200px]"
+                                >
+                                    {isPDFGenerating ? <Loader2 className="animate-spin" size={20} /> : <Download size={20} />}
+                                    Download PDF Report
+                                </Button>
+                            ) : (
+                                <Card className="p-6 bg-muted/30 border-dashed border-primary/20 w-full md:w-auto min-w-[350px]">
+                                    <div className="flex items-center gap-2 mb-4 text-primary">
+                                        <Lock size={18} />
+                                        <span className="font-bold text-sm uppercase tracking-wider">Premium Feature</span>
+                                    </div>
+                                    <h4 className="font-bold mb-2">Unlock Full PDF Report</h4>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Join our Beta Program for free to unlock file exports and unlimited searches.
+                                    </p>
+                                    <form onSubmit={handleBetaSignup} className="flex gap-2">
+                                        <Input
+                                            placeholder="Enter your email"
+                                            value={betaEmail}
+                                            onChange={(e) => setBetaEmail(e.target.value)}
+                                            required
+                                            type="email"
+                                            className="bg-background"
+                                        />
+                                        <Button type="submit" disabled={betaSignupStatus === 'loading'}>
+                                            {betaSignupStatus === 'loading' ? <Loader2 className="animate-spin" /> : 'Join'}
+                                        </Button>
+                                    </form>
+                                    {betaSignupStatus === 'success' && (
+                                        <p className="text-green-600 text-xs mt-2 font-medium flex items-center gap-1">
+                                            <CheckCircle2 size={12} /> Unlocked! You can now download.
+                                        </p>
+                                    )}
+                                </Card>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PDF Generation Overlay */}
+            {isPDFGenerating && (
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-foreground">
+                    <div className="bg-card p-8 rounded-xl shadow-lg border border-border flex flex-col items-center">
+                        <Loader2 size={40} className="animate-spin mb-4 text-primary" />
+                        <h2 className="text-xl font-bold mb-2">Generating Report...</h2>
+                        <p className="text-muted-foreground text-sm">Compiling all results into PDF format.</p>
+                    </div>
                 </div>
             )}
         </div>

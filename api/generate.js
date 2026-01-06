@@ -368,13 +368,162 @@ ${i + 1}. ${r.title}
 
     // TOOL 5B: FIND ME - Digital Footprint Analysis (Real Search)
     if (type === 'find-me') {
-      const { name, location, profession, ageRange, selectedProfile } = payload;
+      const { name, email, location, profession, ageRange, selectedProfile } = payload;
 
       // Use selected profile info if available, otherwise use form data
       const searchName = selectedProfile?.name || name;
       const searchLocation = selectedProfile?.location || location;
       const searchCompany = selectedProfile?.company;
       const searchTitle = selectedProfile?.title;
+
+      // Check for data breaches if email provided using XposedOrNot (free API)
+      let breachData = null;
+      let breachSummary = null;
+      if (email) {
+        try {
+          console.log('[Find Me] Checking XposedOrNot for email breaches...');
+
+          // Step 1: Check if email is in any breaches
+          const xonResponse = await fetch(
+            `https://api.xposedornot.com/v1/check-email/${encodeURIComponent(email)}`,
+            {
+              headers: {
+                'Accept': 'application/json',
+                'User-Agent': 'AimLow-FindMe-Privacy-Tool'
+              }
+            }
+          );
+
+          if (xonResponse.ok) {
+            const xonData = await xonResponse.json();
+
+            // The API returns { breaches: [["BreachName1", "BreachName2", ...]] }
+            const breachNamesList = xonData.breaches?.[0] || xonData.breaches || [];
+            const breachNames = Array.isArray(breachNamesList) ? breachNamesList.flat() : [];
+
+            console.log(`[Find Me] Email found in ${breachNames.length} breaches:`, breachNames.slice(0, 5).join(', '));
+
+            if (breachNames.length > 0) {
+              // Step 2: Fetch detailed breach information from the breaches database
+              console.log('[Find Me] Fetching detailed breach information...');
+              const breachDetailsResponse = await fetch(
+                'https://api.xposedornot.com/v1/breaches',
+                {
+                  headers: {
+                    'Accept': 'application/json',
+                    'User-Agent': 'AimLow-FindMe-Privacy-Tool'
+                  }
+                }
+              );
+
+              let breachDatabase = [];
+              if (breachDetailsResponse.ok) {
+                const breachDbData = await breachDetailsResponse.json();
+                breachDatabase = breachDbData.exposedBreaches || [];
+                console.log(`[Find Me] Loaded ${breachDatabase.length} breaches from database`);
+              }
+
+              // Match the user's breaches with detailed info
+              breachData = breachNames.map(breachName => {
+                // Find matching breach in database (case-insensitive)
+                const detailedBreach = breachDatabase.find(
+                  b => b.breachID?.toLowerCase() === breachName.toLowerCase()
+                );
+
+                if (detailedBreach) {
+                  return {
+                    Name: detailedBreach.breachID || breachName,
+                    BreachDate: detailedBreach.breachedDate ? new Date(detailedBreach.breachedDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : 'Unknown',
+                    DataClasses: detailedBreach.exposedData || ['Unknown'],
+                    Domain: detailedBreach.domain || '',
+                    Description: detailedBreach.exposureDescription || '',
+                    Industry: detailedBreach.industry || 'Unknown',
+                    ExposedRecords: detailedBreach.exposedRecords || 0,
+                    PasswordRisk: detailedBreach.passwordRisk || 'unknown',
+                    Logo: detailedBreach.logo || ''
+                  };
+                }
+
+                // Fallback for breaches not in the database
+                return {
+                  Name: breachName,
+                  BreachDate: 'Unknown',
+                  DataClasses: ['Unknown'],
+                  Domain: '',
+                  Description: '',
+                  Industry: 'Unknown',
+                  ExposedRecords: 0,
+                  PasswordRisk: 'unknown',
+                  Logo: ''
+                };
+              });
+
+              // Calculate severity score for each breach and sort
+              breachData = breachData.map(b => {
+                let severityScore = 0;
+
+                // Password risk is highest priority
+                if (b.PasswordRisk === 'plaintext') severityScore += 50;
+                else if (b.PasswordRisk === 'easytocrack') severityScore += 30;
+                else if (b.PasswordRisk === 'hardtocrack') severityScore += 10;
+
+                // Check for sensitive data types
+                const dataClasses = b.DataClasses?.map(d => d.toLowerCase()) || [];
+                if (dataClasses.some(d => d.includes('password'))) severityScore += 20;
+                if (dataClasses.some(d => d.includes('credit') || d.includes('card') || d.includes('payment'))) severityScore += 25;
+                if (dataClasses.some(d => d.includes('ssn') || d.includes('social security'))) severityScore += 30;
+                if (dataClasses.some(d => d.includes('phone') || d.includes('address') || d.includes('date of birth'))) severityScore += 10;
+                if (dataClasses.some(d => d.includes('email'))) severityScore += 5;
+
+                // Records affected adds to severity (logarithmic scale)
+                if (b.ExposedRecords > 0) {
+                  severityScore += Math.min(10, Math.log10(b.ExposedRecords));
+                }
+
+                // More data types = more severe
+                severityScore += Math.min(5, dataClasses.length);
+
+                return { ...b, SeverityScore: severityScore };
+              });
+
+              // Sort by severity score descending
+              breachData.sort((a, b) => b.SeverityScore - a.SeverityScore);
+
+              console.log(`[Find Me] Top 5 most severe breaches:`, breachData.slice(0, 5).map(b => `${b.Name} (score: ${b.SeverityScore})`));
+
+              // Create breach summary stats
+              const totalRecords = breachData.reduce((sum, b) => sum + (b.ExposedRecords || 0), 0);
+              const industries = [...new Set(breachData.map(b => b.Industry).filter(i => i && i !== 'Unknown'))];
+              const passwordsExposed = breachData.some(b =>
+                b.DataClasses?.some(d => d.toLowerCase().includes('password'))
+              );
+
+              breachSummary = {
+                totalBreaches: breachData.length,
+                totalRecordsExposed: totalRecords,
+                industriesAffected: industries,
+                passwordsExposed: passwordsExposed,
+                highRiskBreaches: breachData.filter(b => b.PasswordRisk === 'plaintext' || b.PasswordRisk === 'easytocrack').length
+              };
+
+              console.log(`[Find Me] Matched ${breachData.filter(b => b.Description).length}/${breachData.length} breaches with detailed info`);
+              console.log('[Find Me] Breach summary:', breachSummary);
+            } else {
+              console.log('[Find Me] No breaches found for this email');
+              breachData = [];
+            }
+          } else if (xonResponse.status === 404) {
+            console.log('[Find Me] No breaches found for email (404)');
+            breachData = [];
+          } else {
+            console.error('[Find Me] XposedOrNot error:', xonResponse.status);
+            breachData = null;
+          }
+        } catch (error) {
+          console.error('[Find Me] XposedOrNot check failed:', error.message);
+          breachData = null;
+        }
+      }
 
       // Perform multiple targeted web searches
       const searches = [];
@@ -508,13 +657,45 @@ ${i + 1}. ${r.title}
       console.log(`[Find Me] Total search results collected:`, searchResults.length);
       console.log(`[Find Me] Results summary:`, searchResults.map(sr => `${sr.type}: ${sr.results.length} results`));
 
+      // Format breach data for context (include detailed info for AI analysis)
+      const breachContext = breachData !== null ? `
+DATA BREACH CHECK:
+${email ? `Email checked: ${email}` : 'No email provided'}
+${breachData && breachData.length > 0 ? `
+⚠️ FOUND IN ${breachData.length} DATA BREACH(ES):
+${breachSummary ? `
+BREACH SUMMARY:
+- Total breaches: ${breachSummary.totalBreaches}
+- Total records exposed across all breaches: ${breachSummary.totalRecordsExposed.toLocaleString()}
+- Industries affected: ${breachSummary.industriesAffected.join(', ') || 'Various'}
+- Passwords potentially exposed: ${breachSummary.passwordsExposed ? 'YES - HIGH RISK' : 'No'}
+- High-risk breaches (plaintext/easy passwords): ${breachSummary.highRiskBreaches}
+` : ''}
+DETAILED BREACHES:
+${breachData.slice(0, 15).map(b => `
+- ${b.Name}:
+  Date: ${b.BreachDate}
+  Domain: ${b.Domain || 'Unknown'}
+  Industry: ${b.Industry || 'Unknown'}
+  Data Exposed: ${b.DataClasses?.join(', ') || 'Unknown'}
+  Records Affected: ${b.ExposedRecords ? b.ExposedRecords.toLocaleString() : 'Unknown'}
+  Password Risk: ${b.PasswordRisk || 'Unknown'}
+  ${b.Description ? `Description: ${b.Description.substring(0, 200)}...` : ''}
+`).join('\n')}
+${breachData.length > 15 ? `\n... and ${breachData.length - 15} more breaches` : ''}
+` : breachData !== null ? '✓ No breaches found for this email' : ''}
+` : '';
+
       // Format search results for AI analysis
       const searchContext = `
 Person Information:
 - Name: ${name}
+${email ? `- Email: ${email}` : ''}
 ${location ? `- Location: ${location}` : ''}
 ${profession ? `- Profession: ${profession}` : ''}
 ${ageRange ? `- Age Range: ${ageRange}` : ''}
+
+${breachContext}
 
 Search Results:
 
@@ -599,7 +780,7 @@ Return a SINGLE valid JSON object (no markdown formatting):
   },
   "privacy_assessment": {
     "risk_level": "High/Medium/Low (based on actual exposure)",
-    "risk_score": 1-10 (based on amount and sensitivity of actual findings),
+    "risk_score": 5,
     "vulnerabilities": [
       "Specific vulnerability based on actual findings",
       "Another actual concern"
@@ -608,6 +789,20 @@ Return a SINGLE valid JSON object (no markdown formatting):
       "Actual positive privacy practice observed",
       "Another positive factor"
     ]
+  },
+  "data_breaches": {
+    "checked": "true or false",
+    "email_checked": "email if provided or null",
+    "breach_count": 0,
+    "breaches": [
+      {
+        "name": "Breach name from XposedOrNot data",
+        "date": "Breach date",
+        "data_exposed": ["Types of data exposed"],
+        "severity": "High/Medium/Low based on data types"
+      }
+    ],
+    "summary": "Brief summary of breach exposure and recommended actions"
   },
   "recommendations": [
     {
@@ -643,7 +838,40 @@ IMPORTANT: If search results are minimal or empty, be honest about limited findi
         temperature: 0.3, // Lower temperature for more factual analysis
       });
 
-      return new Response(JSON.stringify({ result: JSON.parse(completion.choices[0].message.content) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      // Parse AI result and merge with raw breach data for accurate display
+      const aiResult = JSON.parse(completion.choices[0].message.content);
+
+      // Override AI's breach data with actual API data for accuracy
+      if (breachData !== null) {
+        aiResult.data_breaches = {
+          checked: true,
+          email_checked: email,
+          breach_count: breachData.length,
+          breaches: breachData.map(b => ({
+            name: b.Name,
+            date: b.BreachDate,
+            domain: b.Domain,
+            industry: b.Industry,
+            data_exposed: b.DataClasses,
+            records_affected: b.ExposedRecords,
+            password_risk: b.PasswordRisk,
+            logo: b.Logo,
+            description: b.Description,
+            severity_score: b.SeverityScore || 0
+          })),
+          summary: breachSummary ? `Your email was found in ${breachSummary.totalBreaches} data breaches, affecting ${breachSummary.totalRecordsExposed.toLocaleString()} total records across industries including ${breachSummary.industriesAffected.slice(0, 3).join(', ')}. ${breachSummary.passwordsExposed ? 'CRITICAL: Passwords were exposed in some breaches - change these passwords immediately!' : ''}` : aiResult.data_breaches?.summary || ''
+        };
+      } else if (email) {
+        aiResult.data_breaches = {
+          checked: true,
+          email_checked: email,
+          breach_count: 0,
+          breaches: [],
+          summary: 'No breaches found for this email address.'
+        };
+      }
+
+      return new Response(JSON.stringify({ result: aiResult }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
     return new Response(JSON.stringify({ error: 'Invalid tool type' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
