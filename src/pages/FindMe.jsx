@@ -269,36 +269,33 @@ export const FindMe = () => {
     // Helper for page breaks in PDF
     const PageBreak = () => isPDFGenerating ? <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '1px' }} /> : null;
 
-    // Helper to get mitigation steps based on breach data
-    const getMitigationSteps = (breach) => {
+    // Helper to get consolidated mitigation steps based on ALL breaches
+    const getConsolidatedMitigation = (breaches) => {
+        if (!breaches || breaches.length === 0) return [];
+
         const steps = [];
-        const risk = breach.PasswordRisk;
-        const data = breach.DataClasses || [];
-        const lowerData = data.map(d => d.toLowerCase());
+        const allRisks = breaches.map(b => b.PasswordRisk);
+        const allData = breaches.flatMap(b => (b.DataClasses || []).map(d => d.toLowerCase()));
 
         // Password mitigation
-        if (risk === 'plaintext' || risk === 'easytocrack' || lowerData.includes('passwords')) {
-            steps.push({ icon: Lock, text: "Change your password for this site immediately." });
-            steps.push({ icon: Shield, text: "If you reuse this password, change it everywhere else too." });
-            steps.push({ icon: CheckCircle2, text: "Enable Two-Factor Authentication (2FA) if available." });
+        if (allRisks.some(r => ['plaintext', 'easytocrack'].includes(r)) || allData.includes('passwords')) {
+            steps.push({ icon: Lock, title: "Secure Your Passwords", text: "At least one breach exposed passwords. Change your passwords immediately, especially if reused. Use a unique password manager." });
+            steps.push({ icon: CheckCircle2, title: "Enable 2FA", text: "Turn on Two-Factor Authentication (2FA) for your email, banking, and social media accounts." });
         }
 
         // Financial mitigation
-        if (lowerData.some(d => d.includes('credit') || d.includes('card') || d.includes('bank') || d.includes('payment'))) {
-            steps.push({ icon: AlertTriangle, text: "Monitor your bank statements for suspicious charges." });
-            steps.push({ icon: Lock, text: "Consider freezing your credit reports temporarily." });
+        if (allData.some(d => d.includes('credit') || d.includes('card') || d.includes('bank') || d.includes('payment'))) {
+            steps.push({ icon: AlertTriangle, title: "Protect Financials", text: "Monitor bank statements closely. consider freezing your credit reports with Equifax, Experian, and TransUnion." });
         }
 
         // Identity mitigation
-        if (lowerData.some(d => d.includes('ssn') || d.includes('social'))) {
-            steps.push({ icon: AlertTriangle, text: "Monitor your credit report for unauthorized accounts." });
-            steps.push({ icon: User, text: "Consider an identity theft protection service." });
+        if (allData.some(d => d.includes('ssn') || d.includes('social'))) {
+            steps.push({ icon: User, title: "Identity Theft Protection", text: "Your SSN or identity info was exposed. Consider signing up for an identity theft monitoring service." });
         }
 
-        // General fallback
+        // General 
         if (steps.length === 0) {
-            steps.push({ icon: Eye, text: "Be vigilant for phishing emails claiming to be from this service." });
-            steps.push({ icon: CheckCircle2, text: "Check if the account is still active and close it if unused." });
+            steps.push({ icon: Shield, title: "General Hygiene", text: "Regularly check for new breaches and be cautious of phishing emails from affected services." });
         }
 
         return steps;
@@ -890,6 +887,28 @@ export const FindMe = () => {
                                             )}
                                         </div>
 
+                                        {/* Consolidated Mitigation Strategy */}
+                                        {report.data_breaches.breaches?.length > 0 && (
+                                            <div className="bg-blue-50/50 dark:bg-blue-900/10 p-5 rounded-lg border border-blue-100 dark:border-blue-800">
+                                                <h4 className="flex items-center gap-2 font-bold text-blue-700 dark:text-blue-400 mb-3">
+                                                    <Shield size={18} /> Recommended Mitigation Strategy
+                                                </h4>
+                                                <div className="grid gap-3">
+                                                    {getConsolidatedMitigation(report.data_breaches.breaches).map((step, idx) => (
+                                                        <div key={idx} className="flex gap-3 items-start">
+                                                            <div className="mt-1 bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm text-blue-600">
+                                                                <step.icon size={16} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-semibold text-sm">{step.title}</p>
+                                                                <p className="text-sm text-muted-foreground">{step.text}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {report.data_breaches.breaches?.length > 0 && (
                                             <div className="space-y-4">
                                                 <h4 className="font-semibold">Top 10 Most Severe Breaches (Ranked by Risk)</h4>
@@ -963,20 +982,7 @@ export const FindMe = () => {
                                                             </div>
                                                         )}
 
-                                                        {/* Actionable Mitigation Steps */}
-                                                        <div className="mt-4 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800">
-                                                            <h5 className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
-                                                                <Shield size={12} /> Action Plan
-                                                            </h5>
-                                                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                                {getMitigationSteps(breach).map((step, sIdx) => (
-                                                                    <li key={sIdx} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                                                        <step.icon size={12} className="mt-0.5 text-blue-500 flex-shrink-0" />
-                                                                        <span>{step.text}</span>
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                                 {!isPDFGenerating && report.data_breaches.breaches.length > 10 && (
