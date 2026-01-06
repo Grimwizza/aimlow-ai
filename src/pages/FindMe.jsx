@@ -5,7 +5,7 @@ import { Icon } from '../components/ui/Icon';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
-import { AlertTriangle, Shield, Eye, Globe, Newspaper, Users, Briefcase, CheckCircle2, XCircle, Lock, Download, Unlock, Loader2 } from 'lucide-react';
+import { AlertTriangle, Shield, Eye, Globe, Newspaper, Users, Briefcase, CheckCircle2, XCircle, Lock, Download, Unlock, Loader2, User } from 'lucide-react';
 
 const steps = {
     INPUT: 'input',
@@ -264,6 +264,44 @@ export const FindMe = () => {
                 setIsPDFGenerating(false);
             });
         }, 500);
+    };
+
+    // Helper for page breaks in PDF
+    const PageBreak = () => isPDFGenerating ? <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '1px' }} /> : null;
+
+    // Helper to get mitigation steps based on breach data
+    const getMitigationSteps = (breach) => {
+        const steps = [];
+        const risk = breach.PasswordRisk;
+        const data = breach.DataClasses || [];
+        const lowerData = data.map(d => d.toLowerCase());
+
+        // Password mitigation
+        if (risk === 'plaintext' || risk === 'easytocrack' || lowerData.includes('passwords')) {
+            steps.push({ icon: Lock, text: "Change your password for this site immediately." });
+            steps.push({ icon: Shield, text: "If you reuse this password, change it everywhere else too." });
+            steps.push({ icon: CheckCircle2, text: "Enable Two-Factor Authentication (2FA) if available." });
+        }
+
+        // Financial mitigation
+        if (lowerData.some(d => d.includes('credit') || d.includes('card') || d.includes('bank') || d.includes('payment'))) {
+            steps.push({ icon: AlertTriangle, text: "Monitor your bank statements for suspicious charges." });
+            steps.push({ icon: Lock, text: "Consider freezing your credit reports temporarily." });
+        }
+
+        // Identity mitigation
+        if (lowerData.some(d => d.includes('ssn') || d.includes('social'))) {
+            steps.push({ icon: AlertTriangle, text: "Monitor your credit report for unauthorized accounts." });
+            steps.push({ icon: User, text: "Consider an identity theft protection service." });
+        }
+
+        // General fallback
+        if (steps.length === 0) {
+            steps.push({ icon: Eye, text: "Be vigilant for phishing emails claiming to be from this service." });
+            steps.push({ icon: CheckCircle2, text: "Check if the account is still active and close it if unused." });
+        }
+
+        return steps;
     };
 
     const tabs = [
@@ -535,6 +573,14 @@ export const FindMe = () => {
             {/* Report View */}
             {step === steps.REPORT && report && (
                 <div className="space-y-6" id="find-me-report">
+                    {/* PDF-specific styles */}
+                    {isPDFGenerating && (
+                        <style>{`
+                            .page-break { page-break-before: always; }
+                            .avoid-break { page-break-inside: avoid; }
+                            .breach-card { page-break-inside: avoid; border: 1px solid #e2e8f0; }
+                        `}</style>
+                    )}
                     <div className="flex justify-between items-center">
                         <div>
                             <h2 className="text-2xl font-bold">{report.person_name}</h2>
@@ -604,6 +650,7 @@ export const FindMe = () => {
 
                         {(activeTab === 'web' || isPDFGenerating) && (
                             <div className="space-y-4">
+                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Globe size={20} /> Web Presence
                                 </h3>
@@ -652,6 +699,7 @@ export const FindMe = () => {
 
                         {(activeTab === 'news' || isPDFGenerating) && (
                             <div className="space-y-4">
+                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Newspaper size={20} /> News & Media Mentions
                                 </h3>
@@ -688,6 +736,7 @@ export const FindMe = () => {
 
                         {(activeTab === 'social' || isPDFGenerating) && (
                             <div className="space-y-4">
+                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Users size={20} /> Social Media Footprint
                                 </h3>
@@ -762,6 +811,7 @@ export const FindMe = () => {
 
                         {(activeTab === 'professional' || isPDFGenerating) && (
                             <div className="space-y-4">
+                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Briefcase size={20} /> Professional Listings
                                 </h3>
@@ -805,6 +855,7 @@ export const FindMe = () => {
 
                         {(activeTab === 'breaches' || isPDFGenerating) && (
                             <div className="space-y-6">
+                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Lock size={20} /> Data Breach Check
                                 </h3>
@@ -843,7 +894,7 @@ export const FindMe = () => {
                                             <div className="space-y-4">
                                                 <h4 className="font-semibold">Top 10 Most Severe Breaches (Ranked by Risk)</h4>
                                                 {report.data_breaches.breaches.slice(0, isPDFGenerating ? undefined : 10).map((breach, idx) => (
-                                                    <div key={idx} className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                                                    <div key={idx} className={`border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors ${isPDFGenerating ? 'breach-card' : ''}`}>
                                                         <div className="flex justify-between items-start mb-3">
                                                             <div className="flex items-center gap-3">
                                                                 {breach.logo && (
@@ -911,6 +962,21 @@ export const FindMe = () => {
                                                                 </div>
                                                             </div>
                                                         )}
+
+                                                        {/* Actionable Mitigation Steps */}
+                                                        <div className="mt-4 p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800">
+                                                            <h5 className="text-xs font-bold uppercase text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1">
+                                                                <Shield size={12} /> Action Plan
+                                                            </h5>
+                                                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                {getMitigationSteps(breach).map((step, sIdx) => (
+                                                                    <li key={sIdx} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                                                        <step.icon size={12} className="mt-0.5 text-blue-500 flex-shrink-0" />
+                                                                        <span>{step.text}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
                                                     </div>
                                                 ))}
                                                 {!isPDFGenerating && report.data_breaches.breaches.length > 10 && (
@@ -947,6 +1013,7 @@ export const FindMe = () => {
 
                         {(activeTab === 'privacy' || isPDFGenerating) && (
                             <div className="space-y-6">
+                                <PageBreak />
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <Shield size={20} /> Privacy Assessment
                                 </h3>
@@ -1096,20 +1163,22 @@ export const FindMe = () => {
                             )}
                         </div>
                     </div>
-                </div>
+                </div >
             )}
 
             {/* PDF Generation Overlay */}
-            {isPDFGenerating && (
-                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-foreground">
-                    <div className="bg-card p-8 rounded-xl shadow-lg border border-border flex flex-col items-center">
-                        <Loader2 size={40} className="animate-spin mb-4 text-primary" />
-                        <h2 className="text-xl font-bold mb-2">Generating Report...</h2>
-                        <p className="text-muted-foreground text-sm">Compiling all results into PDF format.</p>
+            {
+                isPDFGenerating && (
+                    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-foreground">
+                        <div className="bg-card p-8 rounded-xl shadow-lg border border-border flex flex-col items-center">
+                            <Loader2 size={40} className="animate-spin mb-4 text-primary" />
+                            <h2 className="text-xl font-bold mb-2">Generating Report...</h2>
+                            <p className="text-muted-foreground text-sm">Compiling all results into PDF format.</p>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 
