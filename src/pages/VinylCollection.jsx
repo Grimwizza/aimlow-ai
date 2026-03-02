@@ -24,17 +24,30 @@ const useSpinPWA = () => {
         const prevTitle = document.title;
         document.title = 'Spin Vinyl';
 
-        // Manifest link
-        const manifest = document.createElement('link');
-        manifest.rel = 'manifest';
-        manifest.href = '/spin-manifest.json';
-        document.head.appendChild(manifest);
+        // Override existing icons/manifests rather than appending
+        const updateLink = (selector, newHref) => {
+            const el = document.querySelector(selector);
+            if (el) {
+                const oldHref = el.getAttribute('href');
+                el.setAttribute('href', newHref);
+                return () => el.setAttribute('href', oldHref);
+            }
+            // If it doesn't exist, append it
+            const newEl = document.createElement('link');
+            // parse selector roughly (e.g. 'link[rel="icon"]')
+            const relMatch = selector.match(/rel="([^"]+)"/);
+            if (relMatch) newEl.rel = relMatch[1];
+            newEl.href = newHref;
+            document.head.appendChild(newEl);
+            return () => newEl.remove();
+        };
 
-        // Apple touch icon
-        const appleIcon = document.createElement('link');
-        appleIcon.rel = 'apple-touch-icon';
-        appleIcon.href = '/spin-icon.png';
-        document.head.appendChild(appleIcon);
+        const restoreManifest = updateLink('link[rel="manifest"]', '/spin-manifest.json');
+        const restoreAppleIcon = updateLink('link[rel="apple-touch-icon"]', '/apple-touch-icon-spin.png');
+
+        // Also update standard favicons so desktop browsers show it
+        const restoreIcon32 = updateLink('link[rel="icon"][sizes="32x32"]', '/spin-icon.png');
+        const restoreIcon16 = updateLink('link[rel="icon"][sizes="16x16"]', '/spin-icon.png');
 
         // Apple web app capable
         const capable = document.createElement('meta');
@@ -54,7 +67,7 @@ const useSpinPWA = () => {
         statusBar.content = 'black-translucent';
         document.head.appendChild(statusBar);
 
-        // Theme color
+        // Theme color (existing aimlow tag might exist, let's keep the manual append since it's simple)
         const theme = document.createElement('meta');
         theme.name = 'theme-color';
         theme.content = '#030712';
@@ -62,7 +75,11 @@ const useSpinPWA = () => {
 
         return () => {
             document.title = prevTitle;
-            [manifest, appleIcon, capable, appTitle, statusBar, theme].forEach(el => el.remove());
+            restoreManifest();
+            restoreAppleIcon();
+            restoreIcon32();
+            restoreIcon16();
+            [capable, appTitle, statusBar, theme].forEach(el => el.remove());
         };
     }, []);
 };
