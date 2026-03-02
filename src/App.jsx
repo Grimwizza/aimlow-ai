@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, Outlet } from 'react-router-dom';
 import { client } from './client';
 import { SEO } from './seo-tools/SEOTags';
 import { Newsletter } from './components/Newsletter';
@@ -34,7 +34,22 @@ import { AppsPage } from './pages/AppsPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 import { ToolsPage } from './pages/ToolsPage';
 import { FindMe } from './pages/FindMe';
+import { DataHub } from './pages/DataHub';
+import { ChroniclingAmerica } from './pages/ChroniclingAmerica';
+import { VinylCollection } from './pages/VinylCollection';
 
+// --- Layout wrapper for the main site (header + footer) ---
+function MainLayout() {
+    return (
+        <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
+            <Header />
+            <main className="flex-1">
+                <Outlet />
+            </main>
+            <Footer />
+        </div>
+    );
+}
 
 // --- MAIN APP (Router) ---
 function App() {
@@ -73,32 +88,32 @@ function App() {
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-background text-foreground"><div className="animate-spin"><Icon name="loader" size={48} /></div></div>;
 
     return (
-        <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
-            <Header />
-            <main className="flex-1">
-                <Routes>
-                    <Route path="/" element={<HomePage posts={posts} />} />
-                    <Route path="/apps" element={<AppsPage />} />
-                    <Route path="/feed" element={<FeedPage posts={posts} />} />
-                    <Route path="/updates" element={<UpdatesPage />} />
-                    <Route path="/tools" element={<ToolsPage />} />
+        <Routes>
+            {/* Standalone page — no header/footer */}
+            <Route path="/spin" element={<VinylCollection />} />
 
-                    {/* Tools */}
-                    <Route path="/apps/headline-generator" element={<HeadlineGenerator onBack={() => window.history.back()} />} />
-                    <Route path="/apps/alt-text" element={<AltTextFixer onBack={() => window.history.back()} />} />
-                    <Route path="/apps/content-simplifier" element={<ContentSimplifier onBack={() => window.history.back()} />} />
-                    <Route path="/apps/ai-marketing-analyst" element={<AIMarketingAnalyst onBack={() => window.history.back()} />} />
-                    <Route path="/apps/ai-hyperscale-map" element={<DataCenterMap onBack={() => window.history.back()} />} />
-                    <Route path="/apps/find-me" element={<FindMe />} />
+            {/* Main site with header + footer */}
+            <Route element={<MainLayout />}>
+                <Route path="/" element={<HomePage posts={posts} />} />
+                <Route path="/apps" element={<AppsPage />} />
+                <Route path="/feed" element={<FeedPage posts={posts} />} />
+                <Route path="/updates" element={<UpdatesPage />} />
+                <Route path="/tools" element={<ToolsPage />} />
 
+                {/* Tools */}
+                <Route path="/apps/headline-generator" element={<HeadlineGenerator onBack={() => window.history.back()} />} />
+                <Route path="/apps/alt-text" element={<AltTextFixer onBack={() => window.history.back()} />} />
+                <Route path="/apps/content-simplifier" element={<ContentSimplifier onBack={() => window.history.back()} />} />
+                <Route path="/apps/ai-marketing-analyst" element={<AIMarketingAnalyst onBack={() => window.history.back()} />} />
+                <Route path="/apps/ai-hyperscale-map" element={<DataCenterMap onBack={() => window.history.back()} />} />
+                <Route path="/apps/find-me" element={<FindMe />} />
+                <Route path="/apps/data-research-hub" element={<DataHub />} />
+                <Route path="/apps/chronicling-america" element={<ChroniclingAmerica />} />
 
-                    {/* Dynamic Post Route */}
-                    <Route path="/post/:slug" element={<BlogPost />} />
-                </Routes>
-            </main>
-
-            <Footer />
-        </div>
+                {/* Dynamic Post Route */}
+                <Route path="/post/:slug" element={<BlogPost />} />
+            </Route>
+        </Routes>
     );
 }
 

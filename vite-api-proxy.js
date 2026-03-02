@@ -3,6 +3,7 @@ import generateHandler from './api/generate.js';
 import newsHandler from './api/news.js';
 import updatesHandler from './api/updates.js';
 import toolsHandler from './api/tools.js';
+import discogsHandler from './api/discogs.js';
 
 // Helper to mock Vercel/Express 'res' object for Serverless Functions
 const mockResponse = (resolve, res) => {
@@ -65,6 +66,16 @@ export const apiMiddleware = () => ({
                         process.env.BRAVE_SEARCH_API_KEY = braveKeyMatch[1].trim();
                         console.log('[API Proxy] Reloaded BRAVE_SEARCH_API_KEY from .env');
                     }
+
+                    // Load Discogs credentials
+                    const discogsTokenMatch = envConfig.match(/^DISCOGS_TOKEN=(.*)$/m);
+                    if (discogsTokenMatch && discogsTokenMatch[1]) {
+                        process.env.DISCOGS_TOKEN = discogsTokenMatch[1].trim();
+                    }
+                    const discogsUserMatch = envConfig.match(/^DISCOGS_USERNAME=(.*)$/m);
+                    if (discogsUserMatch && discogsUserMatch[1]) {
+                        process.env.DISCOGS_USERNAME = discogsUserMatch[1].trim();
+                    }
                 }
             } catch (e) {
                 console.error('[API Proxy] Failed to reload .env', e);
@@ -105,6 +116,7 @@ export const apiMiddleware = () => ({
             if (url === '/news') handler = newsHandler;
             if (url === '/updates') handler = updatesHandler;
             if (url === '/tools') handler = toolsHandler;
+            if (url === '/discogs') handler = discogsHandler;
 
             if (handler) {
                 try {

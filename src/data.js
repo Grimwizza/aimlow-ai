@@ -43,6 +43,24 @@ export const LAB_ITEMS = [
         status: "Beta",
         color: "bg-indigo-300",
         mode: "life"
+    },
+    {
+        id: 7,
+        slug: "data-research-hub",
+        title: "Data Research Hub",
+        desc: "Unified search across Government, Finance, Literature, and Entertainment APIs.",
+        status: "Beta",
+        color: "bg-cyan-300",
+        mode: "work"
+    },
+    {
+        id: 8,
+        slug: "chronicling-america",
+        title: "Chronicling America",
+        desc: "Search millions of historic US newspaper pages from 1777-1963 via LOC API.",
+        status: "New",
+        color: "bg-amber-100",
+        mode: "life"
     }
 
 ];
