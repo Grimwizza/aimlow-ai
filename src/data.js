@@ -61,6 +61,15 @@ export const LAB_ITEMS = [
         status: "New",
         color: "bg-amber-100",
         mode: "life"
+    },
+    {
+        id: 9,
+        slug: "price-tracker",
+        title: "Retail Price Tracker",
+        desc: "Look up current prices & MSRP across Amazon, Walmart, Target, Best Buy, Home Depot, and Lowe's. Upload a spreadsheet to batch-search.",
+        status: "New",
+        color: "bg-orange-300",
+        mode: "work"
     }
 
 ];

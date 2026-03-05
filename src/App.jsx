@@ -37,6 +37,7 @@ import { FindMe } from './pages/FindMe';
 import { DataHub } from './pages/DataHub';
 import { ChroniclingAmerica } from './pages/ChroniclingAmerica';
 import { VinylCollection } from './pages/VinylCollection';
+import { PriceTracker } from './components/tools/PriceTracker';
 
 // --- Layout wrapper for the main site (header + footer) ---
 function MainLayout() {
@@ -109,6 +110,7 @@ function App() {
                 <Route path="/apps/find-me" element={<FindMe />} />
                 <Route path="/apps/data-research-hub" element={<DataHub />} />
                 <Route path="/apps/chronicling-america" element={<ChroniclingAmerica />} />
+                <Route path="/apps/price-tracker" element={<PriceTracker onBack={() => window.history.back()} />} />
 
                 {/* Dynamic Post Route */}
                 <Route path="/post/:slug" element={<BlogPost />} />
