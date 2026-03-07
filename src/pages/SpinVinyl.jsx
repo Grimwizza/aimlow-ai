@@ -112,6 +112,12 @@ const formatTime = (seconds) => {
     return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
+// Removes Discogs disambiguation suffixes like " (2)" or "(15)" at the end of artist/album names
+const cleanName = (name) => {
+    if (!name || typeof name !== 'string') return '';
+    return name.replace(/\s\(\d+\)$/g, '').trim();
+};
+
 const groupTracksBySide = (tracklist) => {
     const sides = {};
     (tracklist || []).forEach(track => {
@@ -121,10 +127,119 @@ const groupTracksBySide = (tracklist) => {
         if (!sides[side]) sides[side] = [];
         sides[side].push({
             ...track,
-            durationSeconds: parseDuration(track.duration),
+            durationSeconds: track.durationSeconds !== undefined ? track.durationSeconds : parseDuration(track.duration),
         });
     });
     return sides;
+};
+
+// ─── Track Duration Fallback ────────────────────────────────────
+const fallbackDurationCache = new Map();
+const inFlightDurationRequests = new Map();
+
+const fetchFallbackDuration = async (artist, title) => {
+    if (!artist || !title) return 0;
+    const key = `${artist}-${title}`;
+    if (fallbackDurationCache.has(key)) return fallbackDurationCache.get(key);
+    if (inFlightDurationRequests.has(key)) return inFlightDurationRequests.get(key);
+
+    const promise = (async () => {
+        try {
+            const query = encodeURIComponent(`${artist} ${title}`);
+            const res = await fetch(`https://itunes.apple.com/search?term=${query}&entity=song&limit=1`);
+            if (!res.ok) return 0;
+            const data = await res.json();
+            if (data?.results?.[0]?.trackTimeMillis) {
+                const durationSeconds = Math.floor(data.results[0].trackTimeMillis / 1000);
+                fallbackDurationCache.set(key, durationSeconds);
+                return durationSeconds;
+            }
+            fallbackDurationCache.set(key, 0);
+            return 0;
+        } catch {
+            fallbackDurationCache.set(key, 0);
+            return 0;
+        } finally {
+            inFlightDurationRequests.delete(key);
+        }
+    })();
+
+    inFlightDurationRequests.set(key, promise);
+    return promise;
+};
+
+// ─── iTunes Artwork Fallback ────────────────────────────────────
+const fallbackArtCache = new Map();
+const inFlightRequests = new Map();
+
+const fetchFallbackArt = async (artist, title) => {
+    if (!artist || !title) return null;
+    const key = `${artist}-${title}`;
+    if (fallbackArtCache.has(key)) return fallbackArtCache.get(key);
+    if (inFlightRequests.has(key)) return inFlightRequests.get(key);
+
+    const promise = (async () => {
+        try {
+            const query = encodeURIComponent(`${artist} ${title}`);
+            const res = await fetch(`https://itunes.apple.com/search?term=${query}&entity=album&limit=1`);
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (data?.results?.[0]?.artworkUrl100) {
+                const highRes = data.results[0].artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+                fallbackArtCache.set(key, highRes);
+                return highRes;
+            }
+            fallbackArtCache.set(key, null);
+            return null;
+        } catch {
+            fallbackArtCache.set(key, null);
+            return null;
+        } finally {
+            inFlightRequests.delete(key);
+        }
+    })();
+
+    inFlightRequests.set(key, promise);
+    return promise;
+};
+
+const AlbumArt = ({ release, alt, className, fallbackSize = 40, fallbackGradient = false }) => {
+    const info = release?.basic_information || {};
+    const title = cleanName(info.title);
+    const artist = (info.artists || []).map(a => cleanName(a.name)).join(' ');
+    const defaultImg = info.cover_image || info.thumb;
+
+    const [imgSrc, setImgSrc] = useState(defaultImg);
+
+    useEffect(() => {
+        let mounted = true;
+        setImgSrc(defaultImg);
+
+        if (!defaultImg && title && artist) {
+            fetchFallbackArt(artist, title).then(url => {
+                if (mounted && url) {
+                    setImgSrc(url);
+                    // Mutate info so it correctly carries over to modals and players
+                    info.cover_image = url;
+                }
+            });
+        }
+        return () => { mounted = false; };
+    }, [defaultImg, title, artist, info]);
+
+    if (imgSrc) {
+        return <img src={imgSrc} alt={alt || title} className={className} loading="lazy" />;
+    }
+
+    if (fallbackGradient) {
+        return <div className={`w-full h-full bg-gradient-to-br from-violet-600 to-pink-500 ${className}`} />;
+    }
+
+    return (
+        <div className={`w-full h-full flex items-center justify-center bg-gray-800 ${className}`}>
+            <Music2 size={fallbackSize} className="text-gray-600" />
+        </div>
+    );
 };
 
 // ─── Album Detail Modal ─────────────────────────────────────────
@@ -161,10 +276,40 @@ const AlbumDetailModal = ({ release, onClose, onSpin, onArtistSearch }) => {
             .finally(() => setLoading(false));
     }, [release?.id]);
 
+    // Backfill missing track durations
+    useEffect(() => {
+        if (!detail?.tracklist || !release) return;
+        const info = release.basic_information || {};
+        const artistName = (info.artists || []).map(a => cleanName(a.name)).join(' ');
+        let mounted = true;
+        let modified = false;
+
+        const fetchMissing = async () => {
+            const newList = [...detail.tracklist];
+            for (let i = 0; i < newList.length; i++) {
+                const track = newList[i];
+                const dur = track.durationSeconds !== undefined ? track.durationSeconds : parseDuration(track.duration);
+                if (dur <= 0 && track.title) {
+                    const fallbackDur = await fetchFallbackDuration(artistName, track.title);
+                    if (fallbackDur > 0 && mounted) {
+                        modified = true;
+                        newList[i] = { ...track, durationSeconds: fallbackDur, duration: formatTime(fallbackDur) };
+                    }
+                }
+            }
+            if (modified && mounted) {
+                setDetail(prev => ({ ...prev, tracklist: newList }));
+            }
+        };
+        fetchMissing();
+
+        return () => { mounted = false; };
+    }, [detail?.id]); // Note: running when detail loads or updates
+
     if (!release) return null;
 
     const info = release.basic_information || {};
-    const artist = (info.artists || []).map(a => a.name).join(', ');
+    const artist = (info.artists || []).map(a => cleanName(a.name)).join(', ');
     const sides = detail ? groupTracksBySide(detail.tracklist) : {};
     const sideKeys = Object.keys(sides).sort();
 
@@ -198,11 +343,7 @@ const AlbumDetailModal = ({ release, onClose, onSpin, onArtistSearch }) => {
                 <div className="relative flex-shrink-0">
                     {/* Background blur */}
                     <div className="absolute inset-0 overflow-hidden">
-                        <img
-                            src={info.cover_image || info.thumb}
-                            alt=""
-                            className="w-full h-full object-cover scale-110 blur-2xl opacity-30"
-                        />
+                        <AlbumArt release={release} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-30" />
                         <div className="absolute inset-0 bg-gradient-to-b from-gray-900/50 to-gray-900" />
                     </div>
 
@@ -214,13 +355,13 @@ const AlbumDetailModal = ({ release, onClose, onSpin, onArtistSearch }) => {
                     <div className="relative p-4 sm:p-6 pb-3 sm:pb-4 flex gap-4">
                         {/* Album Art */}
                         <div className="w-28 h-28 sm:w-40 sm:h-40 rounded-xl overflow-hidden shadow-2xl flex-shrink-0 border border-white/10">
-                            <img src={info.cover_image || info.thumb} alt={info.title} className="w-full h-full object-cover" />
+                            <AlbumArt release={release} alt={info.title} className="w-full h-full object-cover" />
                         </div>
 
                         {/* Info */}
                         <div className="flex flex-col justify-end min-w-0 flex-1">
                             <p className="text-xl sm:text-2xl font-black text-white leading-tight line-clamp-2 mb-1">
-                                {info.title || 'Unknown'}
+                                {cleanName(info.title) || 'Unknown'}
                             </p>
                             <p
                                 className="text-sm text-gray-300 font-medium truncate hover:text-violet-300 hover:underline transition-colors cursor-pointer w-fit"
@@ -410,7 +551,7 @@ const NowSpinningWidget = ({ details, trackData, onStop, onViewAlbum, onArtistCl
     const [selectedSide, setSelectedSide] = useState(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [elapsed, setElapsed] = useState(0);
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const [showLyrics, setShowLyrics] = useState(false);
     const [lyrics, setLyrics] = useState('');
     const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -497,6 +638,29 @@ const NowSpinningWidget = ({ details, trackData, onStop, onViewAlbum, onArtistCl
         return { track: lastTrack, index: tracks.length - 1, progress: 1, done: true, total: tracks.length };
     }, [selectedSide, sides, elapsed]);
 
+    const fetchLyricsWithFallback = useCallback(async (artist, title) => {
+        try {
+            // Primary: lyrics.ovh
+            const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.lyrics) return data.lyrics;
+            }
+
+            // Fallback: LRCLIB
+            const lrclibRes = await fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`);
+            if (lrclibRes.ok) {
+                const lrclibData = await lrclibRes.json();
+                if (lrclibData && lrclibData.length > 0 && lrclibData[0].plainLyrics) {
+                    return lrclibData[0].plainLyrics;
+                }
+            }
+            return 'Lyrics not available for this track.';
+        } catch {
+            return 'Lyrics not available for this track.';
+        }
+    }, []);
+
     // Fetch lyrics when current track changes
     useEffect(() => {
         if (!currentTrackInfo?.track?.title || !details?.artist) return;
@@ -509,26 +673,34 @@ const NowSpinningWidget = ({ details, trackData, onStop, onViewAlbum, onArtistCl
         setLyricsTrack(trackKey);
         if (!showLyrics) return; // Only fetch if lyrics panel is open
 
+        let mounted = true;
         setLyricsLoading(true);
         setLyrics('');
-        fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(details.artist)}/${encodeURIComponent(trackTitle)}`)
-            .then(r => r.ok ? r.json() : Promise.reject('Not found'))
-            .then(data => setLyrics(data.lyrics || 'No lyrics found.'))
-            .catch(() => setLyrics('Lyrics not available for this track.'))
-            .finally(() => setLyricsLoading(false));
-    }, [currentTrackInfo?.track?.title, details?.artist, showLyrics]);
+
+        fetchLyricsWithFallback(details.artist, trackTitle).then(res => {
+            if (mounted) {
+                setLyrics(res);
+                setLyricsLoading(false);
+            }
+        });
+
+        return () => { mounted = false; };
+    }, [currentTrackInfo?.track?.title, details?.artist, showLyrics, fetchLyricsWithFallback]);
 
     // Fetch lyrics when toggling lyrics on
     useEffect(() => {
         if (showLyrics && !lyrics && !lyricsLoading && currentTrackInfo?.track?.title && details?.artist) {
+            let mounted = true;
             setLyricsLoading(true);
-            fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(details.artist)}/${encodeURIComponent(currentTrackInfo.track.title)}`)
-                .then(r => r.ok ? r.json() : Promise.reject('Not found'))
-                .then(data => setLyrics(data.lyrics || 'No lyrics found.'))
-                .catch(() => setLyrics('Lyrics not available for this track.'))
-                .finally(() => setLyricsLoading(false));
+            fetchLyricsWithFallback(details.artist, currentTrackInfo.track.title).then(res => {
+                if (mounted) {
+                    setLyrics(res);
+                    setLyricsLoading(false);
+                }
+            });
+            return () => { mounted = false; };
         }
-    }, [showLyrics]);
+    }, [showLyrics, lyrics, lyricsLoading, currentTrackInfo, details, fetchLyricsWithFallback]);
 
     // Scroll lyrics to top when track changes
     useEffect(() => {
@@ -543,233 +715,324 @@ const NowSpinningWidget = ({ details, trackData, onStop, onViewAlbum, onArtistCl
     if (!details) return null;
 
     return (
-        <div className="now-spinning-overlay fixed bottom-0 left-0 right-0 sm:bottom-6 sm:left-auto sm:right-6 z-50 animate-slide-up sm:max-w-[380px] sm:w-full">
-            <div className="relative rounded-t-2xl sm:rounded-2xl bg-gray-900/95 backdrop-blur-xl border-t sm:border border-white/10 shadow-2xl shadow-black/50 overflow-hidden">
-                {/* Close button */}
-                <button
-                    onClick={onStop}
-                    className="absolute top-3 right-3 z-10 p-1 rounded-full hover:bg-white/10 transition-colors"
-                    aria-label="Stop spinning"
-                >
-                    <X size={14} className="text-gray-400" />
-                </button>
-
-                {/* Main info row */}
-                <div
-                    className="flex items-center gap-3 p-4 pr-10 cursor-pointer hover:bg-white/[0.02] transition-colors"
-                    onClick={() => setExpanded(!expanded)}
-                >
-                    {/* Spinning Vinyl */}
-                    <div className="relative flex-shrink-0 w-14 h-14">
-                        <div className={`absolute inset-0 rounded-full bg-gradient-to-br from-gray-800 via-gray-900 to-black shadow-lg ${isPlaying ? 'vinyl-spin' : ''}`}>
-                            <div className="absolute inset-[2px] rounded-full border border-gray-700/30" />
-                            <div className="absolute inset-[5px] rounded-full border border-gray-700/20" />
-                            <div className="absolute inset-[8px] rounded-full border border-gray-700/30" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-5 h-5 rounded-full overflow-hidden border border-gray-700">
-                                    {details.cover ? (
-                                        <img src={details.cover} alt="" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-violet-600 to-pink-500" />
-                                    )}
-                                </div>
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-1.5 h-1.5 rounded-full bg-gray-950 border border-gray-700" />
-                            </div>
-                        </div>
+        <>
+            {expanded ? (
+                <div className="fixed inset-0 z-[100] bg-gray-950 flex flex-col md:flex-row overflow-hidden animate-slide-up">
+                    {/* Background Glass/Blur Effects */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute -top-[20%] -right-[10%] w-[70vw] h-[70vw] rounded-full bg-violet-900/20 blur-[120px]" />
+                        <div className="absolute -bottom-[20%] -left-[10%] w-[70vw] h-[70vw] rounded-full bg-pink-900/20 blur-[120px]" />
                     </div>
 
-                    {/* Track Info */}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                            <Volume2 size={10} className={`flex-shrink-0 ${isPlaying ? 'text-violet-400 animate-pulse' : 'text-gray-500'}`} />
-                            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-violet-400">
-                                Now Spinning
-                            </span>
-                        </div>
-                        <p
-                            className="text-sm font-bold text-white truncate leading-tight hover:text-violet-300 hover:underline transition-colors"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (onViewAlbum) onViewAlbum();
-                            }}
-                            title="View album details"
-                        >
-                            {details.title}
-                        </p>
-                        <p
-                            className="text-xs text-gray-400 truncate hover:text-violet-300 hover:underline transition-colors"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (onArtistClick) onArtistClick(details.artist);
-                            }}
-                            title={`Search collection for ${details.artist}`}
-                        >
-                            {details.artist}
-                        </p>
-                    </div>
-                </div>
-
-                {/* ── Expanded: Side selector + Tracklist + Controls ── */}
-                {expanded && hasSides && (
-                    <div className="border-t border-white/5">
-                        {/* Side selector tabs */}
-                        <div className="flex items-center gap-1 px-4 pt-3 pb-2">
-                            {sideKeys.map(side => (
-                                <button
-                                    key={side}
-                                    onClick={() => handleSideChange(side)}
-                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedSide === side
-                                        ? 'bg-violet-500/20 text-violet-300 shadow-sm'
-                                        : 'bg-white/5 text-gray-500 hover:text-gray-300 hover:bg-white/10'
-                                        }`}
-                                >
-                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border ${selectedSide === side ? 'border-violet-400 bg-violet-500/30' : 'border-gray-600 bg-gray-800'
-                                        }`}>
-                                        {side}
-                                    </div>
-                                    Side {side}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Current side tracklist */}
-                        {selectedSide && sides[selectedSide] && (
-                            <div className="px-4 pb-2 max-h-40 overflow-y-auto">
-                                {sides[selectedSide].map((track, idx) => {
-                                    const isCurrent = currentTrackInfo?.index === idx && isPlaying;
-                                    return (
-                                        <div
-                                            key={idx}
-                                            className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-all ${isCurrent
-                                                ? 'bg-violet-500/15 text-violet-200'
-                                                : 'text-gray-500'
-                                                }`}
-                                        >
-                                            {isCurrent ? (
-                                                <Volume2 size={10} className="text-violet-400 animate-pulse flex-shrink-0" />
-                                            ) : (
-                                                <span className="w-2.5 text-right text-gray-600 flex-shrink-0">{idx + 1}</span>
-                                            )}
-                                            <span className={`flex-1 truncate ${isCurrent ? 'font-semibold text-white' : ''}`}>
-                                                {track.title}
-                                            </span>
-                                            <span className="text-gray-600 tabular-nums text-[10px]">
-                                                {track.duration || '—'}
-                                            </span>
-
-                                            {/* Track progress bar */}
-                                            {isCurrent && currentTrackInfo.trackDuration > 0 && (
-                                                <div className="w-12 h-1 rounded-full bg-white/10 overflow-hidden flex-shrink-0">
-                                                    <div
-                                                        className="h-full bg-violet-400 rounded-full transition-all"
-                                                        style={{ width: `${Math.min(currentTrackInfo.progress * 100, 100)}%` }}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {/* Play controls */}
-                        <div className="px-4 pb-4 pt-2 flex items-center gap-3">
-                            <button
-                                onClick={handlePlay}
-                                disabled={!selectedSide}
-                                className={`flex items-center justify-center w-10 h-10 rounded-full transition-all ${isPlaying
-                                    ? 'bg-violet-500 text-white shadow-lg shadow-violet-500/30 hover:bg-violet-400'
-                                    : 'bg-white/10 text-white hover:bg-white/20'
-                                    } disabled:opacity-30`}
-                            >
-                                {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
-                            </button>
-
-                            {/* Timer */}
-                            <div className="flex-1 min-w-0">
-                                {isPlaying && currentTrackInfo ? (
-                                    <div>
-                                        <p className="text-xs font-semibold text-white truncate">
-                                            {currentTrackInfo.done ? 'Side complete' : currentTrackInfo.track.title}
-                                        </p>
-                                        <p className="text-[10px] text-gray-500 tabular-nums">
-                                            {formatTime(elapsed)}
-                                            {sideDuration > 0 ? ` / ${formatTime(sideDuration)}` : ''}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-gray-500">
-                                        {selectedSide ? `Press play for Side ${selectedSide}` : 'Select a side'}
-                                    </p>
-                                )}
-
-                                {/* Overall progress bar */}
-                                {isPlaying && sideDuration > 0 && (
-                                    <div className="w-full h-1 rounded-full bg-white/5 mt-1.5 overflow-hidden">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-violet-500 to-pink-500 rounded-full transition-all"
-                                            style={{ width: `${Math.min((elapsed / sideDuration) * 100, 100)}%` }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Lyrics toggle button */}
-                            <button
-                                onClick={() => setShowLyrics(!showLyrics)}
-                                className={`flex items-center justify-center w-10 h-10 rounded-full transition-all ${showLyrics
-                                    ? 'bg-pink-500/20 text-pink-400 ring-1 ring-pink-500/40'
-                                    : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
-                                    }`}
-                                title="Show lyrics"
-                            >
-                                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M17 6.1H3M21 12.1H3M15.1 18H3" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        {/* ── Lyrics Panel ── */}
-                        {showLyrics && (
-                            <div className="border-t border-white/5 px-4 py-3">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Music2 size={12} className="text-pink-400" />
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-pink-400">
-                                        Lyrics {currentTrackInfo?.track?.title ? `— ${currentTrackInfo.track.title}` : ''}
-                                    </span>
-                                </div>
-                                <div ref={lyricsRef} className="max-h-48 sm:max-h-60 overflow-y-auto scrollbar-thin">
-                                    {lyricsLoading ? (
-                                        <div className="flex items-center justify-center py-6">
-                                            <Loader2 size={16} className="text-pink-400 animate-spin" />
-                                            <span className="text-xs text-gray-500 ml-2">Loading lyrics…</span>
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs sm:text-sm text-gray-400 leading-relaxed whitespace-pre-line">
-                                            {lyrics}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Expand hint when collapsed */}
-                {!expanded && hasSides && (
-                    <div className="px-4 pb-3 -mt-1">
+                    {/* Top Controls */}
+                    <div className="absolute top-4 right-4 sm:top-8 sm:right-8 flex gap-3 z-50">
                         <button
-                            onClick={() => setExpanded(true)}
-                            className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                            onClick={() => setExpanded(false)}
+                            className="flex items-center justify-center w-12 h-12 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all hover:scale-105"
+                            title="Minimize Player"
                         >
-                            ▼ Tap to show controls
+                            <ChevronDown size={24} />
+                        </button>
+                        <button
+                            onClick={onStop}
+                            className="flex items-center justify-center w-12 h-12 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all hover:scale-105"
+                            title="Stop Spinning"
+                        >
+                            <X size={24} />
                         </button>
                     </div>
-                )}
-            </div>
-        </div>
+
+                    {/* Left Side: Big Vinyl */}
+                    <div className="flex-1 flex flex-col items-center justify-center min-h-[40vh] md:min-h-screen relative z-10 pt-24 md:pt-0">
+                        <div className="relative w-64 h-64 md:w-[420px] md:h-[420px]">
+
+                            {/* Album Sleeve (Behind) */}
+                            {details.cover && (
+                                <div className={`absolute inset-0 rounded-sm shadow-2xl transition-all duration-1000 ease-in-out border border-white/10 z-0 ${isPlaying ? '-translate-x-4 md:-translate-x-12 rotate-[-4deg] opacity-90 scale-95' : 'translate-x-0 rotate-0 opacity-100 scale-100'}`}>
+                                    <img src={details.cover} alt="Album Sleeve" className="w-full h-full object-cover rounded-sm" />
+                                    <div className="absolute inset-0 bg-black/5 rounded-sm pointer-events-none" />
+                                </div>
+                            )}
+
+                            {/* Spinning Record Wrapper (In front) */}
+                            <div className={`absolute inset-0 z-10 transition-transform duration-1000 ease-in-out ${isPlaying ? 'translate-x-4 md:translate-x-12' : 'translate-x-0'}`}>
+                                <div className={`w-full h-full rounded-full bg-gradient-to-br from-gray-800 via-gray-900 to-black shadow-[0_10px_40px_rgba(0,0,0,0.3)] ${isPlaying ? 'vinyl-spin' : ''}`}>
+                                    <div className="absolute inset-[3px] rounded-full border border-gray-700/30 pointer-events-none" />
+                                    <div className="absolute inset-[10px] sm:inset-[16px] rounded-full border border-gray-700/20 pointer-events-none" />
+                                    <div className="absolute inset-[24px] sm:inset-[32px] rounded-full border border-gray-700/30 pointer-events-none" />
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="w-24 h-24 md:w-36 md:h-36 rounded-full overflow-hidden border border-gray-700 shadow-[inset_0_4px_10px_rgba(0,0,0,0.6)]">
+                                            {details.cover ? (
+                                                <img src={details.cover} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full bg-gradient-to-br from-violet-600 to-pink-500" />
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="w-3 h-3 md:w-4 md:h-4 rounded-full bg-gray-950 border border-gray-700" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Side: Info & Controls */}
+                    <div className="flex-1 flex flex-col justify-center max-w-2xl px-6 pb-8 md:p-12 z-10 mx-auto md:mx-0 w-full mb-auto overflow-y-auto">
+                        <div className="mb-8 text-center md:text-left shrink-0">
+                            <div className="flex items-center justify-center md:justify-start gap-2 mb-3">
+                                <Volume2 size={20} className={`flex-shrink-0 ${isPlaying ? 'text-violet-400 animate-pulse' : 'text-gray-500'}`} />
+                                <span className="text-sm font-bold uppercase tracking-[0.2em] text-violet-400">
+                                    Now Spinning
+                                </span>
+                            </div>
+                            <h2
+                                className="text-4xl md:text-6xl font-black text-white leading-tight mb-2 truncate cursor-pointer hover:text-violet-300 transition-colors title-wrap"
+                                onClick={() => {
+                                    setExpanded(false);
+                                    if (onViewAlbum) onViewAlbum();
+                                }}
+                                title={details.title}
+                                style={{ whiteSpace: 'normal', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                            >
+                                {details.title}
+                            </h2>
+                            <h3
+                                className="text-xl md:text-2xl text-gray-400 truncate cursor-pointer hover:text-violet-300 transition-colors"
+                                onClick={() => {
+                                    setExpanded(false);
+                                    if (onArtistClick) onArtistClick(details.artist);
+                                }}
+                            >
+                                {details.artist}
+                            </h3>
+                        </div>
+
+                        {/* Side Tabs */}
+                        {hasSides && (
+                            <div className="flex items-center md:justify-start justify-center gap-2 mb-6 shrink-0 flex-wrap">
+                                {sideKeys.map(side => (
+                                    <button
+                                        key={side}
+                                        onClick={() => handleSideChange(side)}
+                                        className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all border ${selectedSide === side
+                                            ? 'bg-violet-500/20 text-violet-300 border-violet-500/30 shadow-lg shadow-violet-500/10'
+                                            : 'bg-white/5 text-gray-400 border-white/5 hover:text-white hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border ${selectedSide === side ? 'border-violet-400 bg-violet-500/30 text-white' : 'border-gray-500 bg-gray-800/50'
+                                            }`}>
+                                            {side}
+                                        </div>
+                                        Side {side}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Tracklist & Lyrics Container */}
+                        <div className="rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-md overflow-hidden flex flex-col min-h-[300px] flex-1 max-h-[440px]">
+
+                            {/* Tab Headers */}
+                            <div className="flex border-b border-white/10 shrink-0">
+                                <button
+                                    onClick={() => setShowLyrics(false)}
+                                    className={`flex-1 py-4 text-sm font-bold transition-colors ${!showLyrics ? 'text-violet-300 border-b-2 border-violet-400 bg-white/[0.02]' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    Tracklist
+                                </button>
+                                <button
+                                    onClick={() => setShowLyrics(true)}
+                                    className={`flex-1 py-4 flex items-center justify-center gap-2 text-sm font-bold transition-colors ${showLyrics ? 'text-pink-400 border-b-2 border-pink-400 bg-white/[0.02]' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    <Music2 size={16} /> Lyrics
+                                </button>
+                            </div>
+
+                            {/* Content Area */}
+                            <div className="overflow-y-auto p-2 scrollbar-thin flex-1 relative min-h-[200px]">
+                                {!showLyrics ? (
+                                    selectedSide && sides[selectedSide] ? (
+                                        <div className="space-y-1">
+                                            {sides[selectedSide].map((track, idx) => {
+                                                const isCurrent = currentTrackInfo?.index === idx && isPlaying;
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isCurrent
+                                                            ? 'bg-violet-500/15 text-violet-200 shadow-sm'
+                                                            : 'text-gray-400 hover:bg-white/[0.03] hover:text-gray-200'
+                                                            }`}
+                                                    >
+                                                        {/* Progress background for current track */}
+                                                        {isCurrent && currentTrackInfo.trackDuration > 0 && (
+                                                            <div
+                                                                className="absolute inset-0 bg-violet-500/10 rounded-xl transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                                                                style={{ width: `${Math.min(currentTrackInfo.progress * 100, 100)}%` }}
+                                                            />
+                                                        )}
+
+                                                        <div className="relative flex items-center w-full gap-3">
+                                                            {isCurrent ? (
+                                                                <Volume2 size={16} className="text-violet-400 animate-pulse flex-shrink-0" />
+                                                            ) : (
+                                                                <span className="w-5 text-right font-medium text-gray-600 flex-shrink-0">{track.position || idx + 1}</span>
+                                                            )}
+                                                            <span className={`flex-1 min-w-0 truncate ${isCurrent ? 'font-bold' : ''}`}>
+                                                                {track.title}
+                                                            </span>
+                                                            <span className="text-sm font-medium tabular-nums opacity-60">
+                                                                {track.duration || '—'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                                            Select a side to view tracks
+                                        </div>
+                                    )
+                                ) : (
+                                    <div ref={lyricsRef} className="p-4 h-full">
+                                        {lyricsLoading ? (
+                                            <div className="flex h-full items-center justify-center flex-col gap-3">
+                                                <Loader2 size={24} className="text-pink-400 animate-spin" />
+                                                <span className="text-sm text-gray-400 font-medium">Loading {currentTrackInfo?.track?.title}...</span>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm md:text-base text-gray-300 leading-relaxed whitespace-pre-line text-center">
+                                                {lyrics}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Player Controls Bar */}
+                            <div className="border-t border-white/10 p-4 shrink-0 bg-gray-950/30">
+                                <div className="flex items-center gap-5 relative z-10">
+                                    <button
+                                        onClick={handlePlay}
+                                        disabled={!selectedSide}
+                                        className={`flex items-center justify-center w-14 h-14 shrink-0 rounded-full transition-all ${isPlaying
+                                            ? 'bg-violet-500 text-white shadow-[0_0_20px_rgba(139,92,246,0.4)] hover:scale-105 active:scale-95'
+                                            : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:scale-105 active:scale-95'
+                                            } disabled:opacity-30 disabled:hover:scale-100`}
+                                    >
+                                        {isPlaying ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
+                                    </button>
+
+                                    <div className="flex-1 min-w-0">
+                                        {currentTrackInfo ? (
+                                            <div className="flex justify-between items-end mb-2">
+                                                <p className="text-sm font-bold text-white truncate pr-2">
+                                                    {currentTrackInfo.done ? 'Side complete' : currentTrackInfo.track?.title || 'Unknown Track'}
+                                                </p>
+                                                <p className="text-xs font-medium text-gray-400 tabular-nums shrink-0">
+                                                    {formatTime(elapsed)} {sideDuration > 0 ? `/ ${formatTime(sideDuration)}` : ''}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="mb-2">
+                                                <p className="text-sm font-bold text-gray-500">No track playing</p>
+                                            </div>
+                                        )}
+
+                                        {/* Overall progress bar */}
+                                        <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-violet-500 to-pink-500 rounded-full transition-all duration-200 ease-out"
+                                                style={{ width: `${Math.min((elapsed / (sideDuration || 1)) * 100, 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                /* --- Minimized Player --- */
+                <div className="now-spinning-overlay fixed bottom-0 left-0 right-0 sm:bottom-6 sm:left-auto sm:right-6 z-50 animate-slide-up sm:max-w-[320px] sm:w-full">
+                    <div
+                        className="relative rounded-t-2xl sm:rounded-2xl bg-gray-900/95 backdrop-blur-xl border-t sm:border border-white/10 shadow-2xl shadow-black/50 overflow-hidden cursor-pointer hover:bg-gray-800/95 transition-colors group"
+                        onClick={() => setExpanded(true)}
+                    >
+                        {/* Close button */}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onStop(); }}
+                            className="absolute top-1/2 -translate-y-1/2 right-3 z-10 p-2 rounded-full hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            aria-label="Stop spinning"
+                        >
+                            <X size={16} className="text-gray-400 hover:text-white" />
+                        </button>
+
+                        <div className="flex items-center gap-3 p-3 lg:pr-12">
+                            {/* Spinning Vinyl */}
+                            <div className="relative flex-shrink-0 w-12 h-12">
+                                <div className={`absolute inset-0 rounded-full bg-gradient-to-br from-gray-800 via-gray-900 to-black shadow-lg ${isPlaying ? 'vinyl-spin' : ''}`}>
+                                    <div className="absolute inset-[2px] rounded-full border border-gray-700/30" />
+                                    <div className="absolute inset-[4px] rounded-full border border-gray-700/20" />
+                                    <div className="absolute inset-[6px] rounded-full border border-gray-700/30" />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="w-4 h-4 rounded-full overflow-hidden border border-gray-700">
+                                            {details.cover ? (
+                                                <img src={details.cover} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full bg-gradient-to-br from-violet-600 to-pink-500" />
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="w-1 h-1 rounded-full bg-gray-950 border border-gray-700" />
+                                    </div>
+                                </div>
+
+                                {/* Play/Pause Overlay on Hover */}
+                                <div
+                                    className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                                    onClick={(e) => { e.stopPropagation(); handlePlay(); }}
+                                >
+                                    {isPlaying ? <Pause size={16} className="text-white" /> : <Play size={16} className="text-white ml-0.5" />}
+                                </div>
+                            </div>
+
+                            {/* Track Info */}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                    <Volume2 size={10} className={`flex-shrink-0 ${isPlaying ? 'text-violet-400 animate-pulse' : 'text-gray-500'}`} />
+                                    <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-violet-400">
+                                        Now Spinning
+                                    </span>
+                                </div>
+                                <p className="text-sm font-bold text-white truncate leading-tight">
+                                    {details.title}
+                                </p>
+                                <p className="text-xs text-gray-400 truncate">
+                                    {details.artist}
+                                </p>
+                            </div>
+
+                            <div className="pr-3 text-gray-500 group-hover:text-white transition-colors">
+                                <ChevronDown size={20} className="rotate-180" />
+                            </div>
+                        </div>
+
+                        {/* Slim progress bar at bottom */}
+                        {isPlaying && sideDuration > 0 && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/5">
+                                <div
+                                    className="h-full bg-gradient-to-r from-violet-500 to-pink-500"
+                                    style={{ width: `${Math.min((elapsed / sideDuration) * 100, 100)}%` }}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 
@@ -850,8 +1113,8 @@ export const SpinVinyl = () => {
         const info = release.basic_information || {};
         const spinInfo = {
             id: release.id,
-            title: info.title || detail?.title || 'Unknown',
-            artist: (info.artists || []).map(a => a.name).join(', ') || 'Unknown',
+            title: cleanName(info.title || detail?.title || 'Unknown'),
+            artist: (info.artists || []).map(a => cleanName(a.name)).join(', ') || 'Unknown',
             year: info.year || detail?.year || '',
             cover: detail?.images?.[0]?.uri || info.cover_image || info.thumb || '',
             label: info.labels?.[0]?.name || '',
@@ -879,9 +1142,9 @@ export const SpinVinyl = () => {
             const q = searchQuery.toLowerCase();
             result = result.filter(r => {
                 const info = r.basic_information || {};
-                const artist = (info.artists || []).map(a => a.name).join(' ').toLowerCase();
-                const title = (info.title || '').toLowerCase();
-                const label = (info.labels || []).map(l => l.name).join(' ').toLowerCase();
+                const artist = (info.artists || []).map(a => cleanName(a.name)).join(' ').toLowerCase();
+                const title = cleanName(info.title || '').toLowerCase();
+                const label = (info.labels || []).map(l => cleanName(l.name)).join(' ').toLowerCase();
                 return artist.includes(q) || title.includes(q) || label.includes(q);
             });
         }
@@ -891,8 +1154,8 @@ export const SpinVinyl = () => {
             const infoB = b.basic_information || {};
             let valA, valB;
             switch (sortOption.field) {
-                case 'artist': valA = (infoA.artists || []).map(x => x.name).join(', ').toLowerCase(); valB = (infoB.artists || []).map(x => x.name).join(', ').toLowerCase(); break;
-                case 'title': valA = (infoA.title || '').toLowerCase(); valB = (infoB.title || '').toLowerCase(); break;
+                case 'artist': valA = (infoA.artists || []).map(x => cleanName(x.name)).join(', ').toLowerCase(); valB = (infoB.artists || []).map(x => cleanName(x.name)).join(', ').toLowerCase(); break;
+                case 'title': valA = cleanName(infoA.title || '').toLowerCase(); valB = cleanName(infoB.title || '').toLowerCase(); break;
                 case 'year': valA = infoA.year || 0; valB = infoB.year || 0; break;
                 case 'added': valA = a.date_added || ''; valB = b.date_added || ''; break;
                 case 'label': valA = (infoA.labels?.[0]?.name || '').toLowerCase(); valB = (infoB.labels?.[0]?.name || '').toLowerCase(); break;
@@ -1041,17 +1304,13 @@ export const SpinVinyl = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4 md:gap-6">
                         {filteredAndSorted.map((release) => {
                             const info = release.basic_information || {};
-                            const artist = (info.artists || []).map(a => a.name).join(', ');
+                            const artist = (info.artists || []).map(a => cleanName(a.name)).join(', ');
                             const isSpinning = nowSpinning?.id === release.id;
                             return (
                                 <button key={release.instance_id || release.id} onClick={() => handleAlbumClick(release)}
                                     className={`group text-left rounded-xl overflow-hidden transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${isSpinning ? 'ring-2 ring-violet-500 shadow-lg shadow-violet-500/20 scale-[1.02]' : 'hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40'}`}>
                                     <div className="aspect-square relative overflow-hidden bg-gray-800">
-                                        {info.cover_image || info.thumb ? (
-                                            <img src={info.cover_image || info.thumb} alt={`${info.title} by ${artist}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center"><Music2 size={40} className="text-gray-600" /></div>
-                                        )}
+                                        <AlbumArt release={release} alt={`${cleanName(info.title)} by ${artist}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" fallbackSize={40} />
                                         <div className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isSpinning ? 'bg-violet-900/40' : 'bg-black/0 group-hover:bg-black/50'}`}>
                                             {isSpinning ? (
                                                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/90 text-white text-xs font-bold">
@@ -1065,7 +1324,7 @@ export const SpinVinyl = () => {
                                         </div>
                                     </div>
                                     <div className="p-3 bg-white/[0.03]">
-                                        <p className="text-sm font-semibold text-white truncate leading-tight">{info.title || 'Unknown'}</p>
+                                        <p className="text-sm font-semibold text-white truncate leading-tight" title={cleanName(info.title)}>{cleanName(info.title) || 'Unknown'}</p>
                                         <p
                                             className="text-xs text-gray-400 truncate mt-0.5 hover:text-violet-300 hover:underline transition-colors pointer-events-auto relative z-10 w-fit"
                                             onClick={(e) => {
@@ -1097,18 +1356,18 @@ export const SpinVinyl = () => {
                         <div className="divide-y divide-white/5">
                             {filteredAndSorted.map((release) => {
                                 const info = release.basic_information || {};
-                                const artist = (info.artists || []).map(a => a.name).join(', ');
+                                const artist = (info.artists || []).map(a => cleanName(a.name)).join(', ');
                                 const isSpinning = nowSpinning?.id === release.id;
                                 return (
                                     <button key={release.instance_id || release.id} onClick={() => handleAlbumClick(release)}
                                         className={`w-full group text-left grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_1fr_80px_120px_100px] gap-3 sm:gap-4 items-center px-4 py-3 transition-all duration-200 rounded-lg focus:outline-none ${isSpinning ? 'bg-violet-500/10 border-l-2 border-violet-500' : 'hover:bg-white/[0.03] border-l-2 border-transparent'}`}>
                                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 relative">
-                                            {info.thumb ? <img src={info.thumb} alt="" className="w-full h-full object-cover" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center"><Music2 size={16} className="text-gray-600" /></div>}
+                                            <AlbumArt release={release} alt="" className="w-full h-full object-cover" fallbackSize={16} />
                                             {isSpinning && <div className="absolute inset-0 bg-violet-500/30 flex items-center justify-center"><Volume2 size={12} className="text-white animate-pulse" /></div>}
                                         </div>
                                         <div className="min-w-0 sm:contents">
                                             <div className="min-w-0">
-                                                <p className={`text-sm font-medium truncate ${isSpinning ? 'text-violet-300' : 'text-white group-hover:text-violet-300'} transition-colors`}>{info.title || 'Unknown'}</p>
+                                                <p className={`text-sm font-medium truncate ${isSpinning ? 'text-violet-300' : 'text-white group-hover:text-violet-300'} transition-colors`} title={cleanName(info.title)}>{cleanName(info.title) || 'Unknown'}</p>
                                                 <p
                                                     className="text-xs text-gray-500 truncate sm:hidden mt-0.5 hover:text-violet-300 hover:underline transition-colors pointer-events-auto relative z-10 w-fit"
                                                     onClick={(e) => {
