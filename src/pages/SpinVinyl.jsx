@@ -1050,6 +1050,11 @@ export const SpinVinyl = () => {
     const [spinningTrackData, setSpinningTrackData] = useState(null);
     const [selectedAlbum, setSelectedAlbum] = useState(null); // For detail modal
 
+    // Auth State
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [authUsername, setAuthUsername] = useState('');
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
     // View & Sort State
     const [viewMode, setViewMode] = useState(() => localStorage.getItem('vinylView') || 'grid');
     const [sortBy, setSortBy] = useState(() => localStorage.getItem('vinylSort') || 'artist-asc');
@@ -1060,14 +1065,42 @@ export const SpinVinyl = () => {
     useEffect(() => { localStorage.setItem('vinylView', viewMode); }, [viewMode]);
     useEffect(() => { localStorage.setItem('vinylSort', sortBy); }, [sortBy]);
 
+    // ─── Check Authentication Status ───────────────────────────
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const res = await fetch('/api/discogs?action=status');
+                const data = await res.json();
+                if (data.authenticated) {
+                    setIsAuthenticated(true);
+                    setAuthUsername(data.username);
+                } else {
+                    setIsAuthenticated(false);
+                }
+            } catch (err) {
+                console.error('Auth check failed:', err);
+                setIsAuthenticated(false);
+            } finally {
+                setIsCheckingAuth(false);
+            }
+        };
+        checkAuth();
+    }, []);
+
     // ─── Fetch ALL pages of the collection ─────────────────────
     const fetchCollection = useCallback(async (sort = currentSort) => {
+        if (!isAuthenticated) return;
+
         setLoading(true);
         setError(null);
         setLoadingProgress('Loading page 1…');
         try {
             // Fetch first page to get total pages
             const res1 = await fetch(`/api/discogs?action=collection&page=1&per_page=100&sort=${sort.apiSort}&sort_order=${sort.apiOrder}`);
+            if (res1.status === 401) {
+                setIsAuthenticated(false);
+                throw new Error('Session expired. Please log in again.');
+            }
             if (!res1.ok) throw new Error(`API error: ${res1.status}`);
             const data1 = await res1.json();
             const pages = data1.pagination?.pages || 1;
@@ -1091,9 +1124,13 @@ export const SpinVinyl = () => {
             console.error('Failed to fetch collection:', err);
             setError(err.message);
         } finally { setLoading(false); setLoadingProgress(''); }
-    }, []);
+    }, [isAuthenticated, currentSort]); // Added dependencies
 
-    useEffect(() => { fetchCollection(); }, [fetchCollection]);
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchCollection();
+        }
+    }, [fetchCollection, isAuthenticated]);
 
     // Close sort menu on outside click
     useEffect(() => {
@@ -1176,7 +1213,57 @@ export const SpinVinyl = () => {
         }
     };
 
-    // ─── Render ─────────────────────────────────────────────────
+    // ─── Render Unauthenticated State (Login Page) ──────────────
+    if (isCheckingAuth) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <Disc3 size={48} className="text-violet-500 animate-spin-slow" />
+                    <p className="text-gray-400 font-medium tracking-wide">Connecting...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white flex items-center justify-center p-6 relative overflow-hidden">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(139,92,246,0.15),transparent_60%)] pointer-events-none" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.1),transparent_50%)] pointer-events-none" />
+
+                <div className="max-w-md w-full relative z-10 text-center flex flex-col items-center">
+                    <div className="w-24 h-24 mb-6 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center shadow-xl shadow-pink-500/20 border border-white/10">
+                        <Disc3 size={48} className="text-white drop-shadow-lg" />
+                    </div>
+
+                    <h1 className="text-4xl sm:text-5xl font-black mb-4 tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
+                        Spin Vinyl
+                    </h1>
+
+                    <p className="text-gray-400 text-lg mb-10 max-w-sm mx-auto">
+                        Your physical record collection, beautifully visualized for a digital listening experience.
+                    </p>
+
+                    <a
+                        href="/api/discogs?action=login"
+                        className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-white text-black rounded-xl font-bold text-lg hover:bg-gray-100 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-white/10"
+                    >
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 3.3c4.805 0 8.7 3.895 8.7 8.7 0 4.805-3.895 8.7-8.7 8.7-4.805 0-8.7-3.895-8.7-8.7 0-4.805 3.895-8.7 8.7-8.7z" />
+                            <path d="M14.54 13.06c0-1.04-.62-1.74-1.66-1.74H10.1v3.48h2.78c1.04 0 1.66-.7 1.66-1.74zm-2.82.7h-1.62v-1.4h1.62c.48 0 .68.2.68.7s-.2.7-.68.7zm5.94-.7c0 1.76-1.22 2.84-2.92 2.84H8V9.9h6.74c1.7 0 2.92 1.08 2.92 2.84zm-1.16 0c0-1.04-.62-1.74-1.66-1.74h-2.78v3.48h2.78c1.04 0 1.66-.7 1.66-1.74z" />
+                        </svg>
+                        Connect to Discogs
+                    </a>
+
+                    <p className="text-xs text-gray-500 mt-6">
+                        Read-only access to view your collection.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    // ─── Render Authenticated State ──────────────────────────────
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white">
             {/* Hero — compact on mobile */}
@@ -1184,15 +1271,17 @@ export const SpinVinyl = () => {
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(139,92,246,0.15),transparent_60%)]" />
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.1),transparent_50%)]" />
                 <div className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-16 pb-4 sm:pb-12">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-md">
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between mb-8 sm:mb-12">
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            <div className="w-10 h-10 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg border border-white/10">
                                 {nowSpinning?.cover ? (
                                     <img src={nowSpinning.cover} alt="" className="w-full h-full object-cover animate-spin-slow" style={{ animationDuration: '4s' }} />
                                 ) : (
                                     <>
-                                        <Disc3 size={16} className="text-white sm:hidden" />
-                                        <Disc3 size={20} className="text-white hidden sm:block" />
+                                        <Disc3 size={20} className="text-white sm:hidden" />
+                                        <Disc3 size={28} className="text-white hidden sm:block md:hidden" />
+                                        <Disc3 size={32} className="text-white hidden md:block" />
                                     </>
                                 )}
                             </div>
@@ -1201,213 +1290,239 @@ export const SpinVinyl = () => {
                                 <p className="text-xs sm:text-sm text-violet-300/60 font-medium tracking-widest uppercase mt-0.5 sm:mt-1">Analog sound, digital order.</p>
                             </div>
                         </div>
-                        {releases.length > 0 && (
+
+                        {/* Profile / Logout */}
+                        <div className="flex items-center gap-3">
+                            {releases.length > 0 && (
+                                <button
+                                    onClick={() => { const pick = releases[Math.floor(Math.random() * releases.length)]; handleAlbumClick(pick); }}
+                                    className="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-violet-600/80 to-pink-600/80 hover:from-violet-500 hover:to-pink-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-violet-500/20 transition-all hover:scale-[1.03] active:scale-[0.97] min-h-[44px] flex-shrink-0"
+                                >
+                                    <Shuffle size={16} />
+                                    <span className="hidden sm:inline">Random Pick</span>
+                                    <span className="sm:hidden">Random</span>
+                                </button>
+                            )}
+                            <div className="hidden sm:flex flex-col items-end border-l border-white/10 pl-3 ml-1">
+                                <span className="text-sm font-bold text-white">{authUsername}</span>
+                                <span className="text-[10px] uppercase tracking-wider text-green-400 font-bold flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div> Connected
+                                </span>
+                            </div>
                             <button
-                                onClick={() => { const pick = releases[Math.floor(Math.random() * releases.length)]; handleAlbumClick(pick); }}
-                                className="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-violet-600/80 to-pink-600/80 hover:from-violet-500 hover:to-pink-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-violet-500/20 transition-all hover:scale-[1.03] active:scale-[0.97] min-h-[44px] flex-shrink-0"
+                                onClick={async () => {
+                                    await fetch('/api/discogs?action=logout');
+                                    setIsAuthenticated(false);
+                                    setReleases([]);
+                                    setTotalItems(0);
+                                }}
+                                className="p-2 sm:px-4 sm:py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-semibold text-gray-300 transition-colors"
                             >
-                                <Shuffle size={16} />
-                                <span className="hidden sm:inline">Random Pick</span>
-                                <span className="sm:hidden">Random</span>
+                                <span className="hidden sm:inline">Disconnect</span>
+                                <span className="sm:hidden">Exit</span>
                             </button>
+                        </div>
+                    </div>
+
+                    {/* Collection Stats Row */}
+                    <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm sm:text-lg text-gray-400 max-w-xl font-medium">
+                            {totalItems > 0 ? `${totalItems} total records in your collection` : 'Loading collection…'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Main Content */}
+                <div className="max-w-7xl mx-auto px-3 sm:px-6 pb-32">
+                    {/* Toolbar — single row on mobile */}
+                    <div className="sticky top-0 z-30 py-3 sm:py-4 bg-gray-950/90 backdrop-blur-xl border-b border-white/5 -mx-3 sm:-mx-6 px-3 sm:px-6 mb-4 sm:mb-8">
+                        <div className="flex items-center gap-2">
+                            {/* Search */}
+                            <div className="relative flex-1 min-w-0">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search…"
+                                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all text-sm"
+                                />
+                            </div>
+                            {/* Sort */}
+                            <div className="relative flex-shrink-0">
+                                <button onClick={(e) => { e.stopPropagation(); setShowSortMenu(!showSortMenu); }}
+                                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-gray-300 hover:bg-white/10 transition-colors min-h-[44px]">
+                                    <ArrowUpDown size={16} className="text-gray-500" />
+                                    <span className="hidden sm:inline">{currentSort.label}</span>
+                                    <ChevronDown size={14} className={`text-gray-500 transition-transform ${showSortMenu ? 'rotate-180' : ''}`} />
+                                </button>
+                                {showSortMenu && (
+                                    <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-52 rounded-xl bg-gray-900 border border-white/10 shadow-2xl shadow-black/50 overflow-hidden z-50 animate-slide-up"
+                                        onClick={e => e.stopPropagation()}>
+                                        <div className="p-1">
+                                            {SORT_OPTIONS.map(option => {
+                                                const Icon = option.icon;
+                                                const isActive = sortBy === option.value;
+                                                return (
+                                                    <button key={option.value} onClick={() => handleSortChange(option)}
+                                                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px] ${isActive ? 'bg-violet-500/20 text-violet-300' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                                        <Icon size={14} className={isActive ? 'text-violet-400' : 'text-gray-600'} />
+                                                        {option.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            {/* View toggle */}
+                            <div className="flex rounded-xl border border-white/10 overflow-hidden flex-shrink-0">
+                                <button onClick={() => setViewMode('grid')} className={`p-3 transition-colors ${viewMode === 'grid' ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'}`} title="Grid view">
+                                    <LayoutGrid size={16} />
+                                </button>
+                                <button onClick={() => setViewMode('list')} className={`p-3 transition-colors border-l border-white/10 ${viewMode === 'list' ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'}`} title="List view">
+                                    <List size={16} />
+                                </button>
+                            </div>
+                        </div>
+                        {(searchQuery || sortBy !== 'artist-asc') && (
+                            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                                <span>{filteredAndSorted.length} of {releases.length} records</span>
+                                {searchQuery && (
+                                    <button onClick={() => setSearchQuery('')} className="flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors min-h-[32px]">
+                                        "{searchQuery}" <X size={12} />
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
-                    <p className="mt-1 sm:mt-3 text-sm sm:text-lg text-gray-400 max-w-xl">
-                        {totalItems > 0 ? `${totalItems} records` : 'Loading…'}
-                    </p>
-                </div>
-            </div>
 
-            {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-3 sm:px-6 pb-32">
-                {/* Toolbar — single row on mobile */}
-                <div className="sticky top-0 z-30 py-3 sm:py-4 bg-gray-950/90 backdrop-blur-xl border-b border-white/5 -mx-3 sm:-mx-6 px-3 sm:px-6 mb-4 sm:mb-8">
-                    <div className="flex items-center gap-2">
-                        {/* Search */}
-                        <div className="relative flex-1 min-w-0">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search…"
-                                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50 transition-all text-sm"
-                            />
-                        </div>
-                        {/* Sort */}
-                        <div className="relative flex-shrink-0">
-                            <button onClick={(e) => { e.stopPropagation(); setShowSortMenu(!showSortMenu); }}
-                                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-gray-300 hover:bg-white/10 transition-colors min-h-[44px]">
-                                <ArrowUpDown size={16} className="text-gray-500" />
-                                <span className="hidden sm:inline">{currentSort.label}</span>
-                                <ChevronDown size={14} className={`text-gray-500 transition-transform ${showSortMenu ? 'rotate-180' : ''}`} />
-                            </button>
-                            {showSortMenu && (
-                                <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-52 rounded-xl bg-gray-900 border border-white/10 shadow-2xl shadow-black/50 overflow-hidden z-50 animate-slide-up"
-                                    onClick={e => e.stopPropagation()}>
-                                    <div className="p-1">
-                                        {SORT_OPTIONS.map(option => {
-                                            const Icon = option.icon;
-                                            const isActive = sortBy === option.value;
-                                            return (
-                                                <button key={option.value} onClick={() => handleSortChange(option)}
-                                                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors min-h-[44px] ${isActive ? 'bg-violet-500/20 text-violet-300' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                                    <Icon size={14} className={isActive ? 'text-violet-400' : 'text-gray-600'} />
-                                                    {option.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        {/* View toggle */}
-                        <div className="flex rounded-xl border border-white/10 overflow-hidden flex-shrink-0">
-                            <button onClick={() => setViewMode('grid')} className={`p-3 transition-colors ${viewMode === 'grid' ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'}`} title="Grid view">
-                                <LayoutGrid size={16} />
-                            </button>
-                            <button onClick={() => setViewMode('list')} className={`p-3 transition-colors border-l border-white/10 ${viewMode === 'list' ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-gray-500 hover:text-white hover:bg-white/10'}`} title="List view">
-                                <List size={16} />
-                            </button>
-                        </div>
-                    </div>
-                    {(searchQuery || sortBy !== 'artist-asc') && (
-                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                            <span>{filteredAndSorted.length} of {releases.length} records</span>
-                            {searchQuery && (
-                                <button onClick={() => setSearchQuery('')} className="flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors min-h-[32px]">
-                                    "{searchQuery}" <X size={12} />
-                                </button>
-                            )}
+                    {/* Loading */}
+                    {loading && (
+                        <div className="flex flex-col items-center justify-center py-24 sm:py-32 gap-4">
+                            <Disc3 size={40} className="text-violet-400 animate-spin" />
+                            <p className="text-gray-500 text-sm">{loadingProgress || 'Loading your collection…'}</p>
                         </div>
                     )}
-                </div>
 
-                {/* Loading */}
-                {loading && (
-                    <div className="flex flex-col items-center justify-center py-24 sm:py-32 gap-4">
-                        <Disc3 size={40} className="text-violet-400 animate-spin" />
-                        <p className="text-gray-500 text-sm">{loadingProgress || 'Loading your collection…'}</p>
-                    </div>
-                )}
-
-                {/* Error */}
-                {error && !loading && (
-                    <div className="max-w-md mx-auto text-center py-20">
-                        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-                            <Disc size={28} className="text-red-400" />
+                    {/* Error */}
+                    {error && !loading && (
+                        <div className="max-w-md mx-auto text-center py-20">
+                            <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                                <Disc size={28} className="text-red-400" />
+                            </div>
+                            <h2 className="text-xl font-bold text-red-400 mb-2">Connection Error</h2>
+                            <p className="text-gray-400 text-sm mb-6">{error}</p>
+                            <button onClick={() => fetchCollection()} className="px-6 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-sm font-medium transition-colors">Try Again</button>
                         </div>
-                        <h2 className="text-xl font-bold text-red-400 mb-2">Connection Error</h2>
-                        <p className="text-gray-400 text-sm mb-6">{error}</p>
-                        <button onClick={() => fetchCollection()} className="px-6 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-sm font-medium transition-colors">Try Again</button>
-                    </div>
-                )}
+                    )}
 
-                {/* GRID View */}
-                {!loading && !error && viewMode === 'grid' && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4 md:gap-6">
-                        {filteredAndSorted.map((release) => {
-                            const info = release.basic_information || {};
-                            const artist = (info.artists || []).map(a => cleanName(a.name)).join(', ');
-                            const isSpinning = nowSpinning?.id === release.id;
-                            return (
-                                <button key={release.instance_id || release.id} onClick={() => handleAlbumClick(release)}
-                                    className={`group text-left rounded-xl overflow-hidden transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${isSpinning ? 'ring-2 ring-violet-500 shadow-lg shadow-violet-500/20 scale-[1.02]' : 'hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40'}`}>
-                                    <div className="aspect-square relative overflow-hidden bg-gray-800">
-                                        <AlbumArt release={release} alt={`${cleanName(info.title)} by ${artist}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" fallbackSize={40} />
-                                        <div className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isSpinning ? 'bg-violet-900/40' : 'bg-black/0 group-hover:bg-black/50'}`}>
-                                            {isSpinning ? (
-                                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/90 text-white text-xs font-bold">
-                                                    <Volume2 size={14} className="animate-pulse" /> NOW SPINNING
-                                                </div>
-                                            ) : (
-                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-semibold">
-                                                    <Music2 size={14} /> VIEW ALBUM
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="p-3 bg-white/[0.03]">
-                                        <p className="text-sm font-semibold text-white truncate leading-tight" title={cleanName(info.title)}>{cleanName(info.title) || 'Unknown'}</p>
-                                        <p
-                                            className="text-xs text-gray-400 truncate mt-0.5 hover:text-violet-300 hover:underline transition-colors pointer-events-auto relative z-10 w-fit"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSearchQuery(artist);
-                                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                                            }}
-                                            title={`Search collection for ${artist}`}
-                                        >
-                                            {artist || 'Unknown'}
-                                        </p>
-                                        <div className="flex items-center gap-2 mt-1.5 relative z-10">
-                                            {info.year > 0 && <span className="text-[10px] text-gray-500 font-medium">{info.year}</span>}
-                                            {info.formats?.[0]?.name && <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500 font-medium">{info.formats[0].name}</span>}
-                                        </div>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {/* LIST View */}
-                {!loading && !error && viewMode === 'list' && (
-                    <>
-                        <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_80px_120px_100px] gap-4 px-4 py-2 text-[11px] uppercase tracking-wider font-semibold text-gray-500 border-b border-white/5 mb-1">
-                            <div className="w-12" /><div>Title</div><div>Artist</div><div>Year</div><div>Label</div><div className="text-right">Format</div>
-                        </div>
-                        <div className="divide-y divide-white/5">
+                    {/* GRID View */}
+                    {!loading && !error && viewMode === 'grid' && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4 md:gap-6">
                             {filteredAndSorted.map((release) => {
                                 const info = release.basic_information || {};
                                 const artist = (info.artists || []).map(a => cleanName(a.name)).join(', ');
                                 const isSpinning = nowSpinning?.id === release.id;
                                 return (
                                     <button key={release.instance_id || release.id} onClick={() => handleAlbumClick(release)}
-                                        className={`w-full group text-left grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_1fr_80px_120px_100px] gap-3 sm:gap-4 items-center px-4 py-3 transition-all duration-200 rounded-lg focus:outline-none ${isSpinning ? 'bg-violet-500/10 border-l-2 border-violet-500' : 'hover:bg-white/[0.03] border-l-2 border-transparent'}`}>
-                                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 relative">
-                                            <AlbumArt release={release} alt="" className="w-full h-full object-cover" fallbackSize={16} />
-                                            {isSpinning && <div className="absolute inset-0 bg-violet-500/30 flex items-center justify-center"><Volume2 size={12} className="text-white animate-pulse" /></div>}
-                                        </div>
-                                        <div className="min-w-0 sm:contents">
-                                            <div className="min-w-0">
-                                                <p className={`text-sm font-medium truncate ${isSpinning ? 'text-violet-300' : 'text-white group-hover:text-violet-300'} transition-colors`} title={cleanName(info.title)}>{cleanName(info.title) || 'Unknown'}</p>
-                                                <p
-                                                    className="text-xs text-gray-500 truncate sm:hidden mt-0.5 hover:text-violet-300 hover:underline transition-colors pointer-events-auto relative z-10 w-fit"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSearchQuery(artist);
-                                                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                                                    }}
-                                                >
-                                                    {artist} {info.year > 0 ? `· ${info.year}` : ''}
-                                                </p>
+                                        className={`group text-left rounded-xl overflow-hidden transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-500/60 ${isSpinning ? 'ring-2 ring-violet-500 shadow-lg shadow-violet-500/20 scale-[1.02]' : 'hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40'}`}>
+                                        <div className="aspect-square relative overflow-hidden bg-gray-800">
+                                            <AlbumArt release={release} alt={`${cleanName(info.title)} by ${artist}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" fallbackSize={40} />
+                                            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isSpinning ? 'bg-violet-900/40' : 'bg-black/0 group-hover:bg-black/50'}`}>
+                                                {isSpinning ? (
+                                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/90 text-white text-xs font-bold">
+                                                        <Volume2 size={14} className="animate-pulse" /> NOW SPINNING
+                                                    </div>
+                                                ) : (
+                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-semibold">
+                                                        <Music2 size={14} /> VIEW ALBUM
+                                                    </div>
+                                                )}
                                             </div>
+                                        </div>
+                                        <div className="p-3 bg-white/[0.03]">
+                                            <p className="text-sm font-semibold text-white truncate leading-tight" title={cleanName(info.title)}>{cleanName(info.title) || 'Unknown'}</p>
                                             <p
-                                                className="hidden sm:block text-sm text-gray-400 truncate hover:text-violet-300 hover:underline transition-colors pointer-events-auto relative z-10 w-fit"
+                                                className="text-xs text-gray-400 truncate mt-0.5 hover:text-violet-300 hover:underline transition-colors pointer-events-auto relative z-10 w-fit"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setSearchQuery(artist);
                                                     window.scrollTo({ top: 0, behavior: 'smooth' });
                                                 }}
+                                                title={`Search collection for ${artist}`}
                                             >
                                                 {artist || 'Unknown'}
                                             </p>
-                                            <p className="hidden sm:block text-sm text-gray-500 tabular-nums">{info.year > 0 ? info.year : '—'}</p>
-                                            <p className="hidden sm:block text-xs text-gray-500 truncate">{info.labels?.[0]?.name || '—'}</p>
-                                            <div className="hidden sm:flex justify-end">
-                                                <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${isSpinning ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-gray-500'}`}>{info.formats?.[0]?.name || 'Vinyl'}</span>
+                                            <div className="flex items-center gap-2 mt-1.5 relative z-10">
+                                                {info.year > 0 && <span className="text-[10px] text-gray-500 font-medium">{info.year}</span>}
+                                                {info.formats?.[0]?.name && <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500 font-medium">{info.formats[0].name}</span>}
                                             </div>
                                         </div>
                                     </button>
                                 );
                             })}
                         </div>
-                    </>
-                )}
+                    )}
 
-                {/* Empty search */}
-                {!loading && !error && filteredAndSorted.length === 0 && searchQuery && (
-                    <div className="text-center py-20"><p className="text-gray-500">No records match "{searchQuery}"</p></div>
-                )}
+                    {/* LIST View */}
+                    {!loading && !error && viewMode === 'list' && (
+                        <>
+                            <div className="hidden sm:grid grid-cols-[auto_1fr_1fr_80px_120px_100px] gap-4 px-4 py-2 text-[11px] uppercase tracking-wider font-semibold text-gray-500 border-b border-white/5 mb-1">
+                                <div className="w-12" /><div>Title</div><div>Artist</div><div>Year</div><div>Label</div><div className="text-right">Format</div>
+                            </div>
+                            <div className="divide-y divide-white/5">
+                                {filteredAndSorted.map((release) => {
+                                    const info = release.basic_information || {};
+                                    const artist = (info.artists || []).map(a => cleanName(a.name)).join(', ');
+                                    const isSpinning = nowSpinning?.id === release.id;
+                                    return (
+                                        <button key={release.instance_id || release.id} onClick={() => handleAlbumClick(release)}
+                                            className={`w-full group text-left grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_1fr_80px_120px_100px] gap-3 sm:gap-4 items-center px-4 py-3 transition-all duration-200 rounded-lg focus:outline-none ${isSpinning ? 'bg-violet-500/10 border-l-2 border-violet-500' : 'hover:bg-white/[0.03] border-l-2 border-transparent'}`}>
+                                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0 relative">
+                                                <AlbumArt release={release} alt="" className="w-full h-full object-cover" fallbackSize={16} />
+                                                {isSpinning && <div className="absolute inset-0 bg-violet-500/30 flex items-center justify-center"><Volume2 size={12} className="text-white animate-pulse" /></div>}
+                                            </div>
+                                            <div className="min-w-0 sm:contents">
+                                                <div className="min-w-0">
+                                                    <p className={`text-sm font-medium truncate ${isSpinning ? 'text-violet-300' : 'text-white group-hover:text-violet-300'} transition-colors`} title={cleanName(info.title)}>{cleanName(info.title) || 'Unknown'}</p>
+                                                    <p
+                                                        className="text-xs text-gray-500 truncate sm:hidden mt-0.5 hover:text-violet-300 hover:underline transition-colors pointer-events-auto relative z-10 w-fit"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSearchQuery(artist);
+                                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                        }}
+                                                    >
+                                                        {artist} {info.year > 0 ? `· ${info.year}` : ''}
+                                                    </p>
+                                                </div>
+                                                <p
+                                                    className="hidden sm:block text-sm text-gray-400 truncate hover:text-violet-300 hover:underline transition-colors pointer-events-auto relative z-10 w-fit"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSearchQuery(artist);
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                    }}
+                                                >
+                                                    {artist || 'Unknown'}
+                                                </p>
+                                                <p className="hidden sm:block text-sm text-gray-500 tabular-nums">{info.year > 0 ? info.year : '—'}</p>
+                                                <p className="hidden sm:block text-xs text-gray-500 truncate">{info.labels?.[0]?.name || '—'}</p>
+                                                <div className="hidden sm:flex justify-end">
+                                                    <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${isSpinning ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-gray-500'}`}>{info.formats?.[0]?.name || 'Vinyl'}</span>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
+
+                    {/* Empty search */}
+                    {!loading && !error && filteredAndSorted.length === 0 && searchQuery && (
+                        <div className="text-center py-20"><p className="text-gray-500">No records match "{searchQuery}"</p></div>
+                    )}
 
 
+                </div>
             </div>
 
             {/* Album Detail Modal */}

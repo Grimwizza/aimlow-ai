@@ -31,6 +31,16 @@ const mockResponse = (resolve, res) => {
             res.end(data);
             resolve();
             return mock;
+        },
+        redirect: (arg1, arg2) => {
+            const code = typeof arg1 === 'number' ? arg1 : 302;
+            const targetUrl = typeof arg1 === 'string' ? arg1 : arg2;
+            res.statusCode = code;
+            res.setHeader('Location', targetUrl);
+            Object.entries(mock.headers).forEach(([k, v]) => res.setHeader(k, v));
+            res.end();
+            resolve();
+            return mock;
         }
     };
     return mock;
@@ -70,11 +80,24 @@ export const apiMiddleware = () => ({
                     // Load Discogs credentials
                     const discogsTokenMatch = envConfig.match(/^DISCOGS_TOKEN=(.*)$/m);
                     if (discogsTokenMatch && discogsTokenMatch[1]) {
-                        process.env.DISCOGS_TOKEN = discogsTokenMatch[1].trim();
+                        process.env.DISCOGS_TOKEN = discogsTokenMatch[1].replace(/["']/g, '').trim();
                     }
                     const discogsUserMatch = envConfig.match(/^DISCOGS_USERNAME=(.*)$/m);
                     if (discogsUserMatch && discogsUserMatch[1]) {
-                        process.env.DISCOGS_USERNAME = discogsUserMatch[1].trim();
+                        process.env.DISCOGS_USERNAME = discogsUserMatch[1].replace(/["']/g, '').trim();
+                    }
+
+                    // Load New Discogs OAuth OAuth Credentials
+                    const discogsConsumerKeyMatch = envConfig.match(/^DISCOGS_CONSUMER_KEY=(.*)$/m);
+                    if (discogsConsumerKeyMatch && discogsConsumerKeyMatch[1]) {
+                        process.env.DISCOGS_CONSUMER_KEY = discogsConsumerKeyMatch[1].replace(/["']/g, '').trim();
+                        console.log('[API Proxy] Reloaded DISCOGS_CONSUMER_KEY from .env');
+                    }
+
+                    const discogsConsumerSecretMatch = envConfig.match(/^DISCOGS_CONSUMER_SECRET=(.*)$/m);
+                    if (discogsConsumerSecretMatch && discogsConsumerSecretMatch[1]) {
+                        process.env.DISCOGS_CONSUMER_SECRET = discogsConsumerSecretMatch[1].replace(/["']/g, '').trim();
+                        console.log('[API Proxy] Reloaded DISCOGS_CONSUMER_SECRET from .env');
                     }
                 }
             } catch (e) {
