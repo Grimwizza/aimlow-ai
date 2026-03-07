@@ -774,7 +774,7 @@ const NowSpinningWidget = ({ details, trackData, onStop, onViewAlbum, onArtistCl
 };
 
 // ─── Vinyl Collection Page ──────────────────────────────────────
-export const VinylCollection = () => {
+export const SpinVinyl = () => {
     useSpinPWA();
     const [releases, setReleases] = useState([]);
     const [loading, setLoading] = useState(true);

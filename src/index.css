@@ -207,3 +207,64 @@ body {
 .animate-slide-up {
   animation: slide-up 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* ── Responsive Mobile Tables ───────────────────── */
+@media screen and (max-width: 768px) {
+
+  .mobile-table,
+  .mobile-table tbody,
+  .mobile-table tr,
+  .mobile-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .mobile-table thead {
+    display: none;
+  }
+
+  .mobile-table tr {
+    margin-bottom: 16px;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px;
+    padding: 8px 12px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .mobile-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    text-align: right;
+  }
+
+  .mobile-table td:last-child {
+    border-bottom: none !important;
+  }
+
+  .mobile-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #64748b;
+    text-align: left;
+    margin-right: 16px;
+  }
+
+  /* Specific override for flex containers inside TDs so they right-align on mobile */
+  .mobile-table td>div {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    text-align: right;
+  }
+
+  /* Market Health KPICard */
+  .mobile-kpi {
+    flex: 1 1 100% !important;
+  }
+}

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useCallback, useMemo } from "react";
 
 // ─── Result Cache (4-hour TTL, keyed by product+retailer) ─────────────────
 const PRICE_CACHE_KEY = "priceTracker_cache_v1";
@@ -9,7 +9,7 @@ function cacheKey(job) { return `${(job.upc || job.model || job.sku || job.name 
 function readCache(job) { const c = getCache(); const e = c[cacheKey(job)]; if (e && Date.now() < e.exp) return e.data; return null; }
 function writeCache(job, data) { const c = getCache(); c[cacheKey(job)] = { data, exp: Date.now() + CACHE_TTL_MS }; setCache(c); }
 import * as XLSX from "xlsx";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line } from "recharts";
 import { SEO } from "../../seo-tools/SEOTags";
 import { Icon } from "../ui/Icon";
 
@@ -115,8 +115,15 @@ function usePriceTrackerStorage() {
 
     const deleteScan = (id) => persist({ ...st, scans: st.scans.filter((s) => s.id !== id) });
     const saveProducts = (p) => persist({ ...st, savedProducts: p });
+    const saveList = (list) => {
+        const existing = st.savedLists || [];
+        const idx = existing.findIndex(l => l.id === list.id);
+        const newLists = idx >= 0 ? existing.map((l, i) => i === idx ? list : l) : [...existing, list];
+        persist({ ...st, savedLists: newLists });
+    };
+    const deleteList = (id) => persist({ ...st, savedLists: (st.savedLists || []).filter(l => l.id !== id) });
     const clearHistory = () => persist({ ...st, scans: [] });
-    return { storage: st, saveScan, deleteScan, saveProducts, clearHistory };
+    return { storage: st, saveScan, deleteScan, saveProducts, saveList, deleteList, clearHistory };
 }
 
 // ─── MAP / MSRP Tier Logic ─────────────────────────────────────────────────
@@ -187,8 +194,8 @@ function buildSearchUrl(retailer, product) {
 // ─── Best Buy API ─────────────────────────────────────────────────────────
 async function lookupBestBuyPrice(product) {
     if (!BESTBUY_API_KEY) throw new Error("No Best Buy API key");
-    // Prefer model # (most precise), then SKU, then product name
-    const query = encodeURIComponent([product.model, product.sku, product.name].filter(Boolean).join(" ").trim());
+    // Prefer Customer SKU, then model, then product name
+    const query = encodeURIComponent([product.sku, product.model, product.name].filter(Boolean).join(" ").trim());
     const fields = "sku,name,salePrice,regularPrice,onSale,url,onlineAvailability,onSaleEndDate";
     const url = `https://api.bestbuy.com/v1/products(search=${query})?apiKey=${BESTBUY_API_KEY}&show=${fields}&format=json&pageSize=3&sort=relevanceScore.dsc`;
     const resp = await fetch(url);
@@ -233,7 +240,7 @@ async function _getEbayToken() {
 
 async function lookupEbayPrice(product) {
     const token = await _getEbayToken();
-    const query = encodeURIComponent([product.model, product.sku, product.name].filter(Boolean).join(" ").trim());
+    const query = encodeURIComponent([product.sku, product.model, product.name].filter(Boolean).join(" ").trim());
     const resp = await fetch(
         `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${query}&filter=buyingOptions:{FIXED_PRICE}&sort=price&limit=5`,
         { headers: { "Authorization": `Bearer ${token}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } }
@@ -266,15 +273,22 @@ async function lookupWithGemini(product, signal) {
     const searchUrl = !explicitUrl ? buildSearchUrl(product.retailer, product) : null;
 
     const userPrompt = explicitUrl
-        ? `Find current price and MSRP at this product page: ${explicitUrl}\nRetailer: ${product.retailer || "detect from URL"}`
-        : `Find current price and MSRP for:\nProduct: ${product.name || "Unknown"}${product.model ? `\nModel #: ${product.model}` : ""}${product.sku ? `\nSKU: ${product.sku}` : ""}\nRetailer: ${product.retailer}${product.msrp ? `\nKnown MSRP/MAP: $${product.msrp}` : ""}${searchUrl ? `\nStart here (retailer search results): ${searchUrl}` : ` site:${RETAILER_MAP[product.retailer]?.domain || product.retailer}`}`;
+        ? `Find current price and MSRP at this exact product page: ${explicitUrl}\nRetailer: ${product.retailer || "detect from URL"}`
+        : `Find the official Product Details Page (PDP) URL, current price, and MSRP for:\nProduct: ${product.name || "Unknown"}${product.sku ? `\nCustomer Retailer SKU: ${product.sku}` : ""}${product.model ? `\nModel # (6NC): ${product.model}` : ""}${product.upc ? `\nUPC/Barcode: ${product.upc}` : ""}\nRetailer: ${product.retailer}${product.msrp ? `\nKnown MSRP/MAP: $${product.msrp}` : ""}${searchUrl ? `\nHint: You can start by searching here: ${searchUrl}` : ` site:${RETAILER_MAP[product.retailer]?.domain || product.retailer}`}`;
 
-    const prompt = `You are a product price assistant. Use Google Search to find the CURRENT retail price and MSRP/MAP at ${product.retailer}.
+    const prompt = `You are a strict product price and URL extractor. Your absolute first priority is to use Google Search to find the OFFICIAL Product Details Page (PDP) URL for the exact product at ${product.retailer}.
+You MUST return the specific product page URL in the \`resultUrl\` field (NOT a search results page). 
+CRITICAL: ${product.retailer} often hides active prices in basic search snippets. You MUST hunt for the true active numerical price. Check Google Shopping tabs, carousel results, or competitor listings for the exact same UPC/Model to find the prevailing current price. DO NOT leave currentPrice blank unless the item simply does not exist.
 
-Respond ONLY with valid JSON — no markdown:
-{"productName":"full name","retailer":"${product.retailer}","currentPrice":99.99,"msrp":129.99,"discountPercent":23.1,"resultUrl":"https://product-url","inStock":true,"notes":""}
+Respond ONLY with valid JSON — no markdown. The JSON must exactly follow this structure:
+{"resultUrl":"https://www.target.com/p/full-product-name/-/A-123456","productName":"full name","retailer":"${product.retailer}","currentPrice":99.99,"msrp":129.99,"discountPercent":23.1,"inStock":true,"notes":""}
 
-Rules: currentPrice/msrp = numbers or null. discountPercent = ((msrp-currentPrice)/msrp*100) rounded 1 decimal. resultUrl = direct product URL. inStock: true/false/null. If out of stock, STILL return the price if visible. Not found: {"error":"Not found","productName":"${product.name || ""}","retailer":"${product.retailer}"}
+Rules:
+1. resultUrl = The exact, direct product page URL (PDP). DO NOT return a search query URL. This is critical.
+2. currentPrice/msrp = numbers or null.
+3. discountPercent = ((msrp-currentPrice)/msrp*100) rounded 1 decimal.
+4. inStock: true/false/null. If out of stock, STILL return the price if visible.
+5. If you absolutely cannot find the product page, return: {"error":"Not found","productName":"${product.name || ""}","retailer":"${product.retailer}"}
 
 ${userPrompt}`;
 
@@ -284,7 +298,7 @@ ${userPrompt}`;
         generationConfig: {
             temperature: 0,
             maxOutputTokens: 1024,
-            thinkingConfig: { thinkingBudget: 0 }, // disable thinking — 2.5-flash otherwise takes 2+ min
+            thinkingConfig: { thinkingBudget: 0 }, // disable thinking
         },
     };
     const doFetch = () => fetch(GEMINI_URL, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -294,8 +308,12 @@ ${userPrompt}`;
         if (!resp.ok) { const t = await resp.text().catch(() => ""); throw new Error(`Gemini error ${resp.status}: ${t.slice(0, 200)}`); }
     }
     const parsed = parseGeminiResponse(await resp.json());
-    // Force the URL to be our deterministic URL — entirely prevents AI hallucinations
-    if (explicitUrl || searchUrl) parsed.resultUrl = explicitUrl || searchUrl;
+
+    // If the user explicitly provided a URL in the CSV, force it. 
+    // Otherwise, trust the AI's resultUrl if it found one. Fallback to searchUrl ONLY if resultUrl is totally empty.
+    if (explicitUrl) parsed.resultUrl = explicitUrl;
+    else if (!parsed.resultUrl && searchUrl) parsed.resultUrl = searchUrl;
+
     parsed._via = "gemini";
     return parsed;
 }
@@ -398,26 +416,26 @@ function RetailerSelector({ selected, onChange }) {
             : [...new Set([...prev, ...retailers.map((r) => r.name)])]);
     };
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
             {RETAILER_CATEGORIES.map((cat) => (
-                <div key={cat.name}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div key={cat.name} style={{ background: "#f8fafc", padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: 0.5 }}>
                             {cat.emoji} {cat.name}
                         </span>
                         <button
                             onClick={() => toggleGroup(cat.retailers)}
-                            style={{ fontSize: 10, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}
+                            style={{ marginLeft: "auto", fontSize: 10, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}
                         >
-                            {allInGroup(cat.retailers) ? "None" : "All"}
+                            {allInGroup(cat.retailers) ? "None" : "Select All"}
                         </button>
                     </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {cat.retailers.map((r) => {
                             const active = selected.includes(r.name);
                             return (
                                 <button key={r.name} onClick={() => toggle(r.name)}
-                                    style={{ background: active ? r.color.bg : "#f1f5f9", color: active ? r.color.text : "#475569", border: "none", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, transition: "all 0.15s", opacity: active ? 1 : 0.7 }}>
+                                    style={{ background: active ? r.color.bg : "#fff", color: active ? r.color.text : "#475569", border: `1px solid ${active ? r.color.bg : "#cbd5e1"}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700, fontSize: 11, transition: "all 0.15s", opacity: active ? 1 : 0.7 }}>
                                     {r.name}
                                 </button>
                             );
@@ -464,7 +482,7 @@ function PriceCell({ value, type }) {
 
 function KPICard({ label, value, sub, color = "#1e293b", highlight }) {
     return (
-        <div style={{
+        <div className="mobile-kpi" style={{
             background: highlight ? highlight : "#fff",
             borderRadius: 10, border: "1px solid #e2e8f0",
             padding: "18px 22px", flex: "1 1 140px", minWidth: 140,
@@ -499,7 +517,7 @@ function useMarketStats(results, streaks = {}) {
         const violations = withPrice.filter((r) => getMAPTier(r.discountPercent) === "violation");
         const escalations = violations.filter((r) => (streaks[getStreakKey(r)]?.consecutiveDays || 0) >= 4).length;
 
-        const uniqueProducts = new Set(done.map((r) => (r.productName || r.name || "").toLowerCase().trim())).size;
+        const uniqueProducts = new Set(done.map((r) => (r.model || r.productName || r.name || "").toLowerCase().trim())).size;
         const complianceRate = withPrice.length > 0 ? ((compliants.length / withPrice.length) * 100).toFixed(1) : null;
         const avgDeviation = withPrice.length > 0 ? (withPrice.reduce((s, r) => s + r.discountPercent, 0) / withPrice.length).toFixed(1) : null;
         const totalViolations = violations.length;
@@ -703,9 +721,8 @@ function MarketHealthTab({ results, stats }) {
                         </div>
                     )}
 
-                    {/* Table */}
-                    <div style={{ overflowX: "auto", padding: "0 0 4px" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <div style={{ padding: "0 0 4px" }}>
+                        <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                             <thead>
                                 <tr style={{ background: "#f8fafc" }}>
                                     {["#", "Retailer", "SKUs Checked", "Violations", "Compliance Rate", "Avg Deviation"].map((h) => (
@@ -718,15 +735,15 @@ function MarketHealthTab({ results, stats }) {
                                     const tier = parseFloat(r.avgDev) >= 5 ? "violation" : "compliant";
                                     return (
                                         <tr key={r.retailer} style={{ borderTop: "1px solid #f1f5f9", background: tier === "violation" ? "#fff5f5" : "#fff" }}>
-                                            <td style={{ padding: "10px 16px", color: "#94a3b8", fontWeight: 600 }}>{i + 1}</td>
-                                            <td style={{ padding: "10px 16px" }}><Badge retailer={r.retailer} /></td>
-                                            <td style={{ padding: "10px 16px", fontWeight: 600 }}>{r.skus}</td>
-                                            <td style={{ padding: "10px 16px" }}>
+                                            <td data-label="#" style={{ padding: "10px 16px", color: "#94a3b8", fontWeight: 600 }}>{i + 1}</td>
+                                            <td data-label="Retailer" style={{ padding: "10px 16px" }}><Badge retailer={r.retailer} /></td>
+                                            <td data-label="SKUs Checked" style={{ padding: "10px 16px", fontWeight: 600 }}>{r.skus}</td>
+                                            <td data-label="Violations" style={{ padding: "10px 16px" }}>
                                                 {r.violations > 0
                                                     ? <span style={{ color: "#b91c1c", fontWeight: 700 }}>{r.violations}</span>
                                                     : <span style={{ color: "#15803d" }}>0</span>}
                                             </td>
-                                            <td style={{ padding: "10px 16px" }}>
+                                            <td data-label="Compliance Rate" style={{ padding: "10px 16px" }}>
                                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                     <div style={{ flex: 1, background: "#e2e8f0", borderRadius: 99, height: 6, overflow: "hidden", minWidth: 60 }}>
                                                         <div style={{ height: "100%", width: `${r.complianceRate}%`, borderRadius: 99, background: parseFloat(r.complianceRate) === 100 ? "#22c55e" : "#ef4444" }} />
@@ -734,7 +751,7 @@ function MarketHealthTab({ results, stats }) {
                                                     <span style={{ fontWeight: 700, color: parseFloat(r.complianceRate) === 100 ? "#15803d" : "#b91c1c", minWidth: 36 }}>{r.complianceRate}%</span>
                                                 </div>
                                             </td>
-                                            <td style={{ padding: "10px 16px" }}>
+                                            <td data-label="Avg Deviation" style={{ padding: "10px 16px" }}>
                                                 <span style={{ fontWeight: 700, color: tier === "violation" ? "#b91c1c" : "#15803d" }}>{r.avgDev}%</span>
                                             </td>
                                         </tr>
@@ -756,8 +773,8 @@ function MarketHealthTab({ results, stats }) {
                             <div style={{ fontSize: 12, color: "#94a3b8" }}>Highest deviations below MAP/MSRP</div>
                         </div>
                     </div>
-                    <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <div style={{ padding: "0 0 4px" }}>
+                        <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                             <thead>
                                 <tr style={{ background: "#f8fafc" }}>
                                     {["#", "Product", "Retailer", "Current Price", "MAP/MSRP", "Deviation", "Status", "Link"].map((h) => (
@@ -770,17 +787,17 @@ function MarketHealthTab({ results, stats }) {
                                     const tier = getMAPTier(r.discountPercent);
                                     return (
                                         <tr key={`${r.id}-${i}`} style={{ borderBottom: "1px solid #f1f5f9", background: tier === "violation" ? "#fff5f5" : "#fff" }}>
-                                            <td style={{ padding: "10px 14px", color: "#94a3b8", fontWeight: 700 }}>{i + 1}</td>
-                                            <td style={{ padding: "10px 14px", maxWidth: 220 }}>
+                                            <td data-label="#" style={{ padding: "10px 14px", color: "#94a3b8", fontWeight: 700 }}>{i + 1}</td>
+                                            <td data-label="Product" style={{ padding: "10px 14px", maxWidth: 220 }}>
                                                 <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.productName || r.name || "—"}</div>
                                                 {(r.model || r.sku) && <div style={{ fontSize: 11, color: "#94a3b8" }}>{[r.model && `Model: ${r.model}`, r.sku && `SKU: ${r.sku}`].filter(Boolean).join(" · ")}</div>}
                                             </td>
-                                            <td style={{ padding: "10px 14px" }}><Badge retailer={r.retailer} /></td>
-                                            <td style={{ padding: "10px 14px", fontWeight: 700, color: tier === "violation" ? "#b91c1c" : "#1e293b" }}><PriceCell value={r.currentPrice} /></td>
-                                            <td style={{ padding: "10px 14px", color: "#64748b" }}><PriceCell value={r.msrp} /></td>
-                                            <td style={{ padding: "10px 14px" }}><PriceCell value={r.discountPercent} type="discount" /></td>
-                                            <td style={{ padding: "10px 14px" }}><MAPBadge discountPercent={r.discountPercent} /></td>
-                                            <td style={{ padding: "10px 14px" }}>
+                                            <td data-label="Retailer" style={{ padding: "10px 14px" }}><Badge retailer={r.retailer} /></td>
+                                            <td data-label="Current Price" style={{ padding: "10px 14px", fontWeight: 700, color: tier === "violation" ? "#b91c1c" : "#1e293b" }}><PriceCell value={r.currentPrice} /></td>
+                                            <td data-label="MAP/MSRP" style={{ padding: "10px 14px", color: "#64748b" }}><PriceCell value={r.msrp} /></td>
+                                            <td data-label="Deviation" style={{ padding: "10px 14px" }}><PriceCell value={r.discountPercent} type="discount" /></td>
+                                            <td data-label="Status" style={{ padding: "10px 14px" }}><MAPBadge discountPercent={r.discountPercent} /></td>
+                                            <td data-label="Link" style={{ padding: "10px 14px" }}>
                                                 {r.resultUrl ? <a href={r.resultUrl} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontSize: 12, fontWeight: 600 }}>View ↗</a> : <span style={{ color: "#94a3b8" }}>—</span>}
                                             </td>
                                         </tr>
@@ -804,10 +821,13 @@ export const PriceTracker = ({ onBack }) => {
     const [tab, setTab] = useState("upload");
     const [selectedRetailers, setSelectedRetailers] = useState(() => ["Amazon", "Walmart", "Target", "Best Buy", "Home Depot", "Lowe's"]);
     const [manualInput, setManualInput] = useState("");
+    const [defaultBrand, setDefaultBrand] = useState("");
     const [dragOver, setDragOver] = useState(false);
     const [violationsOnly, setViolationsOnly] = useState(false);
     const [viewingScan, setViewingScan] = useState(null); // null = current scan
     const [sortCol, setSortCol] = useState(null); // { key, dir: 'asc'|'desc' }
+    const [incrementalScan, setIncrementalScan] = useState(false);
+    const [expandedRows, setExpandedRows] = useState(new Set());
     const abortRef = useRef(null);
     const fileRef = useRef(null);
     const { storage, saveScan, deleteScan, clearHistory } = usePriceTrackerStorage();
@@ -834,6 +854,29 @@ export const PriceTracker = ({ onBack }) => {
         return prev;
     }, [storage.scans]);
 
+    const toggleRow = useCallback((id) => {
+        setExpandedRows(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
+
+    const getHistoryData = useCallback((item) => {
+        const key = getStreakKey(item);
+        // We want the past 90 days from storage.scans (they are newest first, so reverse to plot oldest to newest)
+        return [...storage.scans].reverse().map(scan => {
+            const result = scan.results.find(r => getStreakKey(r) === key);
+            if (!result) return null;
+            return {
+                date: new Date(scan.id).toLocaleDateString("en-US", { month: "numeric", day: "numeric" }),
+                price: parseFloat(result.currentPrice) || null,
+                msrp: parseFloat(item.msrp) || null
+            };
+        }).filter(d => d && d.price !== null);
+    }, [storage.scans]);
+
     const activeResults = viewingScan ? viewingScan.results : results;
     const stats = useMarketStats(activeResults, viewingScan ? {} : liveStreaks);
 
@@ -855,17 +898,21 @@ export const PriceTracker = ({ onBack }) => {
                 };
                 const parsed = rows
                     .filter((r) => Object.values(r).some((v) => String(v).trim()))
-                    .map((r, i) => ({
-                        id: i,
-                        name: get(r, "productname", "product", "name", "description", "item", "vendormaterialdescription", "materialdescription", "desc", "title"),
-                        model: (() => { const m = get(r, "model", "modelnumber", "modelno", "partnumber", "part"); return m.replace(/\.0$/, ""); })(),
-                        sku: get(r, "sku", "retailersku", "itemno", "asin"),
-                        upc: get(r, "upc", "ean", "barcode", "gtin"),
-                        url: get(r, "url", "link", "producturl"),
-                        retailer: get(r, "retailer", "store", "vendor"),
-                        msrp: parseFloat(get(r, "msrp", "map", "mapprice", "retailprice", "suggestedretailprice", "srp")) || null,
-                        status: "pending",
-                    }));
+                    .map((r, i) => {
+                        const brand = get(r, "brand", "manufacturer", "mfg");
+                        const rawName = get(r, "producttitle", "productname", "product", "name", "description", "item", "vendormaterialdescription", "materialdescription", "desc", "title");
+                        return {
+                            id: i,
+                            name: brand && rawName ? `${brand} ${rawName}` : rawName || brand,
+                            model: (() => { const m = get(r, "productid", "6nc", "model", "modelnumber", "modelno", "partnumber", "part"); return m.replace(/\.0$/, ""); })(),
+                            sku: get(r, "customersku#", "customersku", "sku", "retailersku", "itemno", "asin"),
+                            upc: get(r, "upc", "ean", "barcode", "gtin"),
+                            url: get(r, "url", "link", "producturl"),
+                            retailer: get(r, "account", "retailer", "store", "vendor"),
+                            msrp: parseFloat(get(r, "msrp", "map", "mapprice", "retailprice", "suggestedretailprice", "srp")) || null,
+                            status: "pending",
+                        };
+                    });
                 setJobs(parsed);
                 setResults([]);
                 setTab("upload");
@@ -875,12 +922,12 @@ export const PriceTracker = ({ onBack }) => {
     }, []);
 
     const handleManualInput = () => {
-        if (!manualInput.trim()) return;
+        if (!manualInput.trim() || !defaultBrand.trim()) return;
         const items = manualInput.split(",").map(s => s.trim()).filter(Boolean);
         const newJobs = items.map((item, i) => ({
             id: `manual_${Date.now()}_${i}`,
-            name: item,
-            model: "", sku: "", url: "", retailer: "", msrp: null,
+            name: `${defaultBrand.trim()} ${item}`,
+            model: item, sku: "", url: "", retailer: "", msrp: null,
             status: "pending"
         }));
         setJobs(newJobs);
@@ -893,15 +940,14 @@ export const PriceTracker = ({ onBack }) => {
 
     const downloadTemplate = () => {
         const rows = [
-            { "Product Name": "Cordless Drill", "Model #": "DCD777C2", UPC: "012345678901", SKU: "", MSRP: 129.99, Retailer: "Home Depot", URL: "" },
-            { "Product Name": "65\" 4K TV", "Model #": "UN65TU8000", UPC: "", SKU: "B08CNNK31D", MSRP: 799.99, Retailer: "Amazon", URL: "" },
-            { "Product Name": "", "Model #": "", UPC: "", SKU: "", MSRP: "", Retailer: "", URL: "https://www.bestbuy.com/site/some-product/123.p" },
+            { "Brand": "DeWalt", "Product ID": "DCD777C2", "Vendor Material Description": "Cordless Drill", "MSRP": 129.99 },
+            { "Brand": "Samsung", "Product ID": "UN65TU8000", "Vendor Material Description": "65\" 4K TV", "MSRP": 799.99 },
         ];
         const ws = XLSX.utils.json_to_sheet(rows);
-        ws["!cols"] = [{ wch: 28 }, { wch: 16 }, { wch: 14 }, { wch: 18 }, { wch: 10 }, { wch: 14 }, { wch: 50 }];
+        ws["!cols"] = [{ wch: 15 }, { wch: 16 }, { wch: 35 }, { wch: 14 }];
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Products");
-        XLSX.writeFile(wb, "map-tracker-template.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Price_List");
+        XLSX.writeFile(wb, "price_list_template.xlsx");
     };
 
     const runLookups = async () => {
@@ -919,11 +965,40 @@ export const PriceTracker = ({ onBack }) => {
                 }
             }
         }
-        setProgress({ done: 0, total: expanded.length });
+        const today = new Date().toISOString().slice(0, 10);
+        let skippedCount = 0;
+        const jobsToRun = [];
 
-        for (let i = 0; i < expanded.length; i++) {
+        // Apply incremental scan logic
+        for (const job of expanded) {
+            if (incrementalScan) {
+                const key = getStreakKey(job);
+                const prevData = liveStreaks[key];
+                const prevPrice = prevPrices[key];
+
+                if (prevData && prevData.lastScanDate === today && prevPrice !== undefined) {
+                    // Item was already checked today, mark as done immediately from cache
+                    const cachedResult = {
+                        ...job,
+                        status: "done",
+                        currentPrice: prevPrice,
+                        discountPercent: job.msrp ? parseFloat(((job.msrp - prevPrice) / job.msrp * 100).toFixed(1)) : null,
+                        resultUrl: prevData.lastResultUrl || null,
+                        _via: "cache"
+                    };
+                    setResults((prev) => [...prev, cachedResult]);
+                    skippedCount++;
+                    continue;
+                }
+            }
+            jobsToRun.push(job);
+        }
+
+        setProgress({ done: skippedCount, total: expanded.length });
+
+        for (let i = 0; i < jobsToRun.length; i++) {
             if (controller.signal.aborted) break;
-            const job = { ...expanded[i], status: "running" };
+            const job = { ...jobsToRun[i], status: "running" };
             setResults((prev) => { const idx = prev.findIndex((r) => r.id === job.id); if (idx >= 0) { const n = [...prev]; n[idx] = job; return n; } return [...prev, job]; });
 
             try {
@@ -954,12 +1029,10 @@ export const PriceTracker = ({ onBack }) => {
                 const result = { ...job, status: "error", notes: err.message };
                 setResults((prev) => { const idx = prev.findIndex((r) => r.id === job.id); const n = [...prev]; if (idx >= 0) n[idx] = result; else n.push(result); return n; });
             }
-            setProgress({ done: i + 1, total: expanded.length });
-            if (i < expanded.length - 1) await sleep(2000); // 2 s — Gemini rate limits are ~1M tokens/min
+            setProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+            if (i < jobsToRun.length - 1) await sleep(2000); // 2 s — Gemini rate limits are ~1M tokens/min
         }
         setRunning(false);
-        // Auto-save completed scan to history
-        saveScan(results.filter((r) => r.status === "done" || r.status === "error").concat(results.filter((r) => r.status === "running")));
     };
 
     const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
@@ -1039,7 +1112,6 @@ export const PriceTracker = ({ onBack }) => {
                 <div style={{ fontSize: 22 }}>🏷️</div>
                 <div>
                     <div style={{ fontWeight: 700, fontSize: 17 }}>MAP / Retail Price Tracker</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>Amazon · Walmart · Target · Best Buy · Home Depot · Lowe's</div>
                 </div>
                 {results.length > 0 && (
                     <button
@@ -1085,9 +1157,9 @@ export const PriceTracker = ({ onBack }) => {
                             <div style={{ fontWeight: 700, fontSize: 13, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>How to Run a Price Check</div>
                             <div style={{ display: "flex", gap: 0, alignItems: "stretch", flexWrap: "wrap" }}>
                                 {[
-                                    { n: "1", title: "Enter Products", desc: "Type SKUs / names or upload a price list Excel file" },
+                                    { n: "1", title: "Configure (Optional)", desc: "Set your violation % threshold and warning days" },
                                     { n: "2", title: "Select Retailers", desc: "Choose which stores to search across" },
-                                    { n: "3", title: "Configure (Optional)", desc: "Set your violation % threshold and warning days" },
+                                    { n: "3", title: "Enter Products", desc: "Type SKUs / names or upload a price list Excel file" },
                                     { n: "4", title: "Run Lookup", desc: "Click Start — results populate in the Results tab" },
                                 ].map((s, i, arr) => (
                                     <div key={s.n} style={{ display: "flex", alignItems: "center", flex: "1 1 180px" }}>
@@ -1104,10 +1176,34 @@ export const PriceTracker = ({ onBack }) => {
                             </div>
                         </div>
 
-                        {/* ── Step 1: Enter Products ──────────────────── */}
+                        {/* ── Step 1: Settings ────────────────────────── */}
                         <div>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>1</div>
+                                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#64748b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>1</div>
+                                <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Compliance Settings</div>
+                                <span style={{ fontSize: 12, color: "#94a3b8" }}>Optional</span>
+                            </div>
+                            <SettingsPanel settings={settings} updateSettings={updateSettings} />
+                        </div>
+
+                        {/* ── Step 2: Select Retailers ────────────────── */}
+                        <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>2</div>
+                                <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Select Retailers</div>
+                                <div style={{ fontSize: 12, color: "#94a3b8" }}>({selectedRetailers.length} of {ALL_RETAILERS.length} selected)</div>
+                                <button onClick={() => setSelectedRetailers(ALL_RETAILERS.map(r => r.name))} style={{ marginLeft: "auto", fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer" }}>Select All</button>
+                                <button onClick={() => setSelectedRetailers([])} style={{ fontSize: 12, color: "#64748b", background: "none", border: "none", cursor: "pointer" }}>Clear All</button>
+                            </div>
+                            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 20px" }}>
+                                <RetailerSelector selected={selectedRetailers} onChange={setSelectedRetailers} />
+                            </div>
+                        </div>
+
+                        {/* ── Step 3: Enter Products ──────────────────── */}
+                        <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>3</div>
                                 <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Enter Products</div>
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -1118,18 +1214,25 @@ export const PriceTracker = ({ onBack }) => {
                                         <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Quick Search</div>
                                         <span style={{ background: "#dbeafe", color: "#1d4ed8", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>RECOMMENDED</span>
                                     </div>
-                                    <div style={{ color: "#64748b", fontSize: 13, marginBottom: 12 }}>Enter SKUs, model numbers, or product names separated by commas</div>
+                                    <div style={{ color: "#64748b", fontSize: 13, marginBottom: 12 }}>Required: Enter the Brand, then a list of SKUs/Models below.</div>
+                                    <input
+                                        type="text"
+                                        placeholder="Brand / Manufacturer (Required)"
+                                        value={defaultBrand}
+                                        onChange={(e) => setDefaultBrand(e.target.value)}
+                                        style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontFamily: "inherit", marginBottom: 8 }}
+                                    />
                                     <textarea
                                         value={manualInput}
                                         onChange={(e) => setManualInput(e.target.value)}
                                         onKeyDown={(e) => { if (e.key === "Enter" && e.metaKey) handleManualInput(); }}
-                                        placeholder={"e.g.\n458471, DeWalt DCD777C2, Philips Hue Bridge"}
-                                        style={{ flex: 1, minHeight: 110, padding: 12, borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontFamily: "inherit", resize: "vertical", marginBottom: 12, lineHeight: 1.6 }}
+                                        placeholder={"e.g.\n458471, DCD777C2, Hue Bridge"}
+                                        style={{ flex: 1, minHeight: 90, padding: 12, borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontFamily: "inherit", resize: "vertical", marginBottom: 12, lineHeight: 1.6 }}
                                     />
                                     <button
                                         onClick={handleManualInput}
-                                        disabled={!manualInput.trim()}
-                                        style={{ background: manualInput.trim() ? "#2563eb" : "#94a3b8", color: "#fff", border: "none", borderRadius: 8, padding: "11px", fontWeight: 700, fontSize: 14, cursor: manualInput.trim() ? "pointer" : "not-allowed", transition: "all 0.15s" }}
+                                        disabled={!manualInput.trim() || !defaultBrand.trim()}
+                                        style={{ background: manualInput.trim() && defaultBrand.trim() ? "#2563eb" : "#94a3b8", color: "#fff", border: "none", borderRadius: 8, padding: "11px", fontWeight: 700, fontSize: 14, cursor: manualInput.trim() && defaultBrand.trim() ? "pointer" : "not-allowed", transition: "all 0.15s" }}
                                     >
                                         Load Products →
                                     </button>
@@ -1151,35 +1254,57 @@ export const PriceTracker = ({ onBack }) => {
                                         <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 10 }}>Drag & drop or click to browse<br />.xlsx, .xls, .csv</div>
                                         <button onClick={(e) => { e.stopPropagation(); downloadTemplate(); }} style={{ background: "#fff", border: "1px solid #cbd5e1", borderRadius: 6, padding: "5px 14px", fontSize: 12, cursor: "pointer", color: "#475569" }}>⬇ Download Template</button>
                                     </div>
-                                    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#166534" }}>
-                                        <strong>💡 Pro tip:</strong> Include <strong>Name</strong>, <strong>Model</strong>, <strong>UPC</strong>, and <strong>MSRP</strong> columns. Add a <strong>Retailer</strong> column to lock a specific store per row, or leave blank to check all selected retailers.
+                                    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "12px", fontSize: 12, color: "#166534" }}>
+                                        <div style={{ fontWeight: 700, marginBottom: 8 }}>📋 Preferred Format (Order matters):</div>
+                                        <div style={{ marginBottom: 12, fontSize: 11, color: "#15803d", background: "#dcfce7", padding: "6px 8px", borderRadius: 4 }}>
+                                            <strong>Note:</strong> <strong>Product ID</strong> can be a Vendor Model, UPC, or Retailer SKU ID.
+                                        </div>
+                                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, background: "#fff", borderRadius: 4, overflow: "hidden" }}>
+                                            <thead>
+                                                <tr style={{ background: "#dcfce7", borderBottom: "1px solid #bbf7d0" }}>
+                                                    <th style={{ padding: "4px 8px", textAlign: "left" }}>Brand</th>
+                                                    <th style={{ padding: "4px 8px", textAlign: "left" }}>Product ID</th>
+                                                    <th style={{ padding: "4px 8px", textAlign: "left" }}>Vendor Material Description</th>
+                                                    <th style={{ padding: "4px 8px", textAlign: "left" }}>MSRP</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ padding: "4px 8px", borderBottom: "1px solid #e2e8f0" }}>DeWalt</td>
+                                                    <td style={{ padding: "4px 8px", borderBottom: "1px solid #e2e8f0" }}>DCD777C2</td>
+                                                    <td style={{ padding: "4px 8px", borderBottom: "1px solid #e2e8f0" }}>Cordless Drill</td>
+                                                    <td style={{ padding: "4px 8px", borderBottom: "1px solid #e2e8f0" }}>129.99</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
+                                        <span style={{ fontSize: 16 }}>💾</span>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 600, color: "#1e293b" }}>Saved Lists</div>
+                                            {(!storage.savedLists || storage.savedLists.length === 0) ? (
+                                                <div style={{ color: "#94a3b8", fontSize: 11 }}>No saved lists yet.</div>
+                                            ) : (
+                                                <select
+                                                    onChange={(e) => {
+                                                        const listId = e.target.value;
+                                                        if (!listId) return;
+                                                        const list = storage.savedLists.find(l => l.id === listId);
+                                                        if (list) setJobs(list.items);
+                                                        e.target.value = "";
+                                                    }}
+                                                    style={{ width: "100%", marginTop: 4, padding: "4px 8px", borderRadius: 4, border: "1px solid #cbd5e1", fontSize: 12 }}
+                                                >
+                                                    <option value="">Select a list to load...</option>
+                                                    {storage.savedLists.map((l) => (
+                                                        <option key={l.id} value={l.id}>{l.name} ({l.items.length} items)</option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        {/* ── Step 2: Select Retailers ────────────────── */}
-                        <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>2</div>
-                                <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Select Retailers</div>
-                                <div style={{ fontSize: 12, color: "#94a3b8" }}>({selectedRetailers.length} of {ALL_RETAILERS.length} selected)</div>
-                                <button onClick={() => setSelectedRetailers(ALL_RETAILERS.map(r => r.name))} style={{ marginLeft: "auto", fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer" }}>Select All</button>
-                                <button onClick={() => setSelectedRetailers([])} style={{ fontSize: 12, color: "#64748b", background: "none", border: "none", cursor: "pointer" }}>Clear All</button>
-                            </div>
-                            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 20px" }}>
-                                <RetailerSelector selected={selectedRetailers} onChange={setSelectedRetailers} />
-                            </div>
-                        </div>
-
-                        {/* ── Step 3: Settings ────────────────────────── */}
-                        <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#64748b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>3</div>
-                                <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Compliance Settings</div>
-                                <span style={{ fontSize: 12, color: "#94a3b8" }}>Optional</span>
-                            </div>
-                            <SettingsPanel settings={settings} updateSettings={updateSettings} />
                         </div>
 
                         {/* ── Loaded Products Preview + Launch ─────────── */}
@@ -1193,15 +1318,45 @@ export const PriceTracker = ({ onBack }) => {
                                         <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
                                             Will be checked across {selectedRetailers.length} retailer{selectedRetailers.length !== 1 ? "s" : ""} — {jobs.length * selectedRetailers.length} total lookups
                                         </div>
+                                        <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                                            {costEstimate.bbFree > 0 && <span style={{ fontSize: 11, background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "2px 8px", borderRadius: 6, fontWeight: 700 }}>Best Buy: {costEstimate.bbFree} (Free)</span>}
+                                            {costEstimate.ebayFree > 0 && <span style={{ fontSize: 11, background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "2px 8px", borderRadius: 6, fontWeight: 700 }}>eBay: {costEstimate.ebayFree} (Free)</span>}
+                                            {costEstimate.cached > 0 && <span style={{ fontSize: 11, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", padding: "2px 8px", borderRadius: 6, fontWeight: 700 }}>⚡ Cached: {costEstimate.cached} (Free)</span>}
+                                            {costEstimate.geminiCalls > 0 && <span style={{ fontSize: 11, background: "#f5f3ff", color: "#6d28d9", border: "1px solid #ddd6fe", padding: "2px 8px", borderRadius: 6, fontWeight: 700 }}>🧠 AI: {costEstimate.geminiCalls} (~${costEstimate.estCost})</span>}
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={running ? () => { abortRef.current?.abort(); setRunning(false); } : runLookups}
-                                        disabled={selectedRetailers.length === 0 || noApiKey}
-                                        title={noApiKey ? "Add VITE_GEMINI_API_KEY to .env to enable lookups" : undefined}
-                                        style={{ background: running ? "#dc2626" : (noApiKey || selectedRetailers.length === 0 ? "#94a3b8" : "#16a34a"), color: "#fff", border: "none", borderRadius: 8, padding: "12px 28px", cursor: (selectedRetailers.length === 0 || noApiKey) ? "not-allowed" : "pointer", fontWeight: 800, fontSize: 15 }}
-                                    >
-                                        {running ? "⏹ Stop Lookup" : "▶ Start Price Lookup"}
-                                    </button>
+                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
+                                        <div style={{ display: "flex", gap: 8 }}>
+                                            {!running && (
+                                                <button
+                                                    onClick={() => {
+                                                        const name = prompt("Enter a name for this list:");
+                                                        if (name) saveList({ id: new Date().toISOString(), name, items: jobs });
+                                                    }}
+                                                    style={{ background: "#fff", color: "#2563eb", border: "1px solid #2563eb", borderRadius: 8, padding: "12px 16px", cursor: "pointer", fontWeight: 700, fontSize: 13 }}
+                                                >
+                                                    💾 Save List
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={running ? () => { abortRef.current?.abort(); setRunning(false); } : runLookups}
+                                                disabled={selectedRetailers.length === 0 || noApiKey}
+                                                title={noApiKey ? "Add VITE_GEMINI_API_KEY to .env to enable lookups" : undefined}
+                                                style={{ background: running ? "#dc2626" : (noApiKey || selectedRetailers.length === 0 ? "#94a3b8" : "#16a34a"), color: "#fff", border: "none", borderRadius: 8, padding: "12px 28px", cursor: (selectedRetailers.length === 0 || noApiKey) ? "not-allowed" : "pointer", fontWeight: 800, fontSize: 15 }}
+                                            >
+                                                {running ? "⏹ Stop Lookup" : "▶ Start Price Lookup"}
+                                            </button>
+                                        </div>
+                                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={incrementalScan}
+                                                onChange={(e) => setIncrementalScan(e.target.checked)}
+                                                style={{ width: 14, height: 14, accentColor: "#2563eb", cursor: "pointer", margin: 0 }}
+                                            />
+                                            <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Incremental Scan (Skip checks from today)</span>
+                                        </label>
+                                    </div>
                                 </div>
                                 <div style={{ overflowX: "auto" }}>
                                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -1272,19 +1427,32 @@ export const PriceTracker = ({ onBack }) => {
                                             <span style={{ fontSize: 12, color: s.color, fontWeight: 700 }}>{s.label}: {s.value}</span>
                                         </div>
                                     ))}
-                                    {/* Violations only toggle */}
-                                    <button
-                                        onClick={() => setViolationsOnly((v) => !v)}
-                                        style={{ marginLeft: "auto", background: violationsOnly ? "#fee2e2" : "#f1f5f9", color: violationsOnly ? "#b91c1c" : "#475569", border: `1px solid ${violationsOnly ? "#fecaca" : "#e2e8f0"}`, borderRadius: 6, padding: "7px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}
-                                    >
-                                        {violationsOnly ? "🚨 Violations Only" : "All Results"}
-                                    </button>
+                                    {/* Actions */}
+                                    <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+                                        {!viewingScan && !running && results.length > 0 && (
+                                            <button
+                                                onClick={() => {
+                                                    saveScan(results);
+                                                    alert("Results successfully saved to History!");
+                                                }}
+                                                style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 6, padding: "7px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}
+                                            >
+                                                💾 Save to History
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => setViolationsOnly((v) => !v)}
+                                            style={{ background: violationsOnly ? "#fee2e2" : "#f1f5f9", color: violationsOnly ? "#b91c1c" : "#475569", border: `1px solid ${violationsOnly ? "#fecaca" : "#e2e8f0"}`, borderRadius: 6, padding: "7px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}
+                                        >
+                                            {violationsOnly ? "🚨 Violations Only" : "All Results"}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Results table */}
                                 <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", overflow: "hidden" }}>
                                     <div style={{ overflowX: "auto" }}>
-                                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                                        <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                                             <thead>
                                                 <tr style={{ background: "#f8fafc" }}>
                                                     {[
@@ -1314,28 +1482,69 @@ export const PriceTracker = ({ onBack }) => {
                                                     const rowBg = r.status === "done"
                                                         ? tier === "violation" ? "#fff5f5" : i % 2 === 0 ? "#fff" : "#fafafa"
                                                         : i % 2 === 0 ? "#fff" : "#fafafa";
+                                                    const isExpanded = expandedRows.has(r.id);
+                                                    const historyData = isExpanded ? getHistoryData(r) : [];
+
                                                     return (
-                                                        <tr key={r.id} style={{ borderBottom: "1px solid #f1f5f9", background: rowBg }}>
-                                                            <td style={{ padding: "9px 12px" }}><StatusPill status={r.status} /></td>
-                                                            <td style={{ padding: "9px 12px" }}><MAPBadge discountPercent={r.discountPercent} /></td>
-                                                            {!viewingScan && <td style={{ padding: "9px 12px" }}><WarningBadge days={liveStreaks[getStreakKey(r)]?.consecutiveDays || 0} /></td>}
-                                                            {!viewingScan && <td style={{ padding: "9px 12px" }}><DeltaCell current={r.currentPrice} prev={prevPrices[getStreakKey(r)]} /></td>}
-                                                            <td style={{ padding: "9px 12px", maxWidth: 200 }}>
-                                                                <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.productName || r.name || "—"}</div>
-                                                                {(r.model || r.sku) && <div style={{ fontSize: 11, color: "#94a3b8" }}>{[r.model && `Model: ${r.model}`, r.sku && `SKU: ${r.sku}`].filter(Boolean).join(" · ")}</div>}
-                                                                {r.status === "error" && r.notes && <div style={{ fontSize: 11, color: "#dc2626" }}>{r.notes}</div>}
-                                                            </td>
-                                                            <td style={{ padding: "9px 12px" }}><Badge retailer={r.retailer} /></td>
-                                                            <td style={{ padding: "9px 12px", fontWeight: 600 }}><PriceCell value={r.currentPrice} /></td>
-                                                            <td style={{ padding: "9px 12px", color: "#64748b" }}><PriceCell value={r.msrp} /></td>
-                                                            <td style={{ padding: "9px 12px" }}><PriceCell value={r.discountPercent} type="discount" /></td>
-                                                            <td style={{ padding: "9px 12px" }}>
-                                                                {r.inStock === true ? <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ Yes</span> : r.inStock === false ? <span style={{ color: "#dc2626" }}>✗ No</span> : <span style={{ color: "#94a3b8" }}>—</span>}
-                                                            </td>
-                                                            <td style={{ padding: "9px 12px" }}>
-                                                                {r.resultUrl ? <a href={r.resultUrl} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontSize: 12, fontWeight: 600 }}>View ↗</a> : <span style={{ color: "#94a3b8" }}>—</span>}
-                                                            </td>
-                                                        </tr>
+                                                        <React.Fragment key={r.id}>
+                                                            <tr onClick={() => toggleRow(r.id)} style={{ borderBottom: isExpanded ? "none" : "1px solid #f1f5f9", background: rowBg, cursor: "pointer", transition: "all 0.2s" }}>
+                                                                <td data-label="Status" style={{ padding: "9px 12px" }}>
+                                                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                                        <span style={{ fontSize: 10, color: "#94a3b8", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
+                                                                        <StatusPill status={r.status} />
+                                                                    </div>
+                                                                </td>
+                                                                <td data-label="MAP Status" style={{ padding: "9px 12px" }}><MAPBadge discountPercent={r.discountPercent} /></td>
+                                                                {!viewingScan && <td data-label="Streak" style={{ padding: "9px 12px" }}><WarningBadge days={liveStreaks[getStreakKey(r)]?.consecutiveDays || 0} /></td>}
+                                                                {!viewingScan && <td data-label="Δ vs Prev" style={{ padding: "9px 12px" }}><DeltaCell current={r.currentPrice} prev={prevPrices[getStreakKey(r)]} /></td>}
+                                                                <td data-label="Product" style={{ padding: "9px 12px", maxWidth: 300 }}>
+                                                                    <div style={{ display: "block" }}>
+                                                                        <div title={r.productName || r.name || "—"} style={{ fontWeight: 500, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "normal", wordBreak: "break-word" }}>{r.productName || r.name || "—"}</div>
+                                                                        {(r.model || r.sku) && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{[r.model && `Model: ${r.model}`, r.sku && `SKU: ${r.sku}`].filter(Boolean).join(" · ")}</div>}
+                                                                        {r.status === "error" && r.notes && <div style={{ fontSize: 11, color: "#dc2626", marginTop: 2 }}>{r.notes}</div>}
+                                                                    </div>
+                                                                </td>
+                                                                <td data-label="Retailer" style={{ padding: "9px 12px" }}><Badge retailer={r.retailer} /></td>
+                                                                <td data-label="Price" style={{ padding: "9px 12px", fontWeight: 600 }}><PriceCell value={r.currentPrice} /></td>
+                                                                <td data-label="MAP/MSRP" style={{ padding: "9px 12px", color: "#64748b" }}><PriceCell value={r.msrp} /></td>
+                                                                <td data-label="Deviation" style={{ padding: "9px 12px" }}><PriceCell value={r.discountPercent} type="discount" /></td>
+                                                                <td data-label="In Stock" style={{ padding: "9px 12px" }}>
+                                                                    {r.inStock === true ? <span style={{ color: "#16a34a", fontWeight: 700 }}>✓ Yes</span> : r.inStock === false ? <span style={{ color: "#dc2626" }}>✗ No</span> : <span style={{ color: "#94a3b8" }}>—</span>}
+                                                                </td>
+                                                                <td data-label="Link" style={{ padding: "9px 12px" }}>
+                                                                    {r.resultUrl ? <a href={r.resultUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: "#2563eb", fontSize: 12, fontWeight: 600 }}>View ↗</a> : <span style={{ color: "#94a3b8" }}>—</span>}
+                                                                </td>
+                                                            </tr>
+                                                            {isExpanded && (
+                                                                <tr style={{ background: rowBg, borderBottom: "1px solid #f1f5f9" }}>
+                                                                    <td colSpan={viewingScan ? 9 : 11} style={{ padding: "0 12px 16px 36px" }}>
+                                                                        <div style={{ background: "#f8fafc", borderRadius: 8, padding: 16, border: "1px solid #e2e8f0" }}>
+                                                                            <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", marginBottom: 12 }}>90-Day Price History ({r.retailer})</div>
+                                                                            {historyData.length > 1 ? (
+                                                                                <ResponsiveContainer width="100%" height={160}>
+                                                                                    <LineChart data={historyData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                                                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                                                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                                                                                        <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} />
+                                                                                        <Tooltip
+                                                                                            formatter={(val, name) => [`$${val}`, name === 'price' ? 'Price' : 'MSRP']}
+                                                                                            labelStyle={{ color: '#1e293b', fontWeight: 600, fontSize: 12 }}
+                                                                                            contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                                                                                        />
+                                                                                        <Line type="monotone" dataKey="price" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                                                                                        {historyData.some(d => d.msrp) && (
+                                                                                            <Line type="stepAfter" dataKey="msrp" stroke="#94a3b8" strokeDasharray="5 5" strokeWidth={2} dot={false} />
+                                                                                        )}
+                                                                                    </LineChart>
+                                                                                </ResponsiveContainer>
+                                                                            ) : (
+                                                                                <div style={{ fontSize: 13, color: "#94a3b8", fontStyle: "italic", padding: 10 }}>Not enough historical data to chart yet. Check back tomorrow!</div>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </React.Fragment>
                                                     );
                                                 })}
                                                 {displayedResults.length === 0 && (

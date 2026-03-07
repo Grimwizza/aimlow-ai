@@ -34,9 +34,8 @@ import { AppsPage } from './pages/AppsPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 import { ToolsPage } from './pages/ToolsPage';
 import { FindMe } from './pages/FindMe';
-import { DataHub } from './pages/DataHub';
-import { ChroniclingAmerica } from './pages/ChroniclingAmerica';
-import { VinylCollection } from './pages/VinylCollection';
+
+import { SpinVinyl } from './pages/SpinVinyl';
 import { PriceTracker } from './components/tools/PriceTracker';
 
 // --- Layout wrapper for the main site (header + footer) ---
@@ -91,7 +90,7 @@ function App() {
     return (
         <Routes>
             {/* Standalone page — no header/footer */}
-            <Route path="/spin" element={<VinylCollection />} />
+            <Route path="/spin" element={<SpinVinyl />} />
 
             {/* Main site with header + footer */}
             <Route element={<MainLayout />}>
@@ -108,8 +107,7 @@ function App() {
                 <Route path="/apps/ai-marketing-analyst" element={<AIMarketingAnalyst onBack={() => window.history.back()} />} />
                 <Route path="/apps/ai-hyperscale-map" element={<DataCenterMap onBack={() => window.history.back()} />} />
                 <Route path="/apps/find-me" element={<FindMe />} />
-                <Route path="/apps/data-research-hub" element={<DataHub />} />
-                <Route path="/apps/chronicling-america" element={<ChroniclingAmerica />} />
+
                 <Route path="/apps/price-tracker" element={<PriceTracker onBack={() => window.history.back()} />} />
 
                 {/* Dynamic Post Route */}
